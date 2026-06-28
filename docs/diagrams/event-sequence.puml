@@ -1,0 +1,127 @@
+@startuml
+title Ontology Diagram Editor - Core Event Sequence
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam sequence {
+  ArrowColor #405060
+  LifeLineBorderColor #9AA6B2
+  LifeLineBackgroundColor #F7F9FB
+  ParticipantBorderColor #536475
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #536475
+  ActorBackgroundColor #FFFFFF
+  DatabaseBorderColor #536475
+  DatabaseBackgroundColor #FFFFFF
+  GroupBorderColor #9AA6B2
+  GroupBackgroundColor #F7F9FB
+  BoxBorderColor #9AA6B2
+  BoxBackgroundColor #F7F9FB
+}
+
+actor User
+
+box "Diagram Webview" #F7F9FB
+  participant "Canvas" as Canvas
+  participant "Toolbar /\nProperty Panel" as Controls
+  participant "Renderer" as Renderer
+end box
+
+box "Extension Host" #F7F9FB
+  participant "Event Bus" as Bus
+  participant "Persistence\nService" as Persistence
+  participant "Document\nController" as Document
+  participant "Model Tree" as Tree
+  participant "Command\nRegistry" as Commands
+end box
+
+database ".odiagram\nfile" as File
+
+legend right
+  Solid arrows emit events or apply state changes.
+  Dashed arrows consume events and update local UI state.
+endlegend
+
+== Open and Render ==
+
+User -> Canvas : open diagram view
+Canvas -> Bus : Canvas opened
+Bus --> Renderer : render opened document
+Renderer -> Bus : Canvas rendered
+Renderer -> Bus : Canvas validation changed
+Bus --> Canvas : display scene and warnings
+Bus --> Tree : refresh model tree
+Bus --> Commands : update command enablement
+
+== Canvas Gesture ==
+
+User -> Canvas : move / resize / delete /\nedit text / drop ontology item
+Canvas -> Bus : Canvas drag started
+Canvas -> Bus : Canvas drag changed\n(preview only)
+
+alt gesture is canceled
+  Canvas -> Bus : Canvas drag canceled
+  Bus --> Canvas : discard preview state
+else gesture is completed and valid
+  Canvas -> Bus : Canvas drag completed
+  Canvas -> Bus : Canvas node created / edge created /\ntext edited / elements deleted
+  Bus --> Persistence : persist completed gesture
+end
+
+== Toolbar or Property Edit ==
+
+User -> Controls : change style or field
+Controls -> Bus : Canvas style changed\nor Canvas property edited
+Bus --> Persistence : persist changed fields
+
+== Persistence ==
+
+Persistence -> Document : apply one logical text edit
+Document -> Bus : Diagram document updated
+Persistence -> Bus : Diagram save requested
+Document -> File : save updated YAML
+
+alt save succeeds
+  Persistence -> Bus : Diagram saved
+else document update or disk save fails
+  Persistence -> Bus : Diagram save failed
+  Bus --> Canvas : show save failure
+  Bus --> Controls : keep values aligned\nwith document state
+end
+
+== Subscriber Updates ==
+
+Bus --> Renderer : rerender from current document
+Renderer -> Bus : Canvas rendered
+Renderer -> Bus : Canvas validation changed
+Bus --> Canvas : replace rendered scene
+Bus --> Tree : refresh selection and references
+Bus --> Commands : update command enablement
+
+== Undo / Redo ==
+
+User -> Commands : undo or redo
+Commands -> Bus : Canvas undo requested\nor Canvas redo requested
+Bus --> Persistence : invoke VS Code document undo/redo
+Persistence -> Document : restore document state
+Document -> Bus : Diagram document updated
+Persistence -> Bus : Diagram save requested
+Document -> File : save restored YAML
+Persistence -> Bus : Diagram saved
+Bus --> Renderer : rerender restored state
+Bus --> Canvas : update visible diagram
+
+note over Bus
+The event bus is the boundary between event emission and event use.
+Components publish domain events with payloads; subscribers update their
+own state without inspecting another component's DOM or private state.
+end note
+
+note over Persistence,Document
+Preview events never write the file.
+Only completed, valid gestures become one logical document edit.
+end note
+
+@enduml

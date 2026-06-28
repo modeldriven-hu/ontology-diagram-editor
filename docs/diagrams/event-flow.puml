@@ -1,0 +1,165 @@
+@startuml
+title Ontology Diagram Editor - Event Emission and Consumption
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam sequence {
+  ArrowColor #405060
+  LifeLineBorderColor #9AA6B2
+  LifeLineBackgroundColor #F7F9FB
+  ParticipantBorderColor #536475
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #536475
+  ActorBackgroundColor #FFFFFF
+  DatabaseBorderColor #536475
+  DatabaseBackgroundColor #FFFFFF
+  GroupBorderColor #9AA6B2
+  GroupBackgroundColor #F7F9FB
+  BoxBorderColor #9AA6B2
+  BoxBackgroundColor #F7F9FB
+}
+
+actor User
+
+box "Visual Studio Code Extension Host" #F7F9FB
+  participant "Command\nRegistry" as Commands
+  participant "Model Tree" as Tree
+  participant "Event Bus" as Bus
+  participant "Persistence\nService" as Persistence
+  participant "Document\nController" as Document
+  participant "Ontology\nLoader" as Ontology
+  participant "Theme/Image\nWatchers" as Watchers
+end box
+
+box "Diagram Webview" #F7F9FB
+  participant "Canvas\nSurface" as Canvas
+  participant "Floating\nToolbar" as Toolbar
+  participant "Property\nPanel" as Panel
+  participant "Renderer" as Renderer
+end box
+
+database ".odiagram\nfile" as ODiagram
+database ".otheme /\nimages" as Assets
+collections "Ontology\nfiles" as OntologyFiles
+
+legend right
+  Solid arrows: command, state change, or emitted event
+  Dashed arrows: event consumption / reaction
+  Persistence events: document updated -> save requested -> saved/failed
+endlegend
+
+== Open Diagram and Initial Render ==
+
+User -> Commands : Open .odiagram
+Commands -> Document : open text document
+Document -> ODiagram : read YAML
+Document -> Bus : Canvas opened
+Bus --> Tree : refresh model tree
+Tree -> Ontology : load referenced ontologies
+Ontology -> OntologyFiles : parse files
+Ontology -> Bus : Model tree refreshed
+Bus --> Renderer : render current diagram
+Renderer -> Assets : load theme/images
+Renderer -> Bus : Canvas rendered
+Renderer -> Bus : Canvas validation changed
+Bus --> Canvas : show scene, warnings, errors
+Bus --> Commands : update command enablement
+
+== Model Tree Selection and Drag/Drop ==
+
+User -> Tree : select ontology item
+Tree -> Bus : Model tree selection changed
+Bus --> Canvas : select matching node/edge when unique
+Canvas -> Bus : Canvas selection changed
+Bus --> Tree : sync selection back to ontology item
+
+User -> Tree : drag ontology item
+Tree -> Bus : Model tree item dragged
+Bus --> Canvas : provide drag payload
+Canvas -> Bus : Canvas edge preview started
+Canvas -> Bus : Canvas edge preview changed
+User -> Canvas : drop on canvas
+Canvas -> Bus : Model tree item dropped on canvas
+
+alt Node-capable item
+  Canvas -> Bus : Canvas node created
+else Connection-capable item
+  Canvas -> Bus : Canvas edge created
+  Canvas -> Bus : Canvas node created\n(for missing endpoints)
+end
+
+Bus --> Persistence : persist valid completed gesture
+
+== Canvas Edits and Persistence ==
+
+User -> Canvas : move, resize, delete,\nedit text, move edge label
+Canvas -> Bus : Canvas drag started / changed
+Canvas -> Bus : Canvas drag completed
+Canvas -> Bus : Canvas text edited
+Canvas -> Bus : Canvas edge route changed
+Canvas -> Bus : Canvas elements deleted
+Bus --> Persistence : persist changed fields
+
+User -> Toolbar : change style
+Toolbar -> Bus : Canvas style changed
+Bus --> Persistence : persist style override
+
+User -> Panel : edit property field
+Panel -> Bus : Canvas property edited
+Bus --> Persistence : persist property edit
+
+Persistence -> Document : apply one logical text edit
+Document -> Bus : Diagram document updated
+Persistence -> Bus : Diagram save requested
+Document -> ODiagram : save file
+
+alt Save succeeds
+  Persistence -> Bus : Diagram saved
+else Document update or disk save fails
+  Persistence -> Bus : Diagram save failed
+  Bus --> Canvas : show persistence error
+  Bus --> Panel : keep displayed values\nconsistent with document state
+end
+
+Bus --> Renderer : rerender from updated document
+Renderer -> Bus : Canvas rendered
+Bus --> Canvas : update visible diagram
+Bus --> Tree : refresh dependent selection/state
+
+== Undo and Redo ==
+
+User -> Commands : Undo / Redo
+Commands -> Bus : Canvas undo requested\nor Canvas redo requested
+Bus --> Persistence : use VS Code document undo/redo
+Persistence -> Document : restore document state
+Document -> Bus : Diagram document updated
+Persistence -> Bus : Diagram save requested
+Document -> ODiagram : save restored state
+Persistence -> Bus : Diagram saved
+Bus --> Renderer : rerender restored state
+
+== Watched File Updates ==
+
+Watchers -> Bus : theme, ontology, or image file changed
+Bus --> Ontology : reload ontology metadata
+Ontology -> Bus : Model tree refreshed
+Bus --> Renderer : reload theme/images\nand rerender
+Renderer -> Bus : Canvas rendered
+Renderer -> Bus : Canvas validation changed
+Bus --> Canvas : update diagram and warnings
+Bus --> Tree : refresh tree state
+
+note over Bus
+Events carry the diagram file path plus the changed identifiers or payload
+fields subscribers need. Components react through events rather than reading
+webview DOM state or duplicating persistence logic.
+end note
+
+note over Persistence,Document
+Preview updates are emitted during interaction but are not persisted.
+Only completed gestures become document edits.
+end note
+
+@enduml
