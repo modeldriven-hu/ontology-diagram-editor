@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../odiagram';
 import { ModelTreeItemDraggedEvent, modelTreeDragMimeType } from '../model-tree/model-tree-controller';
+import { NodeBoundsUpdate } from '../shared/canvas-geometry';
 import { escapeHtml } from '../shared/html';
 
 export interface CanvasPoint {
@@ -10,12 +11,17 @@ export interface CanvasPoint {
 	readonly y: number;
 }
 
-export type WebviewMessage = CreateNodeMessage;
+export type WebviewMessage = CreateNodeMessage | UpdateNodeBoundsMessage;
 
 export interface CreateNodeMessage {
 	readonly type: 'createNode';
 	readonly payload?: ModelTreeItemDraggedEvent;
 	readonly position: CanvasPoint;
+}
+
+export interface UpdateNodeBoundsMessage {
+	readonly type: 'updateNodeBounds';
+	readonly updates: readonly NodeBoundsUpdate[];
 }
 
 export function buildOntologyDiagramWebviewHtml(

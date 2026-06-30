@@ -1,6 +1,7 @@
-import { Graph, HandleConfig, StyleDefaultsConfig, VertexHandlerConfig, type CellStyle } from '@maxgraph/core';
+import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type CellStyle, type EventObject } from '@maxgraph/core';
 
 import { getOntologyItemIcon, isOntologyItemType } from '../model-tree/ontology-item-icons';
+import { minimumNodeHeight, minimumNodeWidth, type NodeBoundsUpdate } from '../shared/canvas-geometry';
 import { escapeHtml } from '../shared/html';
 import { readTheme } from './webview-theme';
 
@@ -19,10 +20,17 @@ interface CanvasPoint {
 	readonly y: number;
 }
 
-interface WebviewMessage {
+type WebviewMessage = CreateNodeMessage | UpdateNodeBoundsMessage;
+
+interface CreateNodeMessage {
 	readonly type: 'createNode';
 	readonly payload?: ModelTreeItemDraggedEvent;
 	readonly position: CanvasPoint;
+}
+
+interface UpdateNodeBoundsMessage {
+	readonly type: 'updateNodeBounds';
+	readonly updates: readonly NodeBoundsUpdate[];
 }
 
 interface ModelTreeItemDraggedEvent {
@@ -83,10 +91,13 @@ const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
 const theme = readTheme();
 const graph = new Graph(canvasContent);
+const persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
+let suppressGeometryPersistence = false;
 
 configureGraph(graph);
 render();
 registerDropHandlers();
+registerGeometryHandlers();
 
 function configureGraph(graph: Graph): void {
 	VertexHandlerConfig.selectionColor = theme.focusBorder;
@@ -131,6 +142,13 @@ function render(): void {
 
 	graph.batchUpdate(() => {
 		for (const node of nodes) {
+			persistedNodeBounds.set(node.id, {
+				id: node.id,
+				x: node.x,
+				y: node.y,
+				width: node.width,
+				height: node.height,
+			});
 			graph.insertVertex({
 				parent: graph.getDefaultParent(),
 				id: node.id,
@@ -141,6 +159,93 @@ function render(): void {
 			});
 		}
 	});
+}
+
+function registerGeometryHandlers(): void {
+	graph.addListener(InternalEvent.CELLS_MOVED, (_sender: unknown, event: EventObject) => {
+		persistChangedNodeBounds(event.getProperty('cells'));
+	});
+	graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
+		persistChangedNodeBounds(event.getProperty('cells'));
+	});
+}
+
+function persistChangedNodeBounds(cells: unknown): void {
+	if (suppressGeometryPersistence || !Array.isArray(cells)) {
+		return;
+	}
+
+	const updates = cells
+		.map((cell: unknown) => nodeBoundsUpdate(cell))
+		.filter((update): update is NodeBoundsUpdate => update !== undefined);
+	if (updates.length === 0) {
+		return;
+	}
+
+	const invalidUpdate = updates.find((update) => update.width < minimumNodeWidth || update.height < minimumNodeHeight);
+	if (invalidUpdate !== undefined) {
+		restorePersistedBounds(updates);
+		showStatus(`Nodes must be at least ${minimumNodeWidth} x ${minimumNodeHeight}.`);
+		return;
+	}
+
+	for (const update of updates) {
+		persistedNodeBounds.set(update.id, update);
+	}
+	vscode.postMessage({
+		type: 'updateNodeBounds',
+		updates,
+	});
+}
+
+function nodeBoundsUpdate(cell: unknown): NodeBoundsUpdate | undefined {
+	if (!isGraphCell(cell)) {
+		return undefined;
+	}
+
+	const id = cell.getId();
+	const geometry = cell.getGeometry();
+	if (id === null || geometry === null || !persistedNodeBounds.has(id)) {
+		return undefined;
+	}
+
+	return {
+		id,
+		x: Math.max(0, Math.round(geometry.x)),
+		y: Math.max(0, Math.round(geometry.y)),
+		width: Math.round(geometry.width),
+		height: Math.round(geometry.height),
+	};
+}
+
+function restorePersistedBounds(updates: readonly NodeBoundsUpdate[]): void {
+	suppressGeometryPersistence = true;
+	try {
+		for (const update of updates) {
+			const persistedBounds = persistedNodeBounds.get(update.id);
+			const cell = graph.getDataModel().getCell(update.id);
+			if (persistedBounds !== undefined && cell !== null) {
+				graph.resizeCell(
+					cell,
+					new Rectangle(
+						persistedBounds.x,
+						persistedBounds.y,
+						persistedBounds.width,
+						persistedBounds.height,
+					),
+				);
+			}
+		}
+	} finally {
+		suppressGeometryPersistence = false;
+	}
+}
+
+function isGraphCell(value: unknown): value is Cell {
+	return typeof value === 'object'
+		&& value !== null
+		&& 'getId' in value
+		&& 'getGeometry' in value;
 }
 
 function nodeStyle(node: DiagramNode): CellStyle {
