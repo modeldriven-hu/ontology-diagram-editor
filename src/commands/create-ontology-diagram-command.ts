@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { ontologyDiagramEditorViewType } from '../editors/ontology-diagram-editor-provider';
 import { OntologyDiagramDocument, ontologyDiagramFileExtension, stringifyOntologyDiagramYaml } from '../odiagram';
 
 export const createOntologyDiagramCommand = 'ontology-diagram-editor.createOntologyDiagram';
@@ -35,8 +36,7 @@ export async function createOntologyDiagram(resource?: vscode.Uri): Promise<void
 	const content = stringifyOntologyDiagramYaml(document);
 
 	await vscode.workspace.fs.writeFile(targetFile, new TextEncoder().encode(content));
-	const textDocument = await vscode.workspace.openTextDocument(targetFile);
-	await vscode.window.showTextDocument(textDocument);
+	await vscode.commands.executeCommand('vscode.openWith', targetFile, ontologyDiagramEditorViewType);
 }
 
 async function resolveTargetFolder(resource?: vscode.Uri): Promise<vscode.Uri | undefined> {

@@ -9,13 +9,40 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:ontology-diagram-editor.createOntologyDiagram",
+    "onCustomEditor:ontology-diagram-editor.diagramEditor"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "odiagram",
+        "aliases": [
+          "Ontology Diagram",
+          "odiagram"
+        ],
+        "extensions": [
+          ".odiagram"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "ontology-diagram-editor.createOntologyDiagram",
         "title": "Create Ontology Diagram"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "ontology-diagram-editor.diagramEditor",
+        "displayName": "Ontology Diagram Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.odiagram"
+          }
+        ],
+        "priority": "default"
       }
     ]
   },
