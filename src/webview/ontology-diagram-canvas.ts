@@ -1,4 +1,4 @@
-import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type CellStyle, type EventObject } from '@maxgraph/core';
+import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type CellStyle, type EventObject, type SelectionHandler } from '@maxgraph/core';
 
 import { getOntologyItemIcon, isOntologyItemType } from '../model-tree/ontology-item-icons';
 import { minimumNodeHeight, minimumNodeWidth, type NodeBoundsUpdate } from '../shared/canvas-geometry';
@@ -111,6 +111,11 @@ function configureGraph(graph: Graph): void {
 	StyleDefaultsConfig.shadowOffsetX = 0;
 	StyleDefaultsConfig.shadowOffsetY = 2;
 	StyleDefaultsConfig.shadowOpacity = 0.18;
+
+	const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
+	if (selectionHandler !== undefined) {
+		selectionHandler.previewColor = theme.focusBorder;
+	}
 
 	graph.setHtmlLabels(true);
 	graph.setPanning(true);

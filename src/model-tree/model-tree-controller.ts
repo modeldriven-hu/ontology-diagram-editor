@@ -102,8 +102,10 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 	private diagramError?: string;
 	private selectedNode?: ModelTreeNode;
 	private lastDraggedItem?: ModelTreeItemDraggedEvent;
+	private extensionUri?: vscode.Uri;
 
 	public register(context: vscode.ExtensionContext): void {
+		this.extensionUri = context.extensionUri;
 		this.treeView = vscode.window.createTreeView(modelTreeViewId, {
 			treeDataProvider: this,
 			dragAndDropController: this,
@@ -486,7 +488,7 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 		item.id = node.id;
 		item.contextValue = 'ontologyGroup';
 		item.description = String(node.items.length);
-		item.iconPath = new vscode.ThemeIcon(getOntologyItemIcon(node.itemType).themeIconId);
+		item.iconPath = this.iconPathForItemType(node.itemType);
 		return item;
 	}
 
@@ -495,7 +497,7 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 		item.id = node.id;
 		item.contextValue = 'ontologyItem';
 		item.description = node.item.reference === node.label ? undefined : node.item.reference;
-		item.iconPath = new vscode.ThemeIcon(getOntologyItemIcon(node.item.type).themeIconId);
+		item.iconPath = this.iconPathForItemType(node.item.type);
 		item.tooltip = [
 			node.item.reference,
 			`Source: ${node.ontology.relativePath}`,
@@ -529,6 +531,15 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 
 	private updateSelectionContext(): void {
 		vscode.commands.executeCommand('setContext', 'ontologyDiagramEditor.selectedOntologyFile', this.selectedNode?.kind === 'ontologyFile');
+	}
+
+	private iconPathForItemType(itemType: OntologyItemType): vscode.ThemeIcon | vscode.Uri {
+		const icon = getOntologyItemIcon(itemType);
+		if (this.extensionUri === undefined) {
+			return new vscode.ThemeIcon(icon.themeIconId);
+		}
+
+		return vscode.Uri.joinPath(this.extensionUri, 'resources', 'ontology-item-icons', icon.resourceName);
 	}
 }
 

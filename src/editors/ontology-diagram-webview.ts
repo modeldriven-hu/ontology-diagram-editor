@@ -153,7 +153,7 @@ function webviewStyles(): string {
 			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
 			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px),
 			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px);
-		background-size: auto, 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+		background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
 	}
 
 	.canvas-content {
