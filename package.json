@@ -11,6 +11,9 @@
   ],
   "activationEvents": [
     "onCommand:ontology-diagram-editor.createOntologyDiagram",
+    "onCommand:ontology-diagram-editor.modelTree.refresh",
+    "onCommand:ontology-diagram-editor.modelTree.addOntology",
+    "onCommand:ontology-diagram-editor.modelTree.removeOntology",
     "onCustomEditor:ontology-diagram-editor.diagramEditor"
   ],
   "main": "./dist/extension.js",
@@ -31,8 +34,61 @@
       {
         "command": "ontology-diagram-editor.createOntologyDiagram",
         "title": "Create Ontology Diagram"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.refresh",
+        "title": "Refresh Model Tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.addOntology",
+        "title": "Add Ontology",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.removeOntology",
+        "title": "Remove Ontology",
+        "icon": "$(remove)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ontology-diagram-editor",
+          "title": "Ontology Diagram",
+          "icon": "resources/ontology-diagram.svg"
+        }
+      ]
+    },
+    "views": {
+      "ontology-diagram-editor": [
+        {
+          "id": "ontology-diagram-editor.modelTree",
+          "name": "Model Tree"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "ontology-diagram-editor.modelTree.addOntology",
+          "when": "view == ontology-diagram-editor.modelTree && ontologyDiagramEditor.hasDiagram",
+          "group": "navigation"
+        },
+        {
+          "command": "ontology-diagram-editor.modelTree.refresh",
+          "when": "view == ontology-diagram-editor.modelTree && ontologyDiagramEditor.hasDiagram",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ontology-diagram-editor.modelTree.removeOntology",
+          "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyFile",
+          "group": "inline"
+        }
+      ]
+    },
     "customEditors": [
       {
         "viewType": "ontology-diagram-editor.diagramEditor",

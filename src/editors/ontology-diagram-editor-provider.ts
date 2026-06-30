@@ -6,11 +6,15 @@ import { parseOntologyDiagramTextDocument } from '../odiagram';
 export const ontologyDiagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
 export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorProvider {
+	public constructor(private readonly onDidOpenDiagram: (document: vscode.TextDocument) => void | Promise<void>) {}
+
 	public async resolveCustomTextEditor(
 		document: vscode.TextDocument,
 		webviewPanel: vscode.WebviewPanel,
 		_token: vscode.CancellationToken,
 	): Promise<void> {
+		await this.onDidOpenDiagram(document);
+
 		webviewPanel.webview.options = {
 			enableScripts: false,
 		};
