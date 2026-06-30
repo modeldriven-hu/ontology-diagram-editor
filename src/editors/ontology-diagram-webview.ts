@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../odiagram';
 import { ModelTreeItemDraggedEvent, modelTreeDragMimeType } from '../model-tree/model-tree-controller';
-import { NodeBoundsUpdate } from '../shared/canvas-geometry';
+import { NodeBoundsUpdate, NoteBoundsUpdate } from '../shared/canvas-geometry';
 import { escapeHtml } from '../shared/html';
 
 export interface CanvasPoint {
@@ -11,7 +11,7 @@ export interface CanvasPoint {
 	readonly y: number;
 }
 
-export type WebviewMessage = CreateNodeMessage | UpdateNodeBoundsMessage;
+export type WebviewMessage = CreateNodeMessage | CreateNoteMessage | UpdateNodeBoundsMessage | UpdateNoteBoundsMessage | UpdateNoteTextMessage;
 
 export interface CreateNodeMessage {
 	readonly type: 'createNode';
@@ -22,6 +22,23 @@ export interface CreateNodeMessage {
 export interface UpdateNodeBoundsMessage {
 	readonly type: 'updateNodeBounds';
 	readonly updates: readonly NodeBoundsUpdate[];
+}
+
+export interface CreateNoteMessage {
+	readonly type: 'createNote';
+	readonly text: string;
+	readonly position: CanvasPoint;
+}
+
+export interface UpdateNoteBoundsMessage {
+	readonly type: 'updateNoteBounds';
+	readonly updates: readonly NoteBoundsUpdate[];
+}
+
+export interface UpdateNoteTextMessage {
+	readonly type: 'updateNoteText';
+	readonly id: string;
+	readonly text: string;
 }
 
 export function buildOntologyDiagramWebviewHtml(
@@ -66,7 +83,17 @@ function webviewBody(
 			</div>
 			<p class="file-location">${escapeHtml(document.uri.fsPath)}</p>
 		</header>
-		<div class="canvas-scroll" id="canvasScroll">
+		<div class="canvas-scroll" id="canvasScroll" tabindex="0">
+			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
+				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
+			</div>
+			<form class="note-editor" id="noteEditor" hidden>
+				<textarea class="note-editor-text" id="noteEditorText" rows="5" aria-label="Note text"></textarea>
+				<div class="note-editor-actions">
+					<button class="note-editor-button primary" id="saveNoteButton" type="button">Save</button>
+					<button class="note-editor-button" id="cancelNoteButton" type="button">Cancel</button>
+				</div>
+			</form>
 			<div class="canvas-content" id="canvasContent"></div>
 			<p class="status" id="status"></p>
 		</div>
@@ -147,6 +174,7 @@ function webviewStyles(): string {
 	.canvas-scroll {
 		position: relative;
 		overflow: auto;
+		outline: none;
 		background:
 			linear-gradient(color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background)), color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background))),
 			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
@@ -154,6 +182,115 @@ function webviewStyles(): string {
 			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px),
 			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px);
 		background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
+	}
+
+	.canvas-actions {
+		position: absolute;
+		top: 12px;
+		left: 12px;
+		z-index: 3;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0;
+		padding: 4px;
+		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+		border-radius: 6px;
+		background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, var(--vscode-editor-background));
+		box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+	}
+
+	.canvas-action {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--vscode-foreground);
+		cursor: pointer;
+	}
+
+	.canvas-action:hover,
+	.canvas-action:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+		outline: none;
+	}
+
+	.canvas-action-icon {
+		width: 19px;
+		height: 19px;
+		stroke-width: 1.9;
+	}
+
+	.note-editor {
+		position: absolute;
+		top: 56px;
+		left: 12px;
+		z-index: 4;
+		width: min(320px, calc(100% - 24px));
+		padding: 8px;
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 70%, var(--vscode-panel-border));
+		border-radius: 6px;
+		background: var(--vscode-sideBar-background);
+		box-shadow: 0 10px 28px rgb(0 0 0 / 26%);
+	}
+
+	.note-editor[hidden] {
+		display: none;
+	}
+
+	.note-editor-text {
+		display: block;
+		width: 100%;
+		min-height: 112px;
+		resize: vertical;
+		padding: 8px;
+		border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+		border-radius: 4px;
+		background: var(--vscode-input-background);
+		color: var(--vscode-input-foreground);
+		font: inherit;
+		line-height: 1.4;
+	}
+
+	.note-editor-text:focus {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
+	}
+
+	.note-editor-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+		margin-top: 8px;
+	}
+
+	.note-editor-button {
+		min-width: 68px;
+		height: 28px;
+		padding: 0 10px;
+		border: 1px solid var(--vscode-button-border, transparent);
+		border-radius: 4px;
+		background: var(--vscode-button-secondaryBackground);
+		color: var(--vscode-button-secondaryForeground);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.note-editor-button.primary {
+		background: var(--vscode-button-background);
+		color: var(--vscode-button-foreground);
+	}
+
+	.note-editor-button:hover,
+	.note-editor-button:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 1px;
 	}
 
 	.canvas-content {

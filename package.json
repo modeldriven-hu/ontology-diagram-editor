@@ -139,7 +139,7 @@
     "@maxgraph/core": "^0.23.0",
     "@rdfjs/types": "^2.0.1",
     "color-string": "^2.1.4",
-    "dompurify": "^3.4.11",
+    "lucide": "^1.22.0",
     "rdf-parse": "^5.0.0",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

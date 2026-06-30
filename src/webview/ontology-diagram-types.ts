@@ -1,0 +1,49 @@
+export interface CanvasPoint {
+	readonly x: number;
+	readonly y: number;
+}
+
+export interface DiagramPayload {
+	readonly diagram?: {
+		readonly nodes?: readonly DiagramNode[];
+		readonly notes?: readonly DiagramNote[];
+	};
+	readonly error?: string;
+}
+
+export interface DiagramNode {
+	readonly id: string;
+	readonly ontology_ref: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly ontology_item_type?: string;
+	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramNote {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly text: string;
+	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramElementStyle {
+	readonly bg_color?: string;
+	readonly text_color?: string;
+	readonly font?: {
+		readonly family?: string;
+		readonly bold?: boolean;
+		readonly italic?: boolean;
+		readonly size?: number;
+	};
+	readonly border?: {
+		readonly type?: 'solid' | 'dashed' | 'dotted' | 'none';
+		readonly weight?: number;
+		readonly color?: string;
+	};
+}

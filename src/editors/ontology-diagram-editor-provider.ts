@@ -1,14 +1,16 @@
 import * as vscode from 'vscode';
 
-import { Bounds, DiagramEdge, DiagramNode, JsonObject, OntologyDiagramDocument, Point, parseOntologyDiagramTextDocument, stringifyOntologyDiagramYaml } from '../odiagram';
+import { Bounds, DiagramEdge, DiagramNode, DiagramNote, JsonObject, OntologyDiagramDocument, Point, parseOntologyDiagramTextDocument, stringifyOntologyDiagramYaml } from '../odiagram';
 import { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
-import { NodeBoundsUpdate, minimumNodeHeight, minimumNodeWidth } from '../shared/canvas-geometry';
+import { NodeBoundsUpdate, NoteBoundsUpdate, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth } from '../shared/canvas-geometry';
 import { CanvasPoint, WebviewMessage, buildOntologyDiagramWebviewHtml } from './ontology-diagram-webview';
 
 export const ontologyDiagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
 const defaultNodeWidth = 180;
 const defaultNodeHeight = 72;
+const defaultNoteWidth = 220;
+const defaultNoteHeight = 120;
 
 export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorProvider {
 	public constructor(
@@ -47,6 +49,12 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 				await createNodeFromDrop(document, payload, message.position);
 			} else if (message.type === 'updateNodeBounds') {
 				await updateNodeBounds(document, message.updates);
+			} else if (message.type === 'createNote') {
+				await createNote(document, message.text, message.position);
+			} else if (message.type === 'updateNoteBounds') {
+				await updateNoteBounds(document, message.updates);
+			} else if (message.type === 'updateNoteText') {
+				await updateNoteText(document, message.id, message.text);
 			}
 		});
 
@@ -91,6 +99,37 @@ async function createNodeFromDrop(
 		[...diagram.nodes, node],
 		diagram.edges,
 		diagram.notes,
+		diagram.images,
+		diagram.labels,
+		diagram.extra,
+	);
+
+	await replaceDiagramDocument(document, nextDiagram);
+}
+
+async function createNote(
+	document: vscode.TextDocument,
+	text: string,
+	position: CanvasPoint,
+): Promise<void> {
+	if (text.trim().length === 0) {
+		vscode.window.showInformationMessage('Notes cannot be empty.');
+		return;
+	}
+
+	const diagram = parseOntologyDiagramTextDocument(document);
+	const note = new DiagramNote(
+		nextNoteId(diagram),
+		new Bounds(roundCoordinate(position.x), roundCoordinate(position.y), defaultNoteWidth, defaultNoteHeight),
+		text,
+	);
+	const nextDiagram = new OntologyDiagramDocument(
+		diagram.metadata,
+		diagram.ontologies,
+		diagram.namespaces,
+		diagram.nodes,
+		diagram.edges,
+		[...diagram.notes, note],
 		diagram.images,
 		diagram.labels,
 		diagram.extra,
@@ -165,6 +204,121 @@ async function updateNodeBounds(
 			nextNodes,
 			nextEdges,
 			diagram.notes,
+			diagram.images,
+			diagram.labels,
+			diagram.extra,
+		),
+	);
+}
+
+async function updateNoteBounds(
+	document: vscode.TextDocument,
+	updates: readonly NoteBoundsUpdate[],
+): Promise<void> {
+	if (updates.length === 0) {
+		return;
+	}
+
+	const invalidUpdate = updates.find((update) => update.width < minimumNoteWidth || update.height < minimumNoteHeight);
+	if (invalidUpdate !== undefined) {
+		vscode.window.showInformationMessage(`Notes must be at least ${minimumNoteWidth} x ${minimumNoteHeight}.`);
+		return;
+	}
+
+	const updateById = new Map(updates.map((update) => [update.id, update]));
+	const diagram = parseOntologyDiagramTextDocument(document);
+	let changed = false;
+	const nextNotes = diagram.notes.map((note) => {
+		const update = updateById.get(note.id.value);
+		if (update === undefined) {
+			return note;
+		}
+
+		const nextBounds = new Bounds(
+			roundCoordinate(update.x),
+			roundCoordinate(update.y),
+			roundPositiveSize(update.width),
+			roundPositiveSize(update.height),
+		);
+		if (
+			note.bounds.x === nextBounds.x
+			&& note.bounds.y === nextBounds.y
+			&& note.bounds.width === nextBounds.width
+			&& note.bounds.height === nextBounds.height
+		) {
+			return note;
+		}
+
+		changed = true;
+		return new DiagramNote(
+			note.id.value,
+			nextBounds,
+			note.text,
+			note.style,
+			note.extra,
+		);
+	});
+
+	if (!changed) {
+		return;
+	}
+
+	await replaceDiagramDocument(
+		document,
+		new OntologyDiagramDocument(
+			diagram.metadata,
+			diagram.ontologies,
+			diagram.namespaces,
+			diagram.nodes,
+			diagram.edges,
+			nextNotes,
+			diagram.images,
+			diagram.labels,
+			diagram.extra,
+		),
+	);
+}
+
+async function updateNoteText(
+	document: vscode.TextDocument,
+	id: string,
+	text: string,
+): Promise<void> {
+	if (text.trim().length === 0) {
+		vscode.window.showInformationMessage('Notes cannot be empty.');
+		return;
+	}
+
+	const diagram = parseOntologyDiagramTextDocument(document);
+	let changed = false;
+	const nextNotes = diagram.notes.map((note) => {
+		if (note.id.value !== id || note.text === text) {
+			return note;
+		}
+
+		changed = true;
+		return new DiagramNote(
+			note.id.value,
+			note.bounds,
+			text,
+			note.style,
+			note.extra,
+		);
+	});
+
+	if (!changed) {
+		return;
+	}
+
+	await replaceDiagramDocument(
+		document,
+		new OntologyDiagramDocument(
+			diagram.metadata,
+			diagram.ontologies,
+			diagram.namespaces,
+			diagram.nodes,
+			diagram.edges,
+			nextNotes,
 			diagram.images,
 			diagram.labels,
 			diagram.extra,
@@ -262,6 +416,17 @@ function nextNodeId(diagram: OntologyDiagramDocument): string {
 	}
 
 	return `node_item${index}`;
+}
+
+function nextNoteId(diagram: OntologyDiagramDocument): string {
+	const existingIds = new Set(diagram.notes.map((note) => note.id.value));
+	let index = diagram.notes.length + 1;
+
+	while (existingIds.has(`note_item${index}`)) {
+		index += 1;
+	}
+
+	return `note_item${index}`;
 }
 
 function roundCoordinate(value: number): number {

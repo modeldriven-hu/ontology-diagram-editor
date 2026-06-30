@@ -1,8 +1,9 @@
-import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type CellStyle, type EventObject, type SelectionHandler } from '@maxgraph/core';
+import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type EventObject, type SelectionHandler } from '@maxgraph/core';
 
-import { getOntologyItemIcon, isOntologyItemType } from '../model-tree/ontology-item-icons';
-import { minimumNodeHeight, minimumNodeWidth, type NodeBoundsUpdate } from '../shared/canvas-geometry';
-import { escapeHtml } from '../shared/html';
+import { minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
+import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
+import { NoteEditorController, noteBounds, noteVertex, renderNoteToolbarIcon } from './ontology-diagram-notes';
+import type { CanvasPoint, DiagramPayload } from './ontology-diagram-types';
 import { readTheme } from './webview-theme';
 
 declare const acquireVsCodeApi: () => {
@@ -15,12 +16,7 @@ declare global {
 	}
 }
 
-interface CanvasPoint {
-	readonly x: number;
-	readonly y: number;
-}
-
-type WebviewMessage = CreateNodeMessage | UpdateNodeBoundsMessage;
+type WebviewMessage = CreateNodeMessage | CreateNoteMessage | UpdateNodeBoundsMessage | UpdateNoteBoundsMessage | UpdateNoteTextMessage;
 
 interface CreateNodeMessage {
 	readonly type: 'createNode';
@@ -31,6 +27,23 @@ interface CreateNodeMessage {
 interface UpdateNodeBoundsMessage {
 	readonly type: 'updateNodeBounds';
 	readonly updates: readonly NodeBoundsUpdate[];
+}
+
+interface CreateNoteMessage {
+	readonly type: 'createNote';
+	readonly text: string;
+	readonly position: CanvasPoint;
+}
+
+interface UpdateNoteBoundsMessage {
+	readonly type: 'updateNoteBounds';
+	readonly updates: readonly NoteBoundsUpdate[];
+}
+
+interface UpdateNoteTextMessage {
+	readonly type: 'updateNoteText';
+	readonly id: string;
+	readonly text: string;
 }
 
 interface ModelTreeItemDraggedEvent {
@@ -44,40 +57,6 @@ interface WebviewConfig {
 	readonly modelTreeDragMimeType: string;
 }
 
-interface DiagramPayload {
-	readonly diagram?: {
-		readonly nodes?: readonly DiagramNode[];
-	};
-	readonly error?: string;
-}
-
-interface DiagramNode {
-	readonly id: string;
-	readonly ontology_ref: string;
-	readonly x: number;
-	readonly y: number;
-	readonly width: number;
-	readonly height: number;
-	readonly ontology_item_type?: string;
-	readonly style?: DiagramNodeStyle;
-}
-
-interface DiagramNodeStyle {
-	readonly bg_color?: string;
-	readonly text_color?: string;
-	readonly font?: {
-		readonly family?: string;
-		readonly bold?: boolean;
-		readonly italic?: boolean;
-		readonly size?: number;
-	};
-	readonly border?: {
-		readonly type?: 'solid' | 'dashed' | 'dotted' | 'none';
-		readonly weight?: number;
-		readonly color?: string;
-	};
-}
-
 const config = window.ontologyDiagramEditorConfig;
 
 if (config === undefined) {
@@ -89,15 +68,52 @@ const nodeCapableTypes = new Set(['class', 'individual', 'datatype']);
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
+const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
+const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
+const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
+const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
+const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
 const theme = readTheme();
 const graph = new Graph(canvasContent);
 const persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
+const persistedNoteBounds = new Map<string, NoteBoundsUpdate>();
+const persistedNoteText = new Map<string, string>();
+const noteEditorController = new NoteEditorController({
+	addNoteButton,
+	noteEditor,
+	noteEditorText,
+	saveNoteButton,
+	cancelNoteButton,
+	getNoteText: (noteId) => persistedNoteText.get(noteId),
+	createNote: (text) => {
+		vscode.postMessage({
+			type: 'createNote',
+			text,
+			position: insertionPosition(),
+		});
+	},
+	updateNoteText: (noteId, text) => {
+		persistedNoteText.set(noteId, text);
+		vscode.postMessage({
+			type: 'updateNoteText',
+			id: noteId,
+			text,
+		});
+	},
+	showStatus,
+	focusAfterClose: () => {
+		canvasScroll.focus();
+	},
+});
 let suppressGeometryPersistence = false;
 
 configureGraph(graph);
+renderNoteToolbarIcon(addNoteButton);
 render();
+noteEditorController.register();
 registerDropHandlers();
 registerGeometryHandlers();
+registerNoteEditHandlers();
 
 function configureGraph(graph: Graph): void {
 	VertexHandlerConfig.selectionColor = theme.focusBorder;
@@ -122,6 +138,7 @@ function configureGraph(graph: Graph): void {
 	graph.setCellsCloneable(false);
 	graph.setCellsDeletable(false);
 	graph.setCellsDisconnectable(false);
+	graph.setCellsEditable(false);
 	graph.setConnectable(false);
 	graph.setTooltips(true);
 	graph.setCellsResizable(true);
@@ -136,81 +153,119 @@ function render(): void {
 	}
 
 	const nodes = config?.payload.diagram?.nodes ?? [];
-	if (nodes.length === 0) {
+	const notes = config?.payload.diagram?.notes ?? [];
+	if (nodes.length === 0 && notes.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
-			'Drag a class, individual, or datatype from the model tree, then hold Shift while dropping it here.',
+			'Drag a class, individual, or datatype from the model tree, or add a note from the canvas toolbar.',
 		));
 		return;
 	}
 
 	graph.batchUpdate(() => {
 		for (const node of nodes) {
-			persistedNodeBounds.set(node.id, {
-				id: node.id,
-				x: node.x,
-				y: node.y,
-				width: node.width,
-				height: node.height,
-			});
-			graph.insertVertex({
-				parent: graph.getDefaultParent(),
-				id: node.id,
-				value: nodeLabelHtml(node),
-				position: [node.x, node.y],
-				size: [node.width, node.height],
-				style: nodeStyle(node),
-			});
+			persistedNodeBounds.set(node.id, nodeBounds(node));
+			const vertex = nodeVertex(node, theme);
+			graph.insertVertex(
+				graph.getDefaultParent(),
+				vertex.id,
+				vertex.value,
+				vertex.position[0],
+				vertex.position[1],
+				vertex.size[0],
+				vertex.size[1],
+				vertex.style,
+			);
+		}
+		for (const note of notes) {
+			persistedNoteBounds.set(note.id, noteBounds(note));
+			persistedNoteText.set(note.id, note.text);
+			const vertex = noteVertex(note, theme);
+			graph.insertVertex(
+				graph.getDefaultParent(),
+				vertex.id,
+				vertex.value,
+				vertex.position[0],
+				vertex.position[1],
+				vertex.size[0],
+				vertex.size[1],
+				vertex.style,
+			);
 		}
 	});
 }
 
 function registerGeometryHandlers(): void {
 	graph.addListener(InternalEvent.CELLS_MOVED, (_sender: unknown, event: EventObject) => {
-		persistChangedNodeBounds(event.getProperty('cells'));
+		persistChangedElementBounds(event.getProperty('cells'));
 	});
 	graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
-		persistChangedNodeBounds(event.getProperty('cells'));
+		persistChangedElementBounds(event.getProperty('cells'));
 	});
 }
 
-function persistChangedNodeBounds(cells: unknown): void {
+function persistChangedElementBounds(cells: unknown): void {
 	if (suppressGeometryPersistence || !Array.isArray(cells)) {
 		return;
 	}
 
-	const updates = cells
-		.map((cell: unknown) => nodeBoundsUpdate(cell))
-		.filter((update): update is NodeBoundsUpdate => update !== undefined);
-	if (updates.length === 0) {
-		return;
+	const nodeUpdates: NodeBoundsUpdate[] = [];
+	const noteUpdates: NoteBoundsUpdate[] = [];
+	for (const cell of cells) {
+		const nodeUpdate = boundsUpdate(cell, persistedNodeBounds);
+		if (nodeUpdate !== undefined) {
+			nodeUpdates.push(nodeUpdate);
+			continue;
+		}
+
+		const noteUpdate = boundsUpdate(cell, persistedNoteBounds);
+		if (noteUpdate !== undefined) {
+			noteUpdates.push(noteUpdate);
+		}
 	}
 
-	const invalidUpdate = updates.find((update) => update.width < minimumNodeWidth || update.height < minimumNodeHeight);
-	if (invalidUpdate !== undefined) {
-		restorePersistedBounds(updates);
+	const invalidNodeUpdate = nodeUpdates.find((update) => update.width < minimumNodeWidth || update.height < minimumNodeHeight);
+	if (invalidNodeUpdate !== undefined) {
+		restorePersistedBounds(nodeUpdates, persistedNodeBounds);
 		showStatus(`Nodes must be at least ${minimumNodeWidth} x ${minimumNodeHeight}.`);
 		return;
 	}
+	const invalidNoteUpdate = noteUpdates.find((update) => update.width < minimumNoteWidth || update.height < minimumNoteHeight);
+	if (invalidNoteUpdate !== undefined) {
+		restorePersistedBounds(noteUpdates, persistedNoteBounds);
+		showStatus(`Notes must be at least ${minimumNoteWidth} x ${minimumNoteHeight}.`);
+		return;
+	}
 
-	for (const update of updates) {
+	for (const update of nodeUpdates) {
 		persistedNodeBounds.set(update.id, update);
 	}
-	vscode.postMessage({
-		type: 'updateNodeBounds',
-		updates,
-	});
+	for (const update of noteUpdates) {
+		persistedNoteBounds.set(update.id, update);
+	}
+	if (nodeUpdates.length > 0) {
+		vscode.postMessage({
+			type: 'updateNodeBounds',
+			updates: nodeUpdates,
+		});
+	}
+	if (noteUpdates.length > 0) {
+		vscode.postMessage({
+			type: 'updateNoteBounds',
+			updates: noteUpdates,
+		});
+	}
 }
 
-function nodeBoundsUpdate(cell: unknown): NodeBoundsUpdate | undefined {
+function boundsUpdate(cell: unknown, persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): BoundsUpdate | undefined {
 	if (!isGraphCell(cell)) {
 		return undefined;
 	}
 
 	const id = cell.getId();
 	const geometry = cell.getGeometry();
-	if (id === null || geometry === null || !persistedNodeBounds.has(id)) {
+	if (id === null || geometry === null || !persistedBoundsById.has(id)) {
 		return undefined;
 	}
 
@@ -223,11 +278,11 @@ function nodeBoundsUpdate(cell: unknown): NodeBoundsUpdate | undefined {
 	};
 }
 
-function restorePersistedBounds(updates: readonly NodeBoundsUpdate[]): void {
+function restorePersistedBounds(updates: readonly BoundsUpdate[], persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): void {
 	suppressGeometryPersistence = true;
 	try {
 		for (const update of updates) {
-			const persistedBounds = persistedNodeBounds.get(update.id);
+			const persistedBounds = persistedBoundsById.get(update.id);
 			const cell = graph.getDataModel().getCell(update.id);
 			if (persistedBounds !== undefined && cell !== null) {
 				graph.resizeCell(
@@ -253,66 +308,49 @@ function isGraphCell(value: unknown): value is Cell {
 		&& 'getGeometry' in value;
 }
 
-function nodeStyle(node: DiagramNode): CellStyle {
-	const borderType = node.style?.border?.type;
-	const borderWeight = node.style?.border?.weight;
-	const style: CellStyle = {
-		align: 'center',
-		verticalAlign: 'middle',
-		whiteSpace: 'wrap',
-		overflow: 'hidden',
-		rounded: true,
-		absoluteArcSize: true,
-		arcSize: 8,
-		spacing: 10,
-		shadow: true,
-		fillColor: node.style?.bg_color ?? theme.nodeBackground,
-		fontColor: node.style?.text_color ?? theme.editorForeground,
-		fontFamily: node.style?.font?.family ?? theme.fontFamily,
-		fontSize: node.style?.font?.size ?? theme.fontSize,
-		strokeColor: node.style?.border?.color ?? theme.nodeBorder,
-		strokeWidth: borderWeight ?? 1,
+function registerNoteEditHandlers(): void {
+	canvasScroll.addEventListener('keydown', (event) => {
+		if (noteEditorController.isOpen()) {
+			return;
+		}
+		if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+			return;
+		}
+		if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLTextAreaElement) {
+			return;
+		}
+
+		if (editNoteCell(graph.getSelectionCell())) {
+			event.preventDefault();
+		}
+	});
+	graph.addListener(InternalEvent.DOUBLE_CLICK, (_sender: unknown, event: EventObject) => {
+		if (editNoteCell(event.getProperty('cell'))) {
+			event.consume();
+		}
+	});
+}
+
+function editNoteCell(cell: unknown): boolean {
+	if (!isGraphCell(cell)) {
+		return false;
+	}
+
+	const id = cell.getId();
+	if (id === null || !persistedNoteBounds.has(id)) {
+		return false;
+	}
+
+	noteEditorController.open(id);
+
+	return true;
+}
+
+function insertionPosition(): CanvasPoint {
+	return {
+		x: Math.max(0, Math.round(canvasScroll.scrollLeft + 80)),
+		y: Math.max(0, Math.round(canvasScroll.scrollTop + 80)),
 	};
-
-	if (node.style?.font?.bold === true || node.style?.font?.italic === true) {
-		style.fontStyle = (node.style.font.bold === true ? 1 : 0) + (node.style.font.italic === true ? 2 : 0);
-	}
-	if (borderType === 'dashed' || borderType === 'dotted') {
-		style.dashed = true;
-		style.dashPattern = borderType === 'dotted' ? '1 4' : '3 3';
-	}
-	if (borderType === 'none' || borderWeight === 0) {
-		style.strokeColor = 'none';
-		style.strokeWidth = 0;
-	}
-
-	return style;
-}
-
-function nodeDisplayName(ontologyRef: string): string {
-	const hashIndex = ontologyRef.lastIndexOf('#');
-	const slashIndex = ontologyRef.lastIndexOf('/');
-	const compactIriIndex = ontologyRef.includes('://') ? -1 : ontologyRef.lastIndexOf(':');
-	const separatorIndex = Math.max(hashIndex, slashIndex, compactIriIndex);
-	const displayName = separatorIndex >= 0 ? ontologyRef.slice(separatorIndex + 1) : ontologyRef;
-
-	return displayName.length > 0 ? displayName : ontologyRef;
-}
-
-function nodeLabelHtml(node: DiagramNode): string {
-	const displayName = escapeHtml(nodeDisplayName(node.ontology_ref));
-	if (node.ontology_item_type === undefined || !isOntologyItemType(node.ontology_item_type)) {
-		return displayName;
-	}
-
-	const icon = getOntologyItemIcon(node.ontology_item_type);
-
-	return [
-		'<span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;max-width:100%;min-width:0;">',
-		`<span style="display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:18px;height:18px;border-radius:4px;border:1px solid ${escapeHtml(theme.nodeBorder)};background:${escapeHtml(theme.iconBackground)};color:${escapeHtml(theme.focusBorder)};font-size:11px;font-weight:600;line-height:1;">${escapeHtml(icon.canvasGlyph)}</span>`,
-		`<span style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayName}</span>`,
-		'</span>',
-	].join('');
 }
 
 function registerDropHandlers(): void {
