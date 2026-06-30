@@ -4,6 +4,8 @@ import { readFile, writeFile } from 'fs/promises';
 import { OntologyDiagramDocument, OntologyDiagramValidationError } from './odiagram-document';
 import { parseOntologyDiagramYaml, stringifyOntologyDiagramYaml } from './odiagram-yaml';
 
+export const ontologyDiagramFileExtension = '.odiagram';
+
 export interface OntologyDiagramTextDocument {
 	readonly fileName?: string;
 	readonly uri?: {
@@ -33,7 +35,7 @@ export function parseOntologyDiagramTextDocument(document: OntologyDiagramTextDo
 }
 
 export function assertOntologyDiagramFilePath(filePath: string): void {
-	if (path.extname(filePath) !== '.odiagram') {
-		throw new OntologyDiagramValidationError(`Expected a .odiagram file path, got "${filePath}".`);
+	if (path.extname(filePath) !== ontologyDiagramFileExtension) {
+		throw new OntologyDiagramValidationError(`Expected a ${ontologyDiagramFileExtension} file path, got "${filePath}".`);
 	}
 }

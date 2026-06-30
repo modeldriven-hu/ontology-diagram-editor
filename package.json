@@ -14,10 +14,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "ontology-diagram-editor.helloWorld",
-        "title": "Hello World"
-      },
-      {
         "command": "ontology-diagram-editor.createOntologyDiagram",
         "title": "Create Ontology Diagram"
       }
