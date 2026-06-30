@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../odiagram';
 import { ModelTreeItemDraggedEvent, modelTreeDragMimeType } from '../model-tree/model-tree-controller';
+import { escapeHtml } from '../shared/html';
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -259,13 +260,4 @@ function createNonce(): string {
 	}
 
 	return text;
-}
-
-function escapeHtml(value: string): string {
-	return value
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#39;');
 }
