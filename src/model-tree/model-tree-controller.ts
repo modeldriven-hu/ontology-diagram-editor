@@ -75,8 +75,10 @@ export interface ModelTreeItemDraggedEvent {
 	readonly ontologyItemMetadata: unknown;
 }
 
+export const modelTreeDragMimeType = 'application/vnd.code.tree.ontology-diagram-editor.model-tree';
+
 export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNode>, vscode.TreeDragAndDropController<ModelTreeNode>, vscode.Disposable {
-	public readonly dragMimeTypes = ['application/vnd.code.tree.ontology-diagram-editor.modelTree'];
+	public readonly dragMimeTypes = [modelTreeDragMimeType, 'text/plain'];
 	public readonly dropMimeTypes: string[] = [];
 
 	private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<ModelTreeNode | undefined>();
@@ -98,6 +100,7 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 	private loadedOntologies: readonly LoadedOntology[] = [];
 	private diagramError?: string;
 	private selectedNode?: ModelTreeNode;
+	private lastDraggedItem?: ModelTreeItemDraggedEvent;
 
 	public register(context: vscode.ExtensionContext): void {
 		this.treeView = vscode.window.createTreeView(modelTreeViewId, {
@@ -256,16 +259,17 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 			return;
 		}
 
-		const payload: ModelTreeItemDraggedEvent = {
-			sourceOntologyFilePath: itemNode.ontology.relativePath,
-			ontologyItemType: itemNode.item.type,
-			ontologyItemReference: itemNode.item.reference,
-			displayLabel: itemNode.item.displayLabel,
-			ontologyItemMetadata: itemNode.item.metadata,
-		};
+		const payload = dragPayloadForItemNode(itemNode);
 
-		dataTransfer.set(this.dragMimeTypes[0], new vscode.DataTransferItem(payload));
+		const serializedPayload = JSON.stringify(payload);
+		dataTransfer.set(modelTreeDragMimeType, new vscode.DataTransferItem(serializedPayload));
+		dataTransfer.set('text/plain', new vscode.DataTransferItem(serializedPayload));
+		this.lastDraggedItem = payload;
 		this.onDidDragItemEmitter.fire(payload);
+	}
+
+	public getLastDraggedItem(): ModelTreeItemDraggedEvent | undefined {
+		return this.lastDraggedItem;
 	}
 
 	public dispose(): void {
@@ -559,6 +563,16 @@ function selectionPayloadForNode(node: ModelTreeNode): ModelTreeSelectionEvent {
 	return {
 		nodeKind: node.kind,
 		displayLabel: node.label,
+	};
+}
+
+function dragPayloadForItemNode(node: OntologyItemTreeNode): ModelTreeItemDraggedEvent {
+	return {
+		sourceOntologyFilePath: node.ontology.relativePath,
+		ontologyItemType: node.item.type,
+		ontologyItemReference: node.item.reference,
+		displayLabel: node.item.displayLabel,
+		ontologyItemMetadata: node.item.metadata,
 	};
 }
 

@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 		ontologyDiagramEditorViewType,
 		new OntologyDiagramEditorProvider(async (document) => {
 			await modelTreeController.setDiagramDocument(document);
-		}),
+		}, () => modelTreeController.getLastDraggedItem()),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},
