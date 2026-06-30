@@ -24,7 +24,7 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
-	const ctx = await esbuild.context({
+	const extensionContext = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'
 		],
@@ -42,11 +42,37 @@ async function main() {
 			esbuildProblemMatcherPlugin,
 		],
 	});
+	const webviewContext = await esbuild.context({
+		entryPoints: [
+			'src/webview/ontology-diagram-canvas.ts'
+		],
+		bundle: true,
+		format: 'iife',
+		globalName: 'OntologyDiagramCanvas',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/webview/ontology-diagram-canvas.js',
+		logLevel: 'silent',
+		plugins: [
+			esbuildProblemMatcherPlugin,
+		],
+	});
 	if (watch) {
-		await ctx.watch();
+		await Promise.all([
+			extensionContext.watch(),
+			webviewContext.watch(),
+		]);
 	} else {
-		await ctx.rebuild();
-		await ctx.dispose();
+		await Promise.all([
+			extensionContext.rebuild(),
+			webviewContext.rebuild(),
+		]);
+		await Promise.all([
+			extensionContext.dispose(),
+			webviewContext.dispose(),
+		]);
 	}
 }
 

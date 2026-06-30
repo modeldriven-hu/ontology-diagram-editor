@@ -17,26 +17,27 @@ export interface CreateNodeMessage {
 	readonly position: CanvasPoint;
 }
 
-export interface WebviewOptions {
-	readonly defaultNodeWidth: number;
-	readonly defaultNodeHeight: number;
-}
-
-export function buildOntologyDiagramWebviewHtml(document: vscode.TextDocument, options: WebviewOptions): string {
+export function buildOntologyDiagramWebviewHtml(
+	document: vscode.TextDocument,
+	webview: vscode.Webview,
+): string {
 	const payload = getDiagramPayload(document);
 	const nonce = createNonce();
+	const scriptUri = webview.asWebviewUri(
+		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'ontology-diagram-canvas.js'),
+	);
 
 	return `<!DOCTYPE html>
 <html lang="en">
-${webviewHead(document, nonce)}
-${webviewBody(document, nonce, payload, options)}
+${webviewHead(document, nonce, webview.cspSource)}
+${webviewBody(document, nonce, scriptUri, payload)}
 </html>`;
 }
 
-function webviewHead(document: vscode.TextDocument, nonce: string): string {
+function webviewHead(document: vscode.TextDocument, nonce: string, cspSource: string): string {
 	return `<head>
 	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>${escapeHtml(path.basename(document.uri.fsPath))}</title>
 	<style>${webviewStyles()}</style>
@@ -46,8 +47,8 @@ function webviewHead(document: vscode.TextDocument, nonce: string): string {
 function webviewBody(
 	document: vscode.TextDocument,
 	nonce: string,
+	scriptUri: vscode.Uri,
 	payload: JsonPayload,
-	options: WebviewOptions,
 ): string {
 	return `<body>
 	<div class="editor">
@@ -60,7 +61,13 @@ function webviewBody(
 			<p class="status" id="status"></p>
 		</div>
 	</div>
-	<script nonce="${nonce}">${webviewScript(payload, options)}</script>
+	<script nonce="${nonce}">
+		window.ontologyDiagramEditorConfig = {
+			payload: ${jsonForScript(payload)},
+			modelTreeDragMimeType: '${modelTreeDragMimeType.toLowerCase()}'
+		};
+	</script>
+	<script nonce="${nonce}" src="${scriptUri.toString()}"></script>
 </body>`;
 }
 
@@ -116,6 +123,7 @@ function webviewStyles(): string {
 		position: relative;
 		min-width: 1800px;
 		min-height: 1200px;
+		cursor: default;
 	}
 
 	.empty-state,
@@ -132,22 +140,6 @@ function webviewStyles(): string {
 
 	.error-state {
 		color: var(--vscode-errorForeground);
-	}
-
-	.node {
-		position: absolute;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 8px;
-		overflow: hidden;
-		border: 1px solid var(--vscode-editorWidget-border);
-		background: var(--vscode-editorWidget-background);
-		color: var(--vscode-editor-foreground);
-		box-shadow: 0 2px 8px rgb(0 0 0 / 16%);
-		text-align: center;
-		overflow-wrap: anywhere;
-		line-height: 1.25;
 	}
 
 	.drop-active .canvas-content {
@@ -176,140 +168,6 @@ function webviewStyles(): string {
 
 	.status.visible {
 		visibility: visible;
-	}`;
-}
-
-function webviewScript(payload: JsonPayload, options: WebviewOptions): string {
-	return `
-	const vscode = acquireVsCodeApi();
-	const payload = ${jsonForScript(payload)};
-	const modelTreeDragMimeType = '${modelTreeDragMimeType.toLowerCase()}';
-	const defaultNodeWidth = ${options.defaultNodeWidth};
-	const defaultNodeHeight = ${options.defaultNodeHeight};
-	const nodeCapableTypes = new Set(['class', 'individual', 'datatype']);
-	const canvasScroll = document.getElementById('canvasScroll');
-	const canvasContent = document.getElementById('canvasContent');
-	const status = document.getElementById('status');
-
-	render();
-
-	canvasScroll.addEventListener('dragover', (event) => {
-		event.preventDefault();
-		event.dataTransfer.dropEffect = 'copy';
-		canvasScroll.classList.add('drop-active');
-		canvasScroll.classList.remove('drop-rejected');
-	});
-
-	canvasScroll.addEventListener('dragleave', (event) => {
-		if (!canvasScroll.contains(event.relatedTarget)) {
-			canvasScroll.classList.remove('drop-active', 'drop-rejected');
-		}
-	});
-
-	canvasScroll.addEventListener('drop', (event) => {
-		event.preventDefault();
-		canvasScroll.classList.remove('drop-active', 'drop-rejected');
-
-		const dragPayload = readDragPayload(event.dataTransfer);
-		if (dragPayload && !nodeCapableTypes.has(dragPayload.ontologyItemType)) {
-			showStatus('Only classes, individuals, and datatypes can create nodes for now.');
-			return;
-		}
-
-		const rect = canvasContent.getBoundingClientRect();
-		vscode.postMessage({
-			type: 'createNode',
-			payload: dragPayload,
-			position: {
-				x: Math.max(0, event.clientX - rect.left),
-				y: Math.max(0, event.clientY - rect.top),
-			},
-		});
-	});
-
-	function render() {
-		canvasContent.textContent = '';
-		if (payload.error) {
-			canvasContent.appendChild(messageElement('error-state', payload.error));
-			return;
-		}
-
-		const nodes = payload.diagram?.nodes ?? [];
-		if (nodes.length === 0) {
-			canvasContent.appendChild(messageElement('empty-state', 'Drag a class, individual, or datatype from the model tree, then hold Shift while dropping it here.'));
-			return;
-		}
-
-		for (const node of nodes) {
-			canvasContent.appendChild(renderNode(node));
-		}
-	}
-
-	function renderNode(node) {
-		const element = document.createElement('div');
-		element.className = 'node';
-		element.dataset.nodeId = node.id;
-		element.style.left = node.x + 'px';
-		element.style.top = node.y + 'px';
-		element.style.width = node.width + 'px';
-		element.style.height = node.height + 'px';
-		element.textContent = node.ontology_ref;
-		element.title = node.id + '\\n' + node.ontology_ref;
-
-		if (node.style?.bg_color) {
-			element.style.background = node.style.bg_color;
-		}
-		if (node.style?.text_color) {
-			element.style.color = node.style.text_color;
-		}
-		if (node.style?.border?.color) {
-			element.style.borderColor = node.style.border.color;
-		}
-		if (node.style?.border?.weight !== undefined) {
-			element.style.borderWidth = node.style.border.weight + 'px';
-		}
-		if (node.style?.border?.type === 'dashed' || node.style?.border?.type === 'dotted') {
-			element.style.borderStyle = node.style.border.type;
-		}
-		if (node.style?.border?.type === 'none' || node.style?.border?.weight === 0) {
-			element.style.borderStyle = 'none';
-		}
-
-		return element;
-	}
-
-	function messageElement(className, text) {
-		const element = document.createElement('div');
-		element.className = className;
-		element.textContent = text;
-		return element;
-	}
-
-	function readDragPayload(dataTransfer) {
-		if (!dataTransfer) {
-			return undefined;
-		}
-
-		const raw = dataTransfer.getData(modelTreeDragMimeType)
-			|| dataTransfer.getData('${modelTreeDragMimeType}')
-			|| dataTransfer.getData('text/plain');
-		if (!raw) {
-			return undefined;
-		}
-
-		try {
-			return JSON.parse(raw);
-		} catch {
-			return undefined;
-		}
-	}
-
-	function showStatus(message) {
-		status.textContent = message;
-		status.classList.add('visible');
-		setTimeout(() => {
-			status.classList.remove('visible');
-		}, 3500);
 	}`;
 }
 

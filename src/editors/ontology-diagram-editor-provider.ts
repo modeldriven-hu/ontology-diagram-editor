@@ -27,10 +27,7 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 		};
 
 		const updateWebview = (): void => {
-			webviewPanel.webview.html = buildOntologyDiagramWebviewHtml(document, {
-				defaultNodeWidth,
-				defaultNodeHeight,
-			});
+			webviewPanel.webview.html = buildOntologyDiagramWebviewHtml(document, webviewPanel.webview);
 		};
 
 		const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
