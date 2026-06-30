@@ -517,7 +517,7 @@ const nodeSchema = boundsFieldsSchema.extend({
 	ontology_ref: z.string(),
 	style: commonStyleSchema.optional(),
 	image: z.string().optional(),
-});
+}).passthrough();
 
 const edgeSchema = z.object({
 	id: z.string(),

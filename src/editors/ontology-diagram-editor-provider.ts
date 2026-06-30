@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { Bounds, DiagramNode, OntologyDiagramDocument, parseOntologyDiagramTextDocument, stringifyOntologyDiagramYaml } from '../odiagram';
+import { Bounds, DiagramNode, JsonObject, OntologyDiagramDocument, parseOntologyDiagramTextDocument, stringifyOntologyDiagramYaml } from '../odiagram';
 import { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
 import { CanvasPoint, WebviewMessage, buildOntologyDiagramWebviewHtml } from './ontology-diagram-webview';
 
@@ -77,6 +77,9 @@ async function createNodeFromDrop(
 		nextNodeId(diagram),
 		payload.ontologyItemReference,
 		new Bounds(roundCoordinate(position.x), roundCoordinate(position.y), defaultNodeWidth, defaultNodeHeight),
+		undefined,
+		undefined,
+		nodeExtraFields(payload),
 	);
 	const nextDiagram = new OntologyDiagramDocument(
 		diagram.metadata,
@@ -118,4 +121,10 @@ function nextNodeId(diagram: OntologyDiagramDocument): string {
 
 function roundCoordinate(value: number): number {
 	return Math.max(0, Math.round(value));
+}
+
+function nodeExtraFields(payload: ModelTreeItemDraggedEvent): JsonObject {
+	return {
+		ontology_item_type: payload.ontologyItemType,
+	};
 }

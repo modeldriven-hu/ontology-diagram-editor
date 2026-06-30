@@ -16,6 +16,7 @@ import {
 	getOntologyItemTypeOrder,
 	loadReferencedOntologies,
 } from './ontology-model';
+import { getOntologyItemIcon } from './ontology-item-icons';
 
 export const modelTreeViewId = 'ontology-diagram-editor.modelTree';
 export const refreshModelTreeCommand = 'ontology-diagram-editor.modelTree.refresh';
@@ -485,7 +486,7 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 		item.id = node.id;
 		item.contextValue = 'ontologyGroup';
 		item.description = String(node.items.length);
-		item.iconPath = new vscode.ThemeIcon(iconForItemType(node.itemType));
+		item.iconPath = new vscode.ThemeIcon(getOntologyItemIcon(node.itemType).themeIconId);
 		return item;
 	}
 
@@ -494,7 +495,7 @@ export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNod
 		item.id = node.id;
 		item.contextValue = 'ontologyItem';
 		item.description = node.item.reference === node.label ? undefined : node.item.reference;
-		item.iconPath = new vscode.ThemeIcon(iconForItemType(node.item.type));
+		item.iconPath = new vscode.ThemeIcon(getOntologyItemIcon(node.item.type).themeIconId);
 		item.tooltip = [
 			node.item.reference,
 			`Source: ${node.ontology.relativePath}`,
@@ -574,25 +575,6 @@ function dragPayloadForItemNode(node: OntologyItemTreeNode): ModelTreeItemDragge
 		displayLabel: node.item.displayLabel,
 		ontologyItemMetadata: node.item.metadata,
 	};
-}
-
-function iconForItemType(itemType: OntologyItemType): string {
-	switch (itemType) {
-		case 'class':
-			return 'symbol-class';
-		case 'objectProperty':
-			return 'link';
-		case 'dataProperty':
-			return 'symbol-field';
-		case 'annotationProperty':
-			return 'tag';
-		case 'subclassRelationship':
-			return 'type-hierarchy-sub';
-		case 'individual':
-			return 'symbol-object';
-		case 'datatype':
-			return 'symbol-value';
-	}
 }
 
 function normalizePath(value: string): string {

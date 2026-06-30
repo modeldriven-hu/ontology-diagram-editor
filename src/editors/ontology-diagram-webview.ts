@@ -53,7 +53,10 @@ function webviewBody(
 	return `<body>
 	<div class="editor">
 		<header class="header">
-			<strong>Ontology Diagram Editor</strong>
+			<div class="title-group">
+				<span class="title-mark" aria-hidden="true"></span>
+				<strong>Ontology Diagram Editor</strong>
+			</div>
 			<p class="file-location">${escapeHtml(document.uri.fsPath)}</p>
 		</header>
 		<div class="canvas-scroll" id="canvasScroll">
@@ -83,6 +86,7 @@ function webviewStyles(): string {
 		background: var(--vscode-editor-background);
 		font-family: var(--vscode-font-family);
 		font-size: var(--vscode-font-size);
+		line-height: 1.4;
 	}
 
 	.editor {
@@ -97,26 +101,52 @@ function webviewStyles(): string {
 		justify-content: space-between;
 		gap: 16px;
 		min-width: 0;
-		padding: 10px 14px;
+		min-height: 44px;
+		padding: 8px 14px;
 		border-bottom: 1px solid var(--vscode-panel-border);
 		background: var(--vscode-sideBar-background);
 	}
 
+	.title-group {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		min-width: max-content;
+		font-size: 13px;
+	}
+
+	.title-mark {
+		width: 10px;
+		height: 10px;
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 72%, var(--vscode-editor-background));
+		border-radius: 2px;
+		background: color-mix(in srgb, var(--vscode-focusBorder) 22%, var(--vscode-editor-background));
+		box-shadow: inset 0 0 0 2px var(--vscode-sideBar-background);
+	}
+
 	.file-location {
 		margin: 0;
+		padding: 2px 7px;
+		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 80%, transparent);
+		border-radius: 4px;
+		background: color-mix(in srgb, var(--vscode-editor-background) 72%, transparent);
 		color: var(--vscode-descriptionForeground);
 		overflow-wrap: anywhere;
 		min-width: 0;
 		font-size: 12px;
+		line-height: 1.35;
 	}
 
 	.canvas-scroll {
 		position: relative;
 		overflow: auto;
 		background:
-			linear-gradient(var(--vscode-editor-background), var(--vscode-editor-background)),
-			radial-gradient(circle, color-mix(in srgb, var(--vscode-editor-foreground) 16%, transparent) 1px, transparent 1px);
-		background-size: auto, 20px 20px;
+			linear-gradient(color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background)), color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background))),
+			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
+			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
+			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px),
+			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px);
+		background-size: auto, 20px 20px, 20px 20px, 100px 100px, 100px 100px;
 	}
 
 	.canvas-content {
@@ -132,24 +162,29 @@ function webviewStyles(): string {
 		left: 24px;
 		top: 24px;
 		max-width: 560px;
-		padding: 14px 16px;
-		border: 1px solid var(--vscode-panel-border);
-		background: var(--vscode-editor-background);
+		padding: 12px 14px;
+		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+		border-radius: 6px;
+		background: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background));
 		color: var(--vscode-descriptionForeground);
+		box-shadow: 0 8px 22px rgb(0 0 0 / 16%);
+		font-size: 13px;
 	}
 
 	.error-state {
+		border-color: color-mix(in srgb, var(--vscode-errorForeground) 42%, var(--vscode-panel-border));
 		color: var(--vscode-errorForeground);
 	}
 
 	.drop-active .canvas-content {
-		outline: 2px dashed var(--vscode-focusBorder);
-		outline-offset: -6px;
+		outline: 2px solid var(--vscode-focusBorder);
+		outline-offset: -8px;
+		background: color-mix(in srgb, var(--vscode-focusBorder) 7%, transparent);
 	}
 
 	.drop-rejected .canvas-content {
-		outline: 2px dashed var(--vscode-errorForeground);
-		outline-offset: -6px;
+		outline: 2px solid var(--vscode-errorForeground);
+		outline-offset: -8px;
 	}
 
 	.status {
@@ -158,16 +193,23 @@ function webviewStyles(): string {
 		bottom: 16px;
 		max-width: 360px;
 		margin: 0;
-		padding: 8px 10px;
-		border: 1px solid var(--vscode-panel-border);
+		padding: 9px 11px;
+		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+		border-radius: 6px;
 		background: var(--vscode-notifications-background);
 		color: var(--vscode-notifications-foreground);
 		font-size: 12px;
+		box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
 		visibility: hidden;
+		opacity: 0;
+		transform: translateY(6px);
+		transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
 	}
 
 	.status.visible {
 		visibility: visible;
+		opacity: 1;
+		transform: translateY(0);
 	}`;
 }
 
