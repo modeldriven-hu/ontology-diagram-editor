@@ -5,12 +5,12 @@ import { CanvasEventBus } from './canvas-event-bus';
 import { createPngExportMessage, createSvgExportMessage, renderDiagramExportToolbarIcons } from './canvas-export';
 import { CanvasGeometryPersistence } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
-import { MaxGraphDiagramCanvasEngine } from './maxgraph-diagram-canvas-engine';
 import { renderImageToolbarIcon } from './ontology-diagram-images';
 import { renderLabelToolbarIcon } from './ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from './ontology-diagram-notes';
 import type { DiagramPayload } from './ontology-diagram-types';
 import { readTheme } from './webview-theme';
+import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewMessage): void;
@@ -63,7 +63,7 @@ const propertyPanelBody = requiredElement('propertyPanelBody');
 const theme = readTheme();
 const canvasEvents = new CanvasEventBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
-const canvas = new MaxGraphDiagramCanvasEngine(canvasContent, elementRegistry, theme);
+const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
 const geometryPersistence = new CanvasGeometryPersistence({
 	canvas,
 	postMessage: (message) => vscode.postMessage(message),

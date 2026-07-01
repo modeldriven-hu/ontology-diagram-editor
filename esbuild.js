@@ -1,4 +1,6 @@
 const esbuild = require("esbuild");
+const fs = require("fs");
+const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -24,6 +26,12 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+	fs.mkdirSync(path.join(__dirname, 'dist', 'webview'), { recursive: true });
+	fs.copyFileSync(
+		require.resolve('@antv/x6/dist/x6.min.js'),
+		path.join(__dirname, 'dist', 'webview', 'x6.min.js'),
+	);
+
 	const extensionContext = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'

@@ -14,11 +14,14 @@ export function buildOntologyDiagramWebviewHtml(
 	const scriptUri = webview.asWebviewUri(
 		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'ontology-diagram-canvas.js'),
 	);
+	const x6ScriptUri = webview.asWebviewUri(
+		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'x6.min.js'),
+	);
 
 	return `<!DOCTYPE html>
 <html lang="en">
 ${webviewHead(document, nonce, webview.cspSource)}
-${webviewBody(document, nonce, scriptUri, payload)}
+${webviewBody(document, nonce, x6ScriptUri, scriptUri, payload)}
 </html>`;
 }
 
@@ -35,6 +38,7 @@ function webviewHead(document: vscode.TextDocument, nonce: string, cspSource: st
 function webviewBody(
 	document: vscode.TextDocument,
 	nonce: string,
+	x6ScriptUri: vscode.Uri,
 	scriptUri: vscode.Uri,
 	payload: JsonPayload,
 ): string {
@@ -80,6 +84,7 @@ function webviewBody(
 			modelTreeDragMimeType: '${modelTreeDragMimeType.toLowerCase()}'
 		};
 	</script>
+	<script nonce="${nonce}" src="${x6ScriptUri.toString()}"></script>
 	<script nonce="${nonce}" src="${scriptUri.toString()}"></script>
 </body>`;
 }
