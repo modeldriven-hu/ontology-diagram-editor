@@ -4,6 +4,7 @@ import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-eve
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasElementRegistry } from './canvas-element-registry';
 import { CanvasEventBus } from './canvas-event-bus';
+import { createPngExportMessage, createSvgExportMessage, renderDiagramExportToolbarIcons } from './canvas-export';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
 import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
@@ -51,6 +52,8 @@ const status = requiredElement('status');
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
 const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
+const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
+const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
@@ -119,6 +122,7 @@ configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
+renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
 registerCanvasStateSubscriptions();
 render();
 registerSelectionEventPublishing();
@@ -131,6 +135,18 @@ addImageButton.addEventListener('click', () => {
 		type: 'createImage',
 		position: insertionPosition(),
 	});
+});
+exportSvgButton.addEventListener('click', () => {
+	const message = createSvgExportMessage(webviewConfig.payload, theme);
+	if (message === undefined) {
+		showStatus('There is no diagram content to export.');
+		return;
+	}
+
+	vscode.postMessage(message);
+});
+exportPngButton.addEventListener('click', () => {
+	void exportPng();
 });
 new CanvasDropController({
 	scrollElement: canvasScroll,
@@ -361,6 +377,20 @@ function publishViewportChanged(changeSource: 'scroll' | 'restore' | 'fit' | 're
 		zoom: graph.getView().getScale(),
 		changeSource,
 	});
+}
+
+async function exportPng(): Promise<void> {
+	try {
+		const message = await createPngExportMessage(webviewConfig.payload, theme);
+		if (message === undefined) {
+			showStatus('There is no diagram content to export.');
+			return;
+		}
+
+		vscode.postMessage(message);
+	} catch (error) {
+		showStatus(error instanceof Error ? error.message : String(error));
+	}
 }
 
 function updateWebviewState(update: Partial<WebviewState>): void {

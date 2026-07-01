@@ -16,6 +16,7 @@ export type WebviewMessage =
 	| CreateNoteMessage
 	| CreateImageMessage
 	| CreateLabelMessage
+	| SaveDiagramExportMessage
 	| DeleteNoteMessage
 	| DeleteImageMessage
 	| DeleteLabelMessage
@@ -56,6 +57,14 @@ export interface CreateLabelMessage {
 	readonly type: 'createLabel';
 	readonly text: string;
 	readonly position: CanvasPoint;
+}
+
+export interface SaveDiagramExportMessage {
+	readonly type: 'saveDiagramExport';
+	readonly format: 'svg' | 'png';
+	readonly defaultFileName: string;
+	readonly content: string;
+	readonly encoding: 'utf8' | 'base64';
 }
 
 export interface DeleteNoteMessage {

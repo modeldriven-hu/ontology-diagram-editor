@@ -52,6 +52,9 @@ function webviewBody(
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
 				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
+				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
 			</div>
 			<form class="note-editor" id="noteEditor" hidden>
 				<textarea class="note-editor-text" id="noteEditorText" rows="5" aria-label="Note text"></textarea>
@@ -198,6 +201,13 @@ function webviewStyles(): string {
 		width: 19px;
 		height: 19px;
 		stroke-width: 1.9;
+	}
+
+	.canvas-action-separator {
+		width: 1px;
+		height: 22px;
+		margin: 0 2px;
+		background: color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
 	}
 
 	.note-editor {

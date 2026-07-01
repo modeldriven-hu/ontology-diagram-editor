@@ -6,6 +6,8 @@ export { DeleteImageUseCase } from './delete-image-use-case';
 export { DeleteLabelUseCase } from './delete-label-use-case';
 export { DeleteNoteUseCase } from './delete-note-use-case';
 export type { DiagramMutationResult } from './diagram-mutation-result';
+export { SaveDiagramExportUseCase } from './save-diagram-export-use-case';
+export type { DiagramExportSavePort } from './save-diagram-export-use-case';
 export { UpdateImageBoundsUseCase } from './update-image-bounds-use-case';
 export { UpdateImageSourceUseCase } from './update-image-source-use-case';
 export { UpdateLabelBoundsUseCase } from './update-label-bounds-use-case';

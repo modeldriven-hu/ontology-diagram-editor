@@ -11,7 +11,8 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import type { DiagramExportSavePort } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -283,7 +284,88 @@ suite('Diagram editor use cases', () => {
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.labels.map((label) => label.id.value), ['label_second']);
 	});
+
+	test('saves UTF-8 diagram exports through the export save port', async () => {
+		const savePort = new RecordingDiagramExportSavePort('/workspace/example.svg');
+
+		const result = await new SaveDiagramExportUseCase(savePort).execute({
+			format: 'svg',
+			defaultDirectory: '/workspace',
+			defaultFileName: 'example.svg',
+			content: '<svg></svg>',
+			encoding: 'utf8',
+		});
+
+		assert.deepStrictEqual(savePort.targetRequests, [{
+			format: 'svg',
+			extension: 'svg',
+			formatLabel: 'SVG image',
+			defaultDirectory: '/workspace',
+			defaultFileName: 'example.svg',
+			saveLabel: 'Save SVG',
+			title: 'Save diagram as SVG',
+		}]);
+		assert.strictEqual(savePort.writes.length, 1);
+		assert.strictEqual(savePort.writes[0].targetPath, '/workspace/example.svg');
+		assert.strictEqual(Buffer.from(savePort.writes[0].content).toString('utf8'), '<svg></svg>');
+		assert.strictEqual(result.notification, 'Saved diagram export to /workspace/example.svg.');
+	});
+
+	test('does not write diagram exports when the save target is cancelled', async () => {
+		const savePort = new RecordingDiagramExportSavePort(undefined);
+
+		const result = await new SaveDiagramExportUseCase(savePort).execute({
+			format: 'svg',
+			defaultDirectory: '/workspace',
+			defaultFileName: 'example.svg',
+			content: '<svg></svg>',
+			encoding: 'utf8',
+		});
+
+		assert.strictEqual(savePort.writes.length, 0);
+		assert.strictEqual(result.notification, undefined);
+	});
+
+	test('decodes base64 diagram exports before writing', async () => {
+		const savePort = new RecordingDiagramExportSavePort('/workspace/example.png');
+
+		await new SaveDiagramExportUseCase(savePort).execute({
+			format: 'png',
+			defaultDirectory: '/workspace',
+			defaultFileName: 'example.png',
+			content: 'AAECAw==',
+			encoding: 'base64',
+		});
+
+		assert.deepStrictEqual([...savePort.writes[0].content], [0, 1, 2, 3]);
+		assert.deepStrictEqual(savePort.targetRequests[0], {
+			format: 'png',
+			extension: 'png',
+			formatLabel: 'PNG image',
+			defaultDirectory: '/workspace',
+			defaultFileName: 'example.png',
+			saveLabel: 'Save PNG',
+			title: 'Save diagram as PNG',
+		});
+	});
 });
+
+class RecordingDiagramExportSavePort implements DiagramExportSavePort {
+	public readonly targetRequests: Parameters<DiagramExportSavePort['chooseTarget']>[0][] = [];
+	public readonly writes: { readonly targetPath: string; readonly content: Uint8Array }[] = [];
+
+	public constructor(private readonly targetPath: string | undefined) {}
+
+	public chooseTarget(request: Parameters<DiagramExportSavePort['chooseTarget']>[0]): Promise<string | undefined> {
+		this.targetRequests.push(request);
+		return Promise.resolve(this.targetPath);
+	}
+
+	public writeFile(targetPath: string, content: Uint8Array): Promise<void> {
+		this.writes.push({ targetPath, content });
+		return Promise.resolve();
+	}
+}
 
 function emptyDiagram(): OntologyDiagramDocument {
 	return diagramWithNodes([]);

@@ -6,6 +6,10 @@ import type { OntologyDiagramDocument } from '../odiagram';
 export class OntologyDiagramDocumentRepository {
 	public constructor(private readonly document: vscode.TextDocument) {}
 
+	public get uri(): vscode.Uri {
+		return this.document.uri;
+	}
+
 	public load(): OntologyDiagramDocument {
 		return parseOntologyDiagramTextDocument(this.document);
 	}

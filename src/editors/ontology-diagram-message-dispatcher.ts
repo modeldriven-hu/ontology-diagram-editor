@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import {
 	CreateImageUseCase,
@@ -8,6 +9,7 @@ import {
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
 	DeleteNoteUseCase,
+	SaveDiagramExportUseCase,
 	UpdateImageBoundsUseCase,
 	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
@@ -17,7 +19,7 @@ import {
 	UpdateNoteBoundsUseCase,
 	UpdateNoteTextUseCase,
 } from '../application/diagram-editor';
-import type { DiagramMutationResult } from '../application/diagram-editor';
+import type { DiagramExportSavePort, DiagramMutationResult } from '../application/diagram-editor';
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
 import type { ModelTreeItemDropPayload, WebviewMessage } from '../shared/ontology-diagram-events';
 import { embeddedImageSourceFromFile } from './image-source-embedding';
@@ -39,6 +41,7 @@ interface DiagramEditorUseCases {
 	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
+	readonly saveDiagramExport: SaveDiagramExportUseCase;
 }
 
 export class OntologyDiagramMessageDispatcher {
@@ -86,6 +89,9 @@ export class OntologyDiagramMessageDispatcher {
 					message.text,
 					message.position,
 				));
+				return;
+			case 'saveDiagramExport':
+				await this.saveDiagramExport(message);
 				return;
 			case 'deleteNote':
 				await this.deleteNote(message);
@@ -245,6 +251,19 @@ export class OntologyDiagramMessageDispatcher {
 		));
 	}
 
+	private async saveDiagramExport(message: Extract<WebviewMessage, { readonly type: 'saveDiagramExport' }>): Promise<void> {
+		const result = await this.useCases.saveDiagramExport.execute({
+			format: message.format,
+			defaultDirectory: path.dirname(this.repository.uri.fsPath),
+			defaultFileName: message.defaultFileName,
+			content: message.content,
+			encoding: message.encoding,
+		});
+		if (result.notification !== undefined) {
+			await vscode.window.showInformationMessage(result.notification);
+		}
+	}
+
 	private async handleResult(result: DiagramMutationResult): Promise<void> {
 		if (result.notification !== undefined) {
 			await vscode.window.showInformationMessage(result.notification);
@@ -272,7 +291,30 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateLabelBounds: new UpdateLabelBoundsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
+		saveDiagramExport: new SaveDiagramExportUseCase(new VsCodeDiagramExportSavePort()),
 	};
+}
+
+class VsCodeDiagramExportSavePort implements DiagramExportSavePort {
+	public async chooseTarget(request: Parameters<DiagramExportSavePort['chooseTarget']>[0]): Promise<string | undefined> {
+		const targetUri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.joinPath(
+				vscode.Uri.file(request.defaultDirectory),
+				request.defaultFileName,
+			),
+			filters: {
+				[request.formatLabel]: [request.extension],
+			},
+			saveLabel: request.saveLabel,
+			title: request.title,
+		});
+
+		return targetUri?.fsPath;
+	}
+
+	public async writeFile(targetPath: string, content: Uint8Array): Promise<void> {
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(targetPath), content);
+	}
 }
 
 async function pickImageFile(openLabel: string, title: string): Promise<vscode.Uri | undefined> {
