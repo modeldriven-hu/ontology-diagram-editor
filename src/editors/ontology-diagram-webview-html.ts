@@ -2,44 +2,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../odiagram';
-import { ModelTreeItemDraggedEvent, modelTreeDragMimeType } from '../model-tree/model-tree-controller';
-import { NodeBoundsUpdate, NoteBoundsUpdate } from '../shared/canvas-geometry';
+import { modelTreeDragMimeType } from '../model-tree/model-tree-controller';
 import { escapeHtml } from '../shared/html';
-
-export interface CanvasPoint {
-	readonly x: number;
-	readonly y: number;
-}
-
-export type WebviewMessage = CreateNodeMessage | CreateNoteMessage | UpdateNodeBoundsMessage | UpdateNoteBoundsMessage | UpdateNoteTextMessage;
-
-export interface CreateNodeMessage {
-	readonly type: 'createNode';
-	readonly payload?: ModelTreeItemDraggedEvent;
-	readonly position: CanvasPoint;
-}
-
-export interface UpdateNodeBoundsMessage {
-	readonly type: 'updateNodeBounds';
-	readonly updates: readonly NodeBoundsUpdate[];
-}
-
-export interface CreateNoteMessage {
-	readonly type: 'createNote';
-	readonly text: string;
-	readonly position: CanvasPoint;
-}
-
-export interface UpdateNoteBoundsMessage {
-	readonly type: 'updateNoteBounds';
-	readonly updates: readonly NoteBoundsUpdate[];
-}
-
-export interface UpdateNoteTextMessage {
-	readonly type: 'updateNoteText';
-	readonly id: string;
-	readonly text: string;
-}
 
 export function buildOntologyDiagramWebviewHtml(
 	document: vscode.TextDocument,

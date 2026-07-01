@@ -1,9 +1,11 @@
-import { Graph, HandleConfig, InternalEvent, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type EventObject, type SelectionHandler } from '@maxgraph/core';
+import { Graph, HandleConfig, InternalEvent, StyleDefaultsConfig, VertexHandlerConfig, type EventObject, type SelectionHandler } from '@maxgraph/core';
 
-import { minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
+import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
+import { CanvasDropController } from './canvas-drop-controller';
+import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
 import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
 import { NoteEditorController, noteBounds, noteVertex, renderNoteToolbarIcon } from './ontology-diagram-notes';
-import type { CanvasPoint, DiagramPayload } from './ontology-diagram-types';
+import type { DiagramPayload } from './ontology-diagram-types';
 import { readTheme } from './webview-theme';
 
 declare const acquireVsCodeApi: () => {
@@ -14,42 +16,6 @@ declare global {
 	interface Window {
 		ontologyDiagramEditorConfig?: WebviewConfig;
 	}
-}
-
-type WebviewMessage = CreateNodeMessage | CreateNoteMessage | UpdateNodeBoundsMessage | UpdateNoteBoundsMessage | UpdateNoteTextMessage;
-
-interface CreateNodeMessage {
-	readonly type: 'createNode';
-	readonly payload?: ModelTreeItemDraggedEvent;
-	readonly position: CanvasPoint;
-}
-
-interface UpdateNodeBoundsMessage {
-	readonly type: 'updateNodeBounds';
-	readonly updates: readonly NodeBoundsUpdate[];
-}
-
-interface CreateNoteMessage {
-	readonly type: 'createNote';
-	readonly text: string;
-	readonly position: CanvasPoint;
-}
-
-interface UpdateNoteBoundsMessage {
-	readonly type: 'updateNoteBounds';
-	readonly updates: readonly NoteBoundsUpdate[];
-}
-
-interface UpdateNoteTextMessage {
-	readonly type: 'updateNoteText';
-	readonly id: string;
-	readonly text: string;
-}
-
-interface ModelTreeItemDraggedEvent {
-	readonly ontologyItemType: string;
-	readonly ontologyItemReference: string;
-	readonly displayLabel: string;
 }
 
 interface WebviewConfig {
@@ -64,7 +30,6 @@ if (config === undefined) {
 }
 
 const vscode = acquireVsCodeApi();
-const nodeCapableTypes = new Set(['class', 'individual', 'datatype']);
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
@@ -75,16 +40,18 @@ const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
 const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
 const theme = readTheme();
 const graph = new Graph(canvasContent);
-const persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
-const persistedNoteBounds = new Map<string, NoteBoundsUpdate>();
-const persistedNoteText = new Map<string, string>();
+const geometryPersistence = new CanvasGeometryPersistence({
+	graph,
+	postMessage: (message) => vscode.postMessage(message),
+	showStatus,
+});
 const noteEditorController = new NoteEditorController({
 	addNoteButton,
 	noteEditor,
 	noteEditorText,
 	saveNoteButton,
 	cancelNoteButton,
-	getNoteText: (noteId) => persistedNoteText.get(noteId),
+	getNoteText: (noteId) => geometryPersistence.getNoteText(noteId),
 	createNote: (text) => {
 		vscode.postMessage({
 			type: 'createNote',
@@ -93,7 +60,7 @@ const noteEditorController = new NoteEditorController({
 		});
 	},
 	updateNoteText: (noteId, text) => {
-		persistedNoteText.set(noteId, text);
+		geometryPersistence.setNoteText(noteId, text);
 		vscode.postMessage({
 			type: 'updateNoteText',
 			id: noteId,
@@ -105,14 +72,19 @@ const noteEditorController = new NoteEditorController({
 		canvasScroll.focus();
 	},
 });
-let suppressGeometryPersistence = false;
 
 configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
 render();
 noteEditorController.register();
-registerDropHandlers();
-registerGeometryHandlers();
+new CanvasDropController({
+	scrollElement: canvasScroll,
+	contentElement: canvasContent,
+	modelTreeDragMimeType: config.modelTreeDragMimeType,
+	postMessage: (message) => vscode.postMessage(message),
+	showStatus,
+}).register();
+geometryPersistence.register();
 registerNoteEditHandlers();
 
 function configureGraph(graph: Graph): void {
@@ -165,7 +137,7 @@ function render(): void {
 
 	graph.batchUpdate(() => {
 		for (const node of nodes) {
-			persistedNodeBounds.set(node.id, nodeBounds(node));
+			geometryPersistence.trackNodeBounds(nodeBounds(node));
 			const vertex = nodeVertex(node, theme);
 			graph.insertVertex(
 				graph.getDefaultParent(),
@@ -179,8 +151,7 @@ function render(): void {
 			);
 		}
 		for (const note of notes) {
-			persistedNoteBounds.set(note.id, noteBounds(note));
-			persistedNoteText.set(note.id, note.text);
+			geometryPersistence.trackNote(noteBounds(note), note.text);
 			const vertex = noteVertex(note, theme);
 			graph.insertVertex(
 				graph.getDefaultParent(),
@@ -194,118 +165,6 @@ function render(): void {
 			);
 		}
 	});
-}
-
-function registerGeometryHandlers(): void {
-	graph.addListener(InternalEvent.CELLS_MOVED, (_sender: unknown, event: EventObject) => {
-		persistChangedElementBounds(event.getProperty('cells'));
-	});
-	graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
-		persistChangedElementBounds(event.getProperty('cells'));
-	});
-}
-
-function persistChangedElementBounds(cells: unknown): void {
-	if (suppressGeometryPersistence || !Array.isArray(cells)) {
-		return;
-	}
-
-	const nodeUpdates: NodeBoundsUpdate[] = [];
-	const noteUpdates: NoteBoundsUpdate[] = [];
-	for (const cell of cells) {
-		const nodeUpdate = boundsUpdate(cell, persistedNodeBounds);
-		if (nodeUpdate !== undefined) {
-			nodeUpdates.push(nodeUpdate);
-			continue;
-		}
-
-		const noteUpdate = boundsUpdate(cell, persistedNoteBounds);
-		if (noteUpdate !== undefined) {
-			noteUpdates.push(noteUpdate);
-		}
-	}
-
-	const invalidNodeUpdate = nodeUpdates.find((update) => update.width < minimumNodeWidth || update.height < minimumNodeHeight);
-	if (invalidNodeUpdate !== undefined) {
-		restorePersistedBounds(nodeUpdates, persistedNodeBounds);
-		showStatus(`Nodes must be at least ${minimumNodeWidth} x ${minimumNodeHeight}.`);
-		return;
-	}
-	const invalidNoteUpdate = noteUpdates.find((update) => update.width < minimumNoteWidth || update.height < minimumNoteHeight);
-	if (invalidNoteUpdate !== undefined) {
-		restorePersistedBounds(noteUpdates, persistedNoteBounds);
-		showStatus(`Notes must be at least ${minimumNoteWidth} x ${minimumNoteHeight}.`);
-		return;
-	}
-
-	for (const update of nodeUpdates) {
-		persistedNodeBounds.set(update.id, update);
-	}
-	for (const update of noteUpdates) {
-		persistedNoteBounds.set(update.id, update);
-	}
-	if (nodeUpdates.length > 0) {
-		vscode.postMessage({
-			type: 'updateNodeBounds',
-			updates: nodeUpdates,
-		});
-	}
-	if (noteUpdates.length > 0) {
-		vscode.postMessage({
-			type: 'updateNoteBounds',
-			updates: noteUpdates,
-		});
-	}
-}
-
-function boundsUpdate(cell: unknown, persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): BoundsUpdate | undefined {
-	if (!isGraphCell(cell)) {
-		return undefined;
-	}
-
-	const id = cell.getId();
-	const geometry = cell.getGeometry();
-	if (id === null || geometry === null || !persistedBoundsById.has(id)) {
-		return undefined;
-	}
-
-	return {
-		id,
-		x: Math.max(0, Math.round(geometry.x)),
-		y: Math.max(0, Math.round(geometry.y)),
-		width: Math.round(geometry.width),
-		height: Math.round(geometry.height),
-	};
-}
-
-function restorePersistedBounds(updates: readonly BoundsUpdate[], persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): void {
-	suppressGeometryPersistence = true;
-	try {
-		for (const update of updates) {
-			const persistedBounds = persistedBoundsById.get(update.id);
-			const cell = graph.getDataModel().getCell(update.id);
-			if (persistedBounds !== undefined && cell !== null) {
-				graph.resizeCell(
-					cell,
-					new Rectangle(
-						persistedBounds.x,
-						persistedBounds.y,
-						persistedBounds.width,
-						persistedBounds.height,
-					),
-				);
-			}
-		}
-	} finally {
-		suppressGeometryPersistence = false;
-	}
-}
-
-function isGraphCell(value: unknown): value is Cell {
-	return typeof value === 'object'
-		&& value !== null
-		&& 'getId' in value
-		&& 'getGeometry' in value;
 }
 
 function registerNoteEditHandlers(): void {
@@ -337,7 +196,7 @@ function editNoteCell(cell: unknown): boolean {
 	}
 
 	const id = cell.getId();
-	if (id === null || !persistedNoteBounds.has(id)) {
+	if (id === null || !geometryPersistence.hasNote(id)) {
 		return false;
 	}
 
@@ -351,66 +210,6 @@ function insertionPosition(): CanvasPoint {
 		x: Math.max(0, Math.round(canvasScroll.scrollLeft + 80)),
 		y: Math.max(0, Math.round(canvasScroll.scrollTop + 80)),
 	};
-}
-
-function registerDropHandlers(): void {
-	canvasScroll.addEventListener('dragover', (event) => {
-		event.preventDefault();
-		if (event.dataTransfer !== null) {
-			event.dataTransfer.dropEffect = 'copy';
-		}
-		canvasScroll.classList.add('drop-active');
-		canvasScroll.classList.remove('drop-rejected');
-	});
-
-	canvasScroll.addEventListener('dragleave', (event) => {
-		if (event.relatedTarget instanceof Node && canvasScroll.contains(event.relatedTarget)) {
-			return;
-		}
-
-		canvasScroll.classList.remove('drop-active', 'drop-rejected');
-	});
-
-	canvasScroll.addEventListener('drop', (event) => {
-		event.preventDefault();
-		canvasScroll.classList.remove('drop-active', 'drop-rejected');
-
-		const dragPayload = readDragPayload(event.dataTransfer);
-		if (dragPayload !== undefined && !nodeCapableTypes.has(dragPayload.ontologyItemType)) {
-			canvasScroll.classList.add('drop-rejected');
-			showStatus('Only classes, individuals, and datatypes can create nodes for now.');
-			return;
-		}
-
-		const rect = canvasContent.getBoundingClientRect();
-		vscode.postMessage({
-			type: 'createNode',
-			payload: dragPayload,
-			position: {
-				x: Math.max(0, event.clientX - rect.left),
-				y: Math.max(0, event.clientY - rect.top),
-			},
-		});
-	});
-}
-
-function readDragPayload(dataTransfer: DataTransfer | null): ModelTreeItemDraggedEvent | undefined {
-	if (dataTransfer === null) {
-		return undefined;
-	}
-
-	const raw = dataTransfer.getData(config?.modelTreeDragMimeType ?? '')
-		|| dataTransfer.getData('application/vnd.code.tree.ontology-diagram-editor.model-tree')
-		|| dataTransfer.getData('text/plain');
-	if (raw.length === 0) {
-		return undefined;
-	}
-
-	try {
-		return JSON.parse(raw) as ModelTreeItemDraggedEvent;
-	} catch {
-		return undefined;
-	}
 }
 
 function messageElement(className: string, text: string): HTMLElement {

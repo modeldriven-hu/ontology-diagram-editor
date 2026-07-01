@@ -1,0 +1,80 @@
+import type { CanvasPoint, ModelTreeItemDropPayload, WebviewMessage } from '../shared/ontology-diagram-events';
+
+const nodeCapableTypes = new Set(['class', 'individual', 'datatype']);
+
+interface CanvasDropControllerOptions {
+	readonly scrollElement: HTMLElement;
+	readonly contentElement: HTMLElement;
+	readonly modelTreeDragMimeType: string;
+	readonly postMessage: (message: WebviewMessage) => void;
+	readonly showStatus: (message: string) => void;
+}
+
+export class CanvasDropController {
+	public constructor(private readonly options: CanvasDropControllerOptions) {}
+
+	public register(): void {
+		this.options.scrollElement.addEventListener('dragover', (event) => {
+			event.preventDefault();
+			if (event.dataTransfer !== null) {
+				event.dataTransfer.dropEffect = 'copy';
+			}
+			this.options.scrollElement.classList.add('drop-active');
+			this.options.scrollElement.classList.remove('drop-rejected');
+		});
+
+		this.options.scrollElement.addEventListener('dragleave', (event) => {
+			if (event.relatedTarget instanceof Node && this.options.scrollElement.contains(event.relatedTarget)) {
+				return;
+			}
+
+			this.options.scrollElement.classList.remove('drop-active', 'drop-rejected');
+		});
+
+		this.options.scrollElement.addEventListener('drop', (event) => {
+			event.preventDefault();
+			this.options.scrollElement.classList.remove('drop-active', 'drop-rejected');
+
+			const dragPayload = this.readDragPayload(event.dataTransfer);
+			if (dragPayload !== undefined && !nodeCapableTypes.has(dragPayload.ontologyItemType)) {
+				this.options.scrollElement.classList.add('drop-rejected');
+				this.options.showStatus('Only classes, individuals, and datatypes can create nodes for now.');
+				return;
+			}
+
+			this.options.postMessage({
+				type: 'createNode',
+				payload: dragPayload,
+				position: this.dropPosition(event),
+			});
+		});
+	}
+
+	private dropPosition(event: DragEvent): CanvasPoint {
+		const rect = this.options.contentElement.getBoundingClientRect();
+
+		return {
+			x: Math.max(0, event.clientX - rect.left),
+			y: Math.max(0, event.clientY - rect.top),
+		};
+	}
+
+	private readDragPayload(dataTransfer: DataTransfer | null): ModelTreeItemDropPayload | undefined {
+		if (dataTransfer === null) {
+			return undefined;
+		}
+
+		const raw = dataTransfer.getData(this.options.modelTreeDragMimeType)
+			|| dataTransfer.getData('application/vnd.code.tree.ontology-diagram-editor.model-tree')
+			|| dataTransfer.getData('text/plain');
+		if (raw.length === 0) {
+			return undefined;
+		}
+
+		try {
+			return JSON.parse(raw) as ModelTreeItemDropPayload;
+		} catch {
+			return undefined;
+		}
+	}
+}
