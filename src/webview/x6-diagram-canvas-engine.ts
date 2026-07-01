@@ -1,9 +1,11 @@
 import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementRegistry } from './canvas-element-registry';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
-import type { DiagramNode, DiagramPayload } from './ontology-diagram-types';
+import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import type { WebviewTheme } from './webview-theme';
 import type { X6Graph, X6Node } from './x6-browser';
+
+type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
 
 export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly graph: X6Graph;
@@ -69,8 +71,17 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 	public renderDiagram(payload: DiagramPayload, theme: WebviewTheme): void {
 		this.graph.clearCells();
+		for (const image of payload.diagram?.images ?? []) {
+			this.graph.addNode(x6Image(image, theme));
+		}
 		for (const node of payload.diagram?.nodes ?? []) {
-			this.graph.addNode(x6Node(node, theme));
+			this.graph.addNode(x6OntologyNode(node, theme));
+		}
+		for (const note of payload.diagram?.notes ?? []) {
+			this.graph.addNode(x6Note(note, theme));
+		}
+		for (const label of payload.diagram?.labels ?? []) {
+			this.graph.addNode(x6Label(label, theme));
 		}
 	}
 
@@ -80,7 +91,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 	public selectElement(id: string): void {
 		const cell = this.graph.getCellById(id);
-		if (cell !== undefined && this.elementRegistry.element(id)?.kind === 'node') {
+		if (cell !== undefined && this.elementRegistry.element(id) !== undefined) {
 			this.selectedId = id;
 			this.graph.resetSelection(cell);
 			this.publishSelectionChanged();
@@ -288,16 +299,7 @@ function installX6Styles(theme: WebviewTheme): void {
 	document.head.appendChild(style);
 }
 
-function x6Node(node: DiagramNode, theme: WebviewTheme): Record<string, unknown> {
-	const borderType = node.style?.border?.type;
-	const borderWeight = node.style?.border?.weight;
-	const strokeWidth = borderType === 'none' ? 0 : borderWeight ?? 1;
-	const lineStyle = borderType === 'dotted'
-		? '1 4'
-		: borderType === 'dashed'
-			? '3 3'
-			: undefined;
-
+function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, unknown> {
 	return {
 		id: node.id,
 		x: node.x,
@@ -315,9 +317,7 @@ function x6Node(node: DiagramNode, theme: WebviewTheme): Record<string, unknown>
 				rx: 8,
 				ry: 8,
 				fill: node.style?.bg_color ?? theme.nodeBackground,
-				stroke: strokeWidth === 0 ? 'none' : node.style?.border?.color ?? theme.nodeBorder,
-				strokeWidth,
-				strokeDasharray: lineStyle,
+				...borderAttrs(node.style?.border, theme.nodeBorder, 1),
 				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
 			},
 			label: {
@@ -333,6 +333,129 @@ function x6Node(node: DiagramNode, theme: WebviewTheme): Record<string, unknown>
 				refY: '50%',
 			},
 		},
+	};
+}
+
+function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {
+	return {
+		id: note.id,
+		x: note.x,
+		y: note.y,
+		width: note.width,
+		height: note.height,
+		markup: [
+			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'text', selector: 'label' },
+		],
+		attrs: {
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				rx: 6,
+				ry: 6,
+				fill: note.style?.bg_color ?? '#fff4b8',
+				...borderAttrs(note.style?.border, '#d7b85d', 1),
+				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
+			},
+			label: {
+				text: plainText(note.text),
+				fill: note.style?.text_color ?? '#3b2f00',
+				fontFamily: note.style?.font?.family ?? theme.fontFamily,
+				fontSize: note.style?.font?.size ?? theme.fontSize,
+				fontWeight: note.style?.font?.bold === true ? 700 : 400,
+				fontStyle: note.style?.font?.italic === true ? 'italic' : 'normal',
+				textAnchor: 'start',
+				textVerticalAnchor: 'top',
+				refX: 12,
+				refY: 12,
+			},
+		},
+	};
+}
+
+function x6Label(label: DiagramLabel, theme: WebviewTheme): Record<string, unknown> {
+	return {
+		id: label.id,
+		x: label.x,
+		y: label.y,
+		width: label.width,
+		height: label.height,
+		markup: [
+			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'text', selector: 'label' },
+		],
+		attrs: {
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: 'transparent',
+				stroke: 'none',
+				strokeWidth: 0,
+			},
+			label: {
+				text: label.text,
+				fill: label.style?.text_color ?? theme.editorForeground,
+				fontFamily: label.style?.font?.family ?? theme.fontFamily,
+				fontSize: label.style?.font?.size ?? theme.fontSize,
+				fontWeight: label.style?.font?.bold === true ? 700 : 400,
+				fontStyle: label.style?.font?.italic === true ? 'italic' : 'normal',
+				textAnchor: 'middle',
+				textVerticalAnchor: 'middle',
+				refX: '50%',
+				refY: '50%',
+			},
+		},
+	};
+}
+
+function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string, unknown> {
+	return {
+		id: image.id,
+		x: image.x,
+		y: image.y,
+		width: image.width,
+		height: image.height,
+		markup: [
+			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'image', selector: 'image' },
+		],
+		attrs: {
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: theme.editorBackground,
+				stroke: theme.nodeBorder,
+				strokeWidth: 1,
+				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
+			},
+			image: {
+				refWidth: '100%',
+				refHeight: '100%',
+				'xlink:href': image.webview_src,
+				preserveAspectRatio: 'xMidYMid meet',
+			},
+		},
+	};
+}
+
+function borderAttrs(
+	border: ElementBorder | undefined,
+	defaultColor: string,
+	defaultWeight: number,
+): Record<string, unknown> {
+	const borderType = border?.type;
+	const borderWeight = border?.weight;
+	const strokeWidth = borderType === 'none' ? 0 : borderWeight ?? defaultWeight;
+	const strokeDasharray = borderType === 'dotted'
+		? '1 4'
+		: borderType === 'dashed'
+			? '3 3'
+			: undefined;
+
+	return {
+		stroke: strokeWidth === 0 ? 'none' : border?.color ?? defaultColor,
+		strokeWidth,
+		strokeDasharray,
 	};
 }
 
@@ -368,6 +491,11 @@ function stopEvent(value: unknown): void {
 		event.preventDefault?.();
 		event.stopPropagation?.();
 	}
+}
+
+function plainText(value: string): string {
+	const document = new DOMParser().parseFromString(value, 'text/html');
+	return document.body.textContent ?? value;
 }
 
 function nodeDisplayName(ontologyRef: string): string {
