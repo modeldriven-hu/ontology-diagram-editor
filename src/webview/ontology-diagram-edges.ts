@@ -65,8 +65,9 @@ function edgeStyle(edge: DiagramEdge, theme: WebviewTheme, source: Cell, target:
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const strokeColor = edge.style?.color ?? theme.edgeColor;
 	const style: CellStyle = {
-		edgeStyle: edge.source === edge.target ? 'loopEdgeStyle' : 'segmentEdgeStyle',
-		orthogonal: edge.source !== edge.target,
+		edgeStyle: edge.source === edge.target ? 'loopEdgeStyle' : undefined,
+		noEdgeStyle: edge.source !== edge.target,
+		orthogonal: false,
 		rounded: false,
 		strokeColor,
 		strokeWidth,

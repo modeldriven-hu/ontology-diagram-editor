@@ -134,6 +134,11 @@ export class CanvasPropertyPanel {
 			readonlyField('Source', edge.source),
 			readonlyField('Target', edge.target),
 		]));
+		this.options.body.appendChild(sectionElement('Actions', [
+			actionButton('Delete Edge', 'danger', () => {
+				this.options.postMessage({ type: 'deleteEdge', id: edge.id });
+			}),
+		]));
 	}
 
 	private renderNote(note: DiagramNote): void {
@@ -274,6 +279,16 @@ function imageField(label: string, value: string, commit: (value: string) => voi
 	wrapper.append(input, button);
 
 	return editableField(label, wrapper);
+}
+
+function actionButton(label: string, kind: 'danger', action: () => void): HTMLElement {
+	const button = document.createElement('button');
+	button.className = `property-button property-button-${kind}`;
+	button.type = 'button';
+	button.textContent = label;
+	button.addEventListener('click', action);
+
+	return button;
 }
 
 function editableField(label: string, input: HTMLElement): HTMLElement {

@@ -19,6 +19,7 @@ export type WebviewMessage =
 	| CreateImageMessage
 	| CreateLabelMessage
 	| SaveDiagramExportMessage
+	| DeleteEdgeMessage
 	| DeleteNodeMessage
 	| DeleteNoteMessage
 	| DeleteImageMessage
@@ -78,6 +79,11 @@ export interface SaveDiagramExportMessage {
 
 export interface DeleteNodeMessage {
 	readonly type: 'deleteNode';
+	readonly id: string;
+}
+
+export interface DeleteEdgeMessage {
+	readonly type: 'deleteEdge';
 	readonly id: string;
 }
 

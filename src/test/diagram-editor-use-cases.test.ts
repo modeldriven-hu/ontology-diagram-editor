@@ -11,7 +11,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 import type { DiagramExportSavePort } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
@@ -100,6 +100,41 @@ suite('Diagram editor use cases', () => {
 
 	test('does not change the diagram when deleting a missing node', () => {
 		const result = new DeleteNodeUseCase().execute(emptyDiagram(), 'node_missing');
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, undefined);
+	});
+
+	test('deletes an edge from the diagram', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+			],
+		);
+
+		const result = new DeleteEdgeUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_source', 'node_target']);
+		assert.deepStrictEqual(result.diagram.edges, []);
+	});
+
+	test('does not change the diagram when deleting a missing edge', () => {
+		const result = new DeleteEdgeUseCase().execute(emptyDiagram(), 'edge_missing');
 
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, undefined);

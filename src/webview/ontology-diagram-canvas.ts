@@ -597,6 +597,15 @@ function deleteSelectedCell(cell: unknown): boolean {
 		return true;
 	}
 
+	if (geometryPersistence.hasEdge(id)) {
+		vscode.postMessage({
+			type: 'deleteEdge',
+			id,
+		});
+
+		return true;
+	}
+
 	if (geometryPersistence.hasNote(id)) {
 		vscode.postMessage({
 			type: 'deleteNote',

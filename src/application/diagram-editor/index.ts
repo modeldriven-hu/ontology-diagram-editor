@@ -3,6 +3,7 @@ export { CreateLabelUseCase } from './create-label-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';
 export { CreateNoteUseCase } from './create-note-use-case';
 export { CreateEdgeUseCase } from './create-edge-use-case';
+export { DeleteEdgeUseCase } from './delete-edge-use-case';
 export { DeleteImageUseCase } from './delete-image-use-case';
 export { DeleteLabelUseCase } from './delete-label-use-case';
 export { DeleteNodeUseCase } from './delete-node-use-case';

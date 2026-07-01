@@ -7,6 +7,7 @@ import {
 	CreateLabelUseCase,
 	CreateNodeUseCase,
 	CreateNoteUseCase,
+	DeleteEdgeUseCase,
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
 	DeleteNodeUseCase,
@@ -35,6 +36,7 @@ interface DiagramEditorUseCases {
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
+	readonly deleteEdge: DeleteEdgeUseCase;
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
@@ -107,6 +109,9 @@ export class OntologyDiagramMessageDispatcher {
 				return;
 			case 'deleteNode':
 				await this.deleteNode(message);
+				return;
+			case 'deleteEdge':
+				await this.deleteEdge(message);
 				return;
 			case 'deleteNote':
 				await this.deleteNote(message);
@@ -224,6 +229,22 @@ export class OntologyDiagramMessageDispatcher {
 		));
 	}
 
+	private async deleteEdge(message: Extract<WebviewMessage, { readonly type: 'deleteEdge' }>): Promise<void> {
+		const confirmed = await vscode.window.showWarningMessage(
+			'Delete this edge from the diagram?',
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteEdge.execute(
+			this.repository.load(),
+			message.id,
+		));
+	}
+
 	private async deleteNote(message: Extract<WebviewMessage, { readonly type: 'deleteNote' }>): Promise<void> {
 		const confirmed = await vscode.window.showWarningMessage(
 			'Delete this note from the diagram?',
@@ -326,6 +347,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
+		deleteEdge: new DeleteEdgeUseCase(),
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),

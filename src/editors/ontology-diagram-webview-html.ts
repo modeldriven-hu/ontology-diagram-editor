@@ -466,6 +466,12 @@ function webviewStyles(): string {
 		color: var(--vscode-button-secondaryForeground);
 		font: inherit;
 		cursor: pointer;
+	}
+
+	.property-button-danger {
+		background: var(--vscode-inputValidation-errorBackground, var(--vscode-button-secondaryBackground));
+		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-button-border, transparent));
+		color: var(--vscode-inputValidation-errorForeground, var(--vscode-button-secondaryForeground));
 	}`;
 }
 
