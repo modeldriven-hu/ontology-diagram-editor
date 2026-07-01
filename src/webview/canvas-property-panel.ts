@@ -1,13 +1,17 @@
-import { Graph, InternalEvent, type Cell } from '@maxgraph/core';
+import { Graph, InternalEvent } from '@maxgraph/core';
 
 import type { BoundsUpdate } from '../shared/canvas-geometry';
+import type { CanvasElementType } from '../shared/canvas-editor-events';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
-import { isGraphCell } from './canvas-geometry-persistence';
+import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
+import type { CanvasEventPublisher } from './canvas-event-bus';
 
 interface CanvasPropertyPanelOptions {
 	readonly graph: Graph;
 	readonly payload: DiagramPayload;
+	readonly registry: CanvasElementRegistry;
+	readonly events: CanvasEventPublisher;
 	readonly panel: HTMLElement;
 	readonly title: HTMLElement;
 	readonly toggleButton: HTMLButtonElement;
@@ -19,33 +23,10 @@ interface CanvasPropertyPanelOptions {
 	readonly onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-type PropertyElement =
-	| { readonly kind: 'node'; readonly value: DiagramNode }
-	| { readonly kind: 'note'; readonly value: DiagramNote }
-	| { readonly kind: 'label'; readonly value: DiagramLabel }
-	| { readonly kind: 'image'; readonly value: DiagramImage };
-
 export class CanvasPropertyPanel {
-	private readonly nodes = new Map<string, DiagramNode>();
-	private readonly notes = new Map<string, DiagramNote>();
-	private readonly labels = new Map<string, DiagramLabel>();
-	private readonly images = new Map<string, DiagramImage>();
 	private collapsed = false;
 
-	public constructor(private readonly options: CanvasPropertyPanelOptions) {
-		for (const node of options.payload.diagram?.nodes ?? []) {
-			this.nodes.set(node.id, node);
-		}
-		for (const note of options.payload.diagram?.notes ?? []) {
-			this.notes.set(note.id, note);
-		}
-		for (const label of options.payload.diagram?.labels ?? []) {
-			this.labels.set(label.id, label);
-		}
-		for (const image of options.payload.diagram?.images ?? []) {
-			this.images.set(image.id, image);
-		}
-	}
+	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
 
 	public register(): void {
 		this.setCollapsed(this.options.initialCollapsed ?? false, false);
@@ -70,6 +51,13 @@ export class CanvasPropertyPanel {
 		this.collapsed = collapsed;
 		this.options.panel.classList.toggle('collapsed', collapsed);
 		this.options.toggleButton.setAttribute('aria-expanded', String(!collapsed));
+		this.options.events.publish({
+			type: 'canvasPropertyPanelVisibilityChanged',
+			diagramFilePath: this.options.payload.file?.fsPath,
+			visible: true,
+			collapsed,
+			panelHeight: this.options.panel.getBoundingClientRect().height,
+		});
 		if (notify) {
 			this.options.onCollapsedChange?.(collapsed);
 		}
@@ -77,7 +65,7 @@ export class CanvasPropertyPanel {
 
 	private renderSelection(): void {
 		this.options.body.textContent = '';
-		const selectedElement = this.selectedElement(this.options.graph.getSelectionCell());
+		const selectedElement = this.options.registry.elementForCell(this.options.graph.getSelectionCell());
 		if (selectedElement === undefined) {
 			this.options.title.textContent = 'Diagram Properties';
 			this.renderDiagramContext();
@@ -86,36 +74,6 @@ export class CanvasPropertyPanel {
 
 		this.options.title.textContent = `${capitalize(selectedElement.kind)} Properties`;
 		this.renderElement(selectedElement);
-	}
-
-	private selectedElement(cell: Cell | null): PropertyElement | undefined {
-		if (!isGraphCell(cell)) {
-			return undefined;
-		}
-
-		const id = cell.getId();
-		if (id === null) {
-			return undefined;
-		}
-
-		const node = this.nodes.get(id);
-		if (node !== undefined) {
-			return { kind: 'node', value: node };
-		}
-		const note = this.notes.get(id);
-		if (note !== undefined) {
-			return { kind: 'note', value: note };
-		}
-		const label = this.labels.get(id);
-		if (label !== undefined) {
-			return { kind: 'label', value: label };
-		}
-		const image = this.images.get(id);
-		if (image !== undefined) {
-			return { kind: 'image', value: image };
-		}
-
-		return undefined;
 	}
 
 	private renderDiagramContext(): void {
@@ -129,7 +87,7 @@ export class CanvasPropertyPanel {
 		]));
 	}
 
-	private renderElement(element: PropertyElement): void {
+	private renderElement(element: CanvasPropertyElement): void {
 		this.options.body.appendChild(sectionElement('Identity', [
 			readonlyField('Type', capitalize(element.kind)),
 			readonlyField('ID', element.value.id),
@@ -151,10 +109,12 @@ export class CanvasPropertyPanel {
 			readonlyField('Ref', node.ontology_ref),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(node, (update) => {
+			this.propertyEdited('node', node.id, ['x', 'y', 'width', 'height']);
 			this.options.postMessage({ type: 'updateNodeBounds', updates: [update] });
 		})));
 		this.options.body.appendChild(sectionElement('Image', [
 			imageField('Image', node.image ?? '', (value) => {
+				this.propertyEdited('node', node.id, ['image']);
 				this.options.postMessage({ type: 'updateNodeImage', id: node.id, image: value.trim() === '' ? undefined : value });
 			}, () => {
 				this.options.postMessage({ type: 'pickNodeImage', id: node.id });
@@ -165,10 +125,12 @@ export class CanvasPropertyPanel {
 	private renderNote(note: DiagramNote): void {
 		this.options.body.appendChild(sectionElement('Text', [
 			textAreaField('Text', note.text, (value) => {
+				this.propertyEdited('note', note.id, ['text']);
 				this.options.postMessage({ type: 'updateNoteText', id: note.id, text: value });
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(note, (update) => {
+			this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
 			this.options.postMessage({ type: 'updateNoteBounds', updates: [update] });
 		})));
 	}
@@ -176,10 +138,12 @@ export class CanvasPropertyPanel {
 	private renderLabel(label: DiagramLabel): void {
 		this.options.body.appendChild(sectionElement('Text', [
 			textAreaField('Text', label.text, (value) => {
+				this.propertyEdited('label', label.id, ['text']);
 				this.options.postMessage({ type: 'updateLabelText', id: label.id, text: value });
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(label, (update) => {
+			this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
 			this.options.postMessage({ type: 'updateLabelBounds', updates: [update] });
 		})));
 	}
@@ -187,12 +151,14 @@ export class CanvasPropertyPanel {
 	private renderImage(image: DiagramImage): void {
 		this.options.body.appendChild(sectionElement('Image', [
 			imageField('Source', image.source, (value) => {
+				this.propertyEdited('image', image.id, ['source']);
 				this.options.postMessage({ type: 'updateImageSource', id: image.id, source: value });
 			}, () => {
 				this.options.postMessage({ type: 'pickImageSource', id: image.id });
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(image, (update) => {
+			this.propertyEdited('image', image.id, ['x', 'y', 'width', 'height']);
 			this.options.postMessage({ type: 'updateImageBounds', updates: [update] });
 		})));
 	}
@@ -227,6 +193,16 @@ export class CanvasPropertyPanel {
 				send();
 			}),
 		];
+	}
+
+	private propertyEdited(elementType: CanvasElementType, elementIdentifier: string, changedFields: readonly string[]): void {
+		this.options.events.publish({
+			type: 'canvasPropertyEdited',
+			diagramFilePath: this.options.payload.file?.fsPath,
+			elementIdentifier,
+			elementType,
+			changedFields,
+		});
 	}
 }
 

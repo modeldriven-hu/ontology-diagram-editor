@@ -2,6 +2,8 @@ import { Graph, HandleConfig, InternalEvent, StyleDefaultsConfig, VertexHandlerC
 
 import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
 import { CanvasDropController } from './canvas-drop-controller';
+import { CanvasElementRegistry } from './canvas-element-registry';
+import { CanvasEventBus } from './canvas-event-bus';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
 import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
@@ -31,6 +33,8 @@ interface WebviewConfig {
 interface WebviewState {
 	readonly selectedCellId?: string;
 	readonly propertyPanelCollapsed?: boolean;
+	readonly viewportPanX?: number;
+	readonly viewportPanY?: number;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -39,6 +43,7 @@ if (config === undefined) {
 	throw new Error('Missing ontology diagram webview configuration.');
 }
 
+const webviewConfig = config;
 const vscode = acquireVsCodeApi();
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
@@ -56,10 +61,14 @@ const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButton
 const propertyPanelBody = requiredElement('propertyPanelBody');
 const theme = readTheme();
 const graph = new Graph(canvasContent);
+const canvasEvents = new CanvasEventBus();
+const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const geometryPersistence = new CanvasGeometryPersistence({
 	graph,
 	postMessage: (message) => vscode.postMessage(message),
 	showStatus,
+	events: canvasEvents,
+	diagramFilePath: webviewConfig.payload.file?.fsPath,
 });
 const noteEditorController = new NoteEditorController({
 	addNoteButton,
@@ -110,9 +119,12 @@ configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
+registerCanvasStateSubscriptions();
 render();
+registerSelectionEventPublishing();
+registerViewportEventPublishing();
 restoreSelection();
-registerSelectionPersistence();
+restoreViewport();
 noteEditorController.register();
 addImageButton.addEventListener('click', () => {
 	vscode.postMessage({
@@ -123,14 +135,16 @@ addImageButton.addEventListener('click', () => {
 new CanvasDropController({
 	scrollElement: canvasScroll,
 	contentElement: canvasContent,
-	modelTreeDragMimeType: config.modelTreeDragMimeType,
+	modelTreeDragMimeType: webviewConfig.modelTreeDragMimeType,
 	postMessage: (message) => vscode.postMessage(message),
 	showStatus,
 }).register();
 geometryPersistence.register();
 new CanvasPropertyPanel({
 	graph,
-	payload: config.payload,
+	payload: webviewConfig.payload,
+	registry: elementRegistry,
+	events: canvasEvents,
 	panel: propertyPanel,
 	title: propertyPanelTitle,
 	toggleButton: propertyPanelToggle,
@@ -141,9 +155,6 @@ new CanvasPropertyPanel({
 		canvasScroll.focus();
 	},
 	initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
-	onCollapsedChange: (collapsed) => {
-		updateWebviewState({ propertyPanelCollapsed: collapsed });
-	},
 }).register();
 registerNoteEditHandlers();
 registerDeleteHandlers();
@@ -179,22 +190,34 @@ function configureGraph(graph: Graph): void {
 }
 
 function render(): void {
-	if (config?.payload.error !== undefined) {
+	if (webviewConfig.payload.error !== undefined) {
 		canvasContent.textContent = '';
-		canvasContent.appendChild(messageElement('error-state', config.payload.error));
+		canvasContent.appendChild(messageElement('error-state', webviewConfig.payload.error));
+		canvasEvents.publish({
+			type: 'canvasRendered',
+			diagramFilePath: webviewConfig.payload.file?.fsPath,
+			renderedElementIdentifiers: [],
+			warnings: [webviewConfig.payload.error],
+		});
 		return;
 	}
 
-	const nodes = config?.payload.diagram?.nodes ?? [];
-	const notes = config?.payload.diagram?.notes ?? [];
-	const images = config?.payload.diagram?.images ?? [];
-	const labels = config?.payload.diagram?.labels ?? [];
+	const nodes = webviewConfig.payload.diagram?.nodes ?? [];
+	const notes = webviewConfig.payload.diagram?.notes ?? [];
+	const images = webviewConfig.payload.diagram?.images ?? [];
+	const labels = webviewConfig.payload.diagram?.labels ?? [];
 	if (nodes.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
 			'Drag a class, individual, or datatype from the model tree, or add a note, label, or image from the canvas toolbar.',
 		));
+		canvasEvents.publish({
+			type: 'canvasRendered',
+			diagramFilePath: webviewConfig.payload.file?.fsPath,
+			renderedElementIdentifiers: [],
+			warnings: [],
+		});
 		return;
 	}
 
@@ -256,13 +279,47 @@ function render(): void {
 			);
 		}
 	});
+	canvasEvents.publish({
+		type: 'canvasRendered',
+		diagramFilePath: webviewConfig.payload.file?.fsPath,
+		renderedElementIdentifiers: elementRegistry.renderedElementIdentifiers(),
+		warnings: [],
+	});
 }
 
-function registerSelectionPersistence(): void {
+function registerCanvasStateSubscriptions(): void {
+	canvasEvents.subscribe((event) => {
+		if (event.type === 'canvasSelectionChanged') {
+			updateWebviewState({ selectedCellId: event.selectedElementIdentifier });
+		}
+		if (event.type === 'canvasPropertyPanelVisibilityChanged') {
+			updateWebviewState({ propertyPanelCollapsed: event.collapsed });
+		}
+		if (event.type === 'canvasViewportChanged') {
+			updateWebviewState({
+				viewportPanX: event.panX,
+				viewportPanY: event.panY,
+			});
+		}
+	});
+}
+
+function registerSelectionEventPublishing(): void {
 	graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
 		const selectedCell = graph.getSelectionCell();
 		const selectedCellId = isGraphCell(selectedCell) ? selectedCell.getId() ?? undefined : undefined;
-		updateWebviewState({ selectedCellId });
+		canvasEvents.publish({
+			type: 'canvasSelectionChanged',
+			diagramFilePath: webviewConfig.payload.file?.fsPath,
+			selectedElementIdentifier: selectedCellId,
+			selectedElementType: selectedCellId === undefined ? undefined : elementRegistry.elementType(selectedCellId),
+		});
+	});
+}
+
+function registerViewportEventPublishing(): void {
+	canvasScroll.addEventListener('scroll', () => {
+		publishViewportChanged('scroll');
 	});
 }
 
@@ -276,6 +333,34 @@ function restoreSelection(): void {
 	if (selectedCell !== null) {
 		graph.setSelectionCell(selectedCell);
 	}
+}
+
+function restoreViewport(): void {
+	const state = vscode.getState();
+	const viewportPanX = state?.viewportPanX;
+	const viewportPanY = state?.viewportPanY;
+	if (viewportPanX === undefined && viewportPanY === undefined) {
+		return;
+	}
+
+	requestAnimationFrame(() => {
+		canvasScroll.scrollTo({
+			left: viewportPanX ?? canvasScroll.scrollLeft,
+			top: viewportPanY ?? canvasScroll.scrollTop,
+		});
+		publishViewportChanged('restore');
+	});
+}
+
+function publishViewportChanged(changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom'): void {
+	canvasEvents.publish({
+		type: 'canvasViewportChanged',
+		diagramFilePath: webviewConfig.payload.file?.fsPath,
+		panX: canvasScroll.scrollLeft,
+		panY: canvasScroll.scrollTop,
+		zoom: graph.getView().getScale(),
+		changeSource,
+	});
 }
 
 function updateWebviewState(update: Partial<WebviewState>): void {

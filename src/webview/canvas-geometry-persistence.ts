@@ -2,12 +2,17 @@ import { Graph, InternalEvent, Rectangle, type Cell, type EventObject } from '@m
 
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
+import type { CanvasEventPublisher } from './canvas-event-bus';
 
 interface CanvasGeometryPersistenceOptions {
 	readonly graph: Graph;
 	readonly postMessage: (message: WebviewMessage) => void;
 	readonly showStatus: (message: string) => void;
+	readonly events: CanvasEventPublisher;
+	readonly diagramFilePath?: string;
 }
+
+type BoundsDragKind = 'move' | 'resize';
 
 export class CanvasGeometryPersistence {
 	private readonly persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
@@ -22,10 +27,10 @@ export class CanvasGeometryPersistence {
 
 	public register(): void {
 		this.options.graph.addListener(InternalEvent.CELLS_MOVED, (_sender: unknown, event: EventObject) => {
-			this.persistChangedElementBounds(event.getProperty('cells'));
+			this.persistChangedElementBounds(event.getProperty('cells'), 'move');
 		});
 		this.options.graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
-			this.persistChangedElementBounds(event.getProperty('cells'));
+			this.persistChangedElementBounds(event.getProperty('cells'), 'resize');
 		});
 	}
 
@@ -75,7 +80,7 @@ export class CanvasGeometryPersistence {
 		this.persistedLabelText.set(id, text);
 	}
 
-	private persistChangedElementBounds(cells: unknown): void {
+	private persistChangedElementBounds(cells: unknown, dragKind: BoundsDragKind): void {
 		if (this.suppressGeometryPersistence || !Array.isArray(cells)) {
 			return;
 		}
@@ -134,7 +139,7 @@ export class CanvasGeometryPersistence {
 			return;
 		}
 
-		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates);
+		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates, dragKind);
 	}
 
 	private persistUpdates(
@@ -142,6 +147,7 @@ export class CanvasGeometryPersistence {
 		noteUpdates: readonly NoteBoundsUpdate[],
 		imageUpdates: readonly ImageBoundsUpdate[],
 		labelUpdates: readonly LabelBoundsUpdate[],
+		dragKind: BoundsDragKind,
 	): void {
 		for (const update of nodeUpdates) {
 			this.persistedNodeBounds.set(update.id, update);
@@ -154,6 +160,18 @@ export class CanvasGeometryPersistence {
 		}
 		for (const update of labelUpdates) {
 			this.persistedLabelBounds.set(update.id, update);
+		}
+		for (const update of nodeUpdates) {
+			this.publishDragCompleted('node', update, dragKind);
+		}
+		for (const update of noteUpdates) {
+			this.publishDragCompleted('note', update, dragKind);
+		}
+		for (const update of imageUpdates) {
+			this.publishDragCompleted('image', update, dragKind);
+		}
+		for (const update of labelUpdates) {
+			this.publishDragCompleted('label', update, dragKind);
 		}
 		if (nodeUpdates.length > 0) {
 			this.options.postMessage({
@@ -179,6 +197,21 @@ export class CanvasGeometryPersistence {
 				updates: labelUpdates,
 			});
 		}
+	}
+
+	private publishDragCompleted(
+		elementType: 'node' | 'note' | 'image' | 'label',
+		changedBounds: BoundsUpdate,
+		dragKind: BoundsDragKind,
+	): void {
+		this.options.events.publish({
+			type: 'canvasDragCompleted',
+			diagramFilePath: this.options.diagramFilePath,
+			elementIdentifier: changedBounds.id,
+			elementType,
+			dragKind,
+			changedBounds,
+		});
 	}
 
 	private boundsUpdate(cell: unknown, persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): BoundsUpdate | undefined {
