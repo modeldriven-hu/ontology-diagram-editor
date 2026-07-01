@@ -4,8 +4,8 @@ This specification defines canvas behavior for standalone images.
 
 # Scope
 
-This specification covers adding images, moving images, resizing images, and persisting
-image sources.
+This specification covers adding images, moving images, resizing images, deleting
+images, and persisting image sources.
 
 # Add Images
 
@@ -46,3 +46,11 @@ updated.
 
 The canvas shall enforce a positive width and height and minimum dimensions that keep
 image handles usable.
+
+# Delete Images
+
+The user can delete a selected image from the canvas.
+
+When the user requests image deletion, the editor shall ask for confirmation before
+modifying the `.odiagram` document. If the user confirms, the image shall be removed
+from the `images` section. If the user cancels, the document shall remain unchanged.

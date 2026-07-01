@@ -15,6 +15,8 @@ export type WebviewMessage =
 	| CreateNodeMessage
 	| CreateNoteMessage
 	| CreateImageMessage
+	| DeleteNoteMessage
+	| DeleteImageMessage
 	| UpdateNodeBoundsMessage
 	| UpdateNoteBoundsMessage
 	| UpdateImageBoundsMessage
@@ -40,6 +42,16 @@ export interface CreateNoteMessage {
 export interface CreateImageMessage {
 	readonly type: 'createImage';
 	readonly position: CanvasPoint;
+}
+
+export interface DeleteNoteMessage {
+	readonly type: 'deleteNote';
+	readonly id: string;
+}
+
+export interface DeleteImageMessage {
+	readonly type: 'deleteImage';
+	readonly id: string;
 }
 
 export interface UpdateNoteBoundsMessage {

@@ -95,6 +95,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 registerNoteEditHandlers();
+registerDeleteHandlers();
 
 function configureGraph(graph: Graph): void {
 	VertexHandlerConfig.selectionColor = theme.focusBorder;
@@ -227,6 +228,63 @@ function editNoteCell(cell: unknown): boolean {
 	noteEditorController.open(id);
 
 	return true;
+}
+
+function registerDeleteHandlers(): void {
+	document.addEventListener('keydown', (event) => {
+		if (noteEditorController.isOpen()) {
+			return;
+		}
+		if (event.key !== 'Delete' && event.key !== 'Backspace') {
+			return;
+		}
+		if (isKeyboardInputTarget(event.target)) {
+			return;
+		}
+
+		if (deleteSelectedCell(graph.getSelectionCell())) {
+			event.preventDefault();
+		}
+	});
+}
+
+function isKeyboardInputTarget(target: EventTarget | null): boolean {
+	return target instanceof HTMLButtonElement
+		|| target instanceof HTMLTextAreaElement
+		|| target instanceof HTMLInputElement
+		|| target instanceof HTMLSelectElement
+		|| (target instanceof HTMLElement && target.isContentEditable);
+}
+
+function deleteSelectedCell(cell: unknown): boolean {
+	if (!isGraphCell(cell)) {
+		return false;
+	}
+
+	const id = cell.getId();
+	if (id === null) {
+		return false;
+	}
+
+	if (geometryPersistence.hasNote(id)) {
+		vscode.postMessage({
+			type: 'deleteNote',
+			id,
+		});
+
+		return true;
+	}
+
+	if (geometryPersistence.hasImage(id)) {
+		vscode.postMessage({
+			type: 'deleteImage',
+			id,
+		});
+
+		return true;
+	}
+
+	return false;
 }
 
 function insertionPosition(): CanvasPoint {

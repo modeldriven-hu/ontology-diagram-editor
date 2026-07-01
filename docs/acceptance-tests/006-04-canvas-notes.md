@@ -13,6 +13,12 @@
 - Given a note resize handle is dragged, when the resize completes, then dimensions and any affected top-left coordinate are updated.
 - Given a resize would create non-positive or unusably small dimensions, when completed, then the action is rejected and the document remains unchanged.
 
+## Delete Notes
+
+- Given a note is selected, when the user requests deletion, then the editor asks for confirmation before changing the document.
+- Given the user confirms note deletion, when persistence completes, then the note is removed from the `.odiagram` `notes` section.
+- Given the user cancels note deletion, when the confirmation closes, then the document remains unchanged.
+
 ## Standalone Annotation
 
 - Given a note is selected, when version 1 note controls are shown, then no note-connection editing controls are available.

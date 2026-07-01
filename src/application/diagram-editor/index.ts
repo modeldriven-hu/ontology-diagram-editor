@@ -1,6 +1,8 @@
 export { CreateImageUseCase } from './create-image-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';
 export { CreateNoteUseCase } from './create-note-use-case';
+export { DeleteImageUseCase } from './delete-image-use-case';
+export { DeleteNoteUseCase } from './delete-note-use-case';
 export type { DiagramMutationResult } from './diagram-mutation-result';
 export { UpdateImageBoundsUseCase } from './update-image-bounds-use-case';
 export { UpdateNodeBoundsUseCase } from './update-node-bounds-use-case';

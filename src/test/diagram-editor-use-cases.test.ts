@@ -6,10 +6,11 @@ import {
 	DiagramImage,
 	DiagramMetadata,
 	DiagramNode,
+	DiagramNote,
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateImageUseCase, CreateNodeUseCase, UpdateImageBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateImageUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -151,6 +152,30 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'Images must be at least 32 x 32.');
 	});
+
+	test('deletes an image from the diagram', () => {
+		const diagram = diagramWithImages([
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+			new DiagramImage('image_banner', new Bounds(40, 50, 120, 90), 'images/banner.png'),
+		]);
+
+		const result = new DeleteImageUseCase().execute(diagram, 'image_logo');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.images.map((image) => image.id.value), ['image_banner']);
+	});
+
+	test('deletes a note from the diagram', () => {
+		const diagram = diagramWithNotes([
+			new DiagramNote('note_first', new Bounds(10, 20, 100, 80), 'First'),
+			new DiagramNote('note_second', new Bounds(40, 50, 120, 90), 'Second'),
+		]);
+
+		const result = new DeleteNoteUseCase().execute(diagram, 'note_first');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_second']);
+	});
 });
 
 function emptyDiagram(): OntologyDiagramDocument {
@@ -176,5 +201,16 @@ function diagramWithImages(images: readonly DiagramImage[]): OntologyDiagramDocu
 		[],
 		[],
 		images,
+	);
+}
+
+function diagramWithNotes(notes: readonly DiagramNote[]): OntologyDiagramDocument {
+	return new OntologyDiagramDocument(
+		DiagramMetadata.createEmpty('Example'),
+		[],
+		new Map([['ex', 'https://example.com/ontology#']]),
+		[],
+		[],
+		notes,
 	);
 }

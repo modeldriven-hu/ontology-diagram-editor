@@ -4,6 +4,8 @@ import {
 	CreateImageUseCase,
 	CreateNodeUseCase,
 	CreateNoteUseCase,
+	DeleteImageUseCase,
+	DeleteNoteUseCase,
 	UpdateImageBoundsUseCase,
 	UpdateNodeBoundsUseCase,
 	UpdateNoteBoundsUseCase,
@@ -19,6 +21,8 @@ interface DiagramEditorUseCases {
 	readonly createNode: CreateNodeUseCase;
 	readonly createNote: CreateNoteUseCase;
 	readonly createImage: CreateImageUseCase;
+	readonly deleteNote: DeleteNoteUseCase;
+	readonly deleteImage: DeleteImageUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
@@ -57,6 +61,12 @@ export class OntologyDiagramMessageDispatcher {
 			case 'createImage':
 				await this.createImage(message);
 				return;
+			case 'deleteNote':
+				await this.deleteNote(message);
+				return;
+			case 'deleteImage':
+				await this.deleteImage(message);
+				return;
 			case 'updateNoteBounds':
 				await this.handleResult(this.useCases.updateNoteBounds.execute(
 					this.repository.load(),
@@ -90,6 +100,38 @@ export class OntologyDiagramMessageDispatcher {
 			this.repository.load(),
 			resolvedPayload,
 			message.position,
+		));
+	}
+
+	private async deleteImage(message: Extract<WebviewMessage, { readonly type: 'deleteImage' }>): Promise<void> {
+		const confirmed = await vscode.window.showWarningMessage(
+			'Delete this image from the diagram?',
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteImage.execute(
+			this.repository.load(),
+			message.id,
+		));
+	}
+
+	private async deleteNote(message: Extract<WebviewMessage, { readonly type: 'deleteNote' }>): Promise<void> {
+		const confirmed = await vscode.window.showWarningMessage(
+			'Delete this note from the diagram?',
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteNote.execute(
+			this.repository.load(),
+			message.id,
 		));
 	}
 
@@ -131,6 +173,8 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createNode: new CreateNodeUseCase(),
 		createNote: new CreateNoteUseCase(),
 		createImage: new CreateImageUseCase(),
+		deleteNote: new DeleteNoteUseCase(),
+		deleteImage: new DeleteImageUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),
 		updateImageBounds: new UpdateImageBoundsUseCase(),

@@ -4,8 +4,8 @@ This specification defines canvas behavior for free-form notes.
 
 # Scope
 
-This specification covers adding notes, editing note text, moving notes, and resizing
-notes.
+This specification covers adding notes, editing note text, moving notes, resizing
+notes, and deleting notes.
 
 # Add Notes
 
@@ -53,3 +53,11 @@ updated.
 
 The canvas shall enforce a positive width and height and minimum dimensions that keep
 note text and handles usable.
+
+# Delete Notes
+
+The user can delete a selected note from the canvas.
+
+When the user requests note deletion, the editor shall ask for confirmation before
+modifying the `.odiagram` document. If the user confirms, the note shall be removed
+from the `notes` section. If the user cancels, the document shall remain unchanged.

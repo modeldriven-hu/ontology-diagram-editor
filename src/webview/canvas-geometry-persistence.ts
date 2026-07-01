@@ -40,6 +40,10 @@ export class CanvasGeometryPersistence {
 		this.persistedImageBounds.set(update.id, update);
 	}
 
+	public hasImage(id: string): boolean {
+		return this.persistedImageBounds.has(id);
+	}
+
 	public hasNote(id: string): boolean {
 		return this.persistedNoteBounds.has(id);
 	}
