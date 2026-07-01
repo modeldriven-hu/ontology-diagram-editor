@@ -11,7 +11,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -107,6 +107,20 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.notification, 'Notes must be at least 120 x 64.');
 	});
 
+	test('updates and removes node image sources', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 100, 50)),
+		]);
+
+		const updated = new UpdateNodeImageUseCase().execute(diagram, 'node_person', 'data:image/png;base64,aW1hZ2U=');
+		assert.ok(updated.diagram);
+		assert.strictEqual(updated.diagram.nodes[0].image, 'data:image/png;base64,aW1hZ2U=');
+
+		const removed = new UpdateNodeImageUseCase().execute(updated.diagram, 'node_person', '');
+		assert.ok(removed.diagram);
+		assert.strictEqual(removed.diagram.nodes[0].image, undefined);
+	});
+
 	test('creates a diagram image with persisted source and default bounds', () => {
 		const result = new CreateImageUseCase().execute(
 			emptyDiagram(),
@@ -143,6 +157,28 @@ suite('Diagram editor use cases', () => {
 			width: 180,
 			height: 121,
 		});
+	});
+
+	test('updates image source from property edits', () => {
+		const diagram = diagramWithImages([
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+		]);
+
+		const result = new UpdateImageSourceUseCase().execute(diagram, 'image_logo', 'data:image/png;base64,aW1hZ2U=');
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.images[0].source, 'data:image/png;base64,aW1hZ2U=');
+	});
+
+	test('reports invalid image source property edits without changing the diagram', () => {
+		const diagram = diagramWithImages([
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+		]);
+
+		const result = new UpdateImageSourceUseCase().execute(diagram, 'image_logo', 'https://example.com/logo.png');
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Image source must be a relative file path or data image URI.');
 	});
 
 	test('reports invalid image sizes without changing the diagram', () => {

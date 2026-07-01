@@ -63,6 +63,13 @@ function webviewBody(
 			<div class="canvas-content" id="canvasContent"></div>
 			<p class="status" id="status"></p>
 		</div>
+		<section class="property-panel" id="propertyPanel">
+			<header class="property-panel-header">
+				<strong id="propertyPanelTitle">Properties</strong>
+				<button class="property-panel-toggle" id="propertyPanelToggle" type="button" aria-expanded="true" title="Toggle properties">Properties</button>
+			</header>
+			<div class="property-panel-body" id="propertyPanelBody"></div>
+		</section>
 	</div>
 	<script nonce="${nonce}">
 		window.ontologyDiagramEditorConfig = {
@@ -91,7 +98,7 @@ function webviewStyles(): string {
 
 	.editor {
 		display: grid;
-		grid-template-rows: auto 1fr;
+		grid-template-rows: auto minmax(0, 1fr) auto;
 		height: 100vh;
 	}
 
@@ -320,6 +327,135 @@ function webviewStyles(): string {
 		visibility: visible;
 		opacity: 1;
 		transform: translateY(0);
+	}
+
+	.property-panel {
+		min-height: 112px;
+		max-height: 340px;
+		resize: vertical;
+		overflow: auto;
+		border-top: 1px solid var(--vscode-panel-border);
+		background: var(--vscode-sideBar-background);
+	}
+
+	.property-panel.collapsed {
+		min-height: 34px;
+		height: 34px !important;
+		resize: none;
+		overflow: hidden;
+	}
+
+	.property-panel-header {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 34px;
+		padding: 5px 12px;
+		border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, transparent);
+		background: var(--vscode-sideBar-background);
+	}
+
+	.property-panel-toggle {
+		height: 24px;
+		padding: 0 8px;
+		border: 1px solid var(--vscode-button-border, transparent);
+		border-radius: 4px;
+		background: var(--vscode-button-secondaryBackground);
+		color: var(--vscode-button-secondaryForeground);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.property-panel-body {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 12px;
+		padding: 10px 12px 12px;
+	}
+
+	.property-section {
+		min-width: 0;
+	}
+
+	.property-section-title {
+		margin: 0 0 6px;
+		color: var(--vscode-descriptionForeground);
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+	}
+
+	.property-field {
+		display: grid;
+		grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+		align-items: center;
+		gap: 6px 10px;
+		margin-bottom: 7px;
+	}
+
+	.property-label {
+		color: var(--vscode-descriptionForeground);
+		font-size: 12px;
+	}
+
+	.property-value,
+	.property-input,
+	.property-textarea {
+		min-width: 0;
+		width: 100%;
+	}
+
+	.property-value {
+		overflow-wrap: anywhere;
+		font-size: 12px;
+	}
+
+	.property-input,
+	.property-textarea {
+		padding: 4px 6px;
+		border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+		border-radius: 4px;
+		background: var(--vscode-input-background);
+		color: var(--vscode-input-foreground);
+		font: inherit;
+	}
+
+	.property-input:focus,
+	.property-textarea:focus {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
+	}
+
+	.property-textarea {
+		min-height: 58px;
+		resize: vertical;
+	}
+
+	.property-inline {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.property-inline .property-input {
+		flex: 1 1 auto;
+	}
+
+	.property-button {
+		flex: 0 0 auto;
+		height: 26px;
+		padding: 0 8px;
+		border: 1px solid var(--vscode-button-border, transparent);
+		border-radius: 4px;
+		background: var(--vscode-button-secondaryBackground);
+		color: var(--vscode-button-secondaryForeground);
+		font: inherit;
+		cursor: pointer;
 	}`;
 }
 

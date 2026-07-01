@@ -9,9 +9,11 @@ import {
 	DeleteLabelUseCase,
 	DeleteNoteUseCase,
 	UpdateImageBoundsUseCase,
+	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
 	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
+	UpdateNodeImageUseCase,
 	UpdateNoteBoundsUseCase,
 	UpdateNoteTextUseCase,
 } from '../application/diagram-editor';
@@ -30,8 +32,10 @@ interface DiagramEditorUseCases {
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
+	readonly updateNodeImage: UpdateNodeImageUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
+	readonly updateImageSource: UpdateImageSourceUseCase;
 	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
@@ -57,6 +61,13 @@ export class OntologyDiagramMessageDispatcher {
 				await this.handleResult(this.useCases.updateNodeBounds.execute(
 					this.repository.load(),
 					message.updates,
+				));
+				return;
+			case 'updateNodeImage':
+				await this.handleResult(this.useCases.updateNodeImage.execute(
+					this.repository.load(),
+					message.id,
+					message.image,
 				));
 				return;
 			case 'createNote':
@@ -96,6 +107,19 @@ export class OntologyDiagramMessageDispatcher {
 					this.repository.load(),
 					message.updates,
 				));
+				return;
+			case 'updateImageSource':
+				await this.handleResult(this.useCases.updateImageSource.execute(
+					this.repository.load(),
+					message.id,
+					message.source,
+				));
+				return;
+			case 'pickNodeImage':
+				await this.pickNodeImage(message.id);
+				return;
+			case 'pickImageSource':
+				await this.pickImageSource(message.id);
 				return;
 			case 'updateLabelBounds':
 				await this.handleResult(this.useCases.updateLabelBounds.execute(
@@ -183,17 +207,7 @@ export class OntologyDiagramMessageDispatcher {
 	}
 
 	private async createImage(message: Extract<WebviewMessage, { readonly type: 'createImage' }>): Promise<void> {
-		const selectedImage = await vscode.window.showOpenDialog({
-			canSelectFiles: true,
-			canSelectFolders: false,
-			canSelectMany: false,
-			filters: {
-				Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'],
-			},
-			openLabel: 'Add Image',
-			title: 'Add image to ontology diagram',
-		});
-		const imageUri = selectedImage?.[0];
+		const imageUri = await pickImageFile('Add Image', 'Add image to ontology diagram');
 		if (imageUri === undefined) {
 			return;
 		}
@@ -202,6 +216,32 @@ export class OntologyDiagramMessageDispatcher {
 			this.repository.load(),
 			await embeddedImageSourceFromFile(imageUri.fsPath),
 			message.position,
+		));
+	}
+
+	private async pickNodeImage(id: string): Promise<void> {
+		const imageUri = await pickImageFile('Set Image', 'Set node image');
+		if (imageUri === undefined) {
+			return;
+		}
+
+		await this.handleResult(this.useCases.updateNodeImage.execute(
+			this.repository.load(),
+			id,
+			await embeddedImageSourceFromFile(imageUri.fsPath),
+		));
+	}
+
+	private async pickImageSource(id: string): Promise<void> {
+		const imageUri = await pickImageFile('Set Image', 'Set standalone image source');
+		if (imageUri === undefined) {
+			return;
+		}
+
+		await this.handleResult(this.useCases.updateImageSource.execute(
+			this.repository.load(),
+			id,
+			await embeddedImageSourceFromFile(imageUri.fsPath),
 		));
 	}
 
@@ -225,10 +265,27 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
+		updateNodeImage: new UpdateNodeImageUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),
 		updateImageBounds: new UpdateImageBoundsUseCase(),
+		updateImageSource: new UpdateImageSourceUseCase(),
 		updateLabelBounds: new UpdateLabelBoundsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
 	};
+}
+
+async function pickImageFile(openLabel: string, title: string): Promise<vscode.Uri | undefined> {
+	const selectedImage = await vscode.window.showOpenDialog({
+		canSelectFiles: true,
+		canSelectFolders: false,
+		canSelectMany: false,
+		filters: {
+			Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'],
+		},
+		openLabel,
+		title,
+	});
+
+	return selectedImage?.[0];
 }

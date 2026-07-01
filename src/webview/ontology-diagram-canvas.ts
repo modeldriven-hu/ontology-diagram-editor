@@ -3,6 +3,7 @@ import { Graph, HandleConfig, InternalEvent, StyleDefaultsConfig, VertexHandlerC
 import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
+import { CanvasPropertyPanel } from './canvas-property-panel';
 import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
 import { labelBounds, labelVertex, renderLabelToolbarIcon } from './ontology-diagram-labels';
 import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
@@ -12,6 +13,8 @@ import { readTheme } from './webview-theme';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewMessage): void;
+	getState(): WebviewState | undefined;
+	setState(state: WebviewState): void;
 };
 
 declare global {
@@ -23,6 +26,11 @@ declare global {
 interface WebviewConfig {
 	readonly payload: DiagramPayload;
 	readonly modelTreeDragMimeType: string;
+}
+
+interface WebviewState {
+	readonly selectedCellId?: string;
+	readonly propertyPanelCollapsed?: boolean;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -42,6 +50,10 @@ const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
 const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
+const propertyPanel = requiredElement('propertyPanel');
+const propertyPanelTitle = requiredElement('propertyPanelTitle');
+const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
+const propertyPanelBody = requiredElement('propertyPanelBody');
 const theme = readTheme();
 const graph = new Graph(canvasContent);
 const geometryPersistence = new CanvasGeometryPersistence({
@@ -99,6 +111,8 @@ renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 render();
+restoreSelection();
+registerSelectionPersistence();
 noteEditorController.register();
 addImageButton.addEventListener('click', () => {
 	vscode.postMessage({
@@ -114,6 +128,23 @@ new CanvasDropController({
 	showStatus,
 }).register();
 geometryPersistence.register();
+new CanvasPropertyPanel({
+	graph,
+	payload: config.payload,
+	panel: propertyPanel,
+	title: propertyPanelTitle,
+	toggleButton: propertyPanelToggle,
+	body: propertyPanelBody,
+	postMessage: (message) => vscode.postMessage(message),
+	showStatus,
+	focusAfterEscape: () => {
+		canvasScroll.focus();
+	},
+	initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
+	onCollapsedChange: (collapsed) => {
+		updateWebviewState({ propertyPanelCollapsed: collapsed });
+	},
+}).register();
 registerNoteEditHandlers();
 registerDeleteHandlers();
 
@@ -224,6 +255,33 @@ function render(): void {
 				vertex.style,
 			);
 		}
+	});
+}
+
+function registerSelectionPersistence(): void {
+	graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
+		const selectedCell = graph.getSelectionCell();
+		const selectedCellId = isGraphCell(selectedCell) ? selectedCell.getId() ?? undefined : undefined;
+		updateWebviewState({ selectedCellId });
+	});
+}
+
+function restoreSelection(): void {
+	const selectedCellId = vscode.getState()?.selectedCellId;
+	if (selectedCellId === undefined) {
+		return;
+	}
+
+	const selectedCell = graph.getDataModel().getCell(selectedCellId);
+	if (selectedCell !== null) {
+		graph.setSelectionCell(selectedCell);
+	}
+}
+
+function updateWebviewState(update: Partial<WebviewState>): void {
+	vscode.setState({
+		...vscode.getState(),
+		...update,
 	});
 }
 

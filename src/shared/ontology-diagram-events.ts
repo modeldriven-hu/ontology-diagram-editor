@@ -23,6 +23,10 @@ export type WebviewMessage =
 	| UpdateNoteBoundsMessage
 	| UpdateImageBoundsMessage
 	| UpdateLabelBoundsMessage
+	| UpdateNodeImageMessage
+	| UpdateImageSourceMessage
+	| PickNodeImageMessage
+	| PickImageSourceMessage
 	| UpdateLabelTextMessage
 	| UpdateNoteTextMessage;
 
@@ -82,6 +86,28 @@ export interface UpdateImageBoundsMessage {
 export interface UpdateLabelBoundsMessage {
 	readonly type: 'updateLabelBounds';
 	readonly updates: readonly LabelBoundsUpdate[];
+}
+
+export interface UpdateNodeImageMessage {
+	readonly type: 'updateNodeImage';
+	readonly id: string;
+	readonly image?: string;
+}
+
+export interface UpdateImageSourceMessage {
+	readonly type: 'updateImageSource';
+	readonly id: string;
+	readonly source: string;
+}
+
+export interface PickNodeImageMessage {
+	readonly type: 'pickNodeImage';
+	readonly id: string;
+}
+
+export interface PickImageSourceMessage {
+	readonly type: 'pickImageSource';
+	readonly id: string;
 }
 
 export interface UpdateNoteTextMessage {

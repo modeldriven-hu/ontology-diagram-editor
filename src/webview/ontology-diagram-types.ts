@@ -4,7 +4,17 @@ export interface CanvasPoint {
 }
 
 export interface DiagramPayload {
+	readonly file?: {
+		readonly fsPath: string;
+		readonly uri: string;
+		readonly directory: string;
+	};
 	readonly diagram?: {
+		readonly metadata?: {
+			readonly title?: string;
+			readonly theme_file?: string;
+		};
+		readonly ontologies?: readonly unknown[];
 		readonly nodes?: readonly DiagramNode[];
 		readonly notes?: readonly DiagramNote[];
 		readonly images?: readonly DiagramImage[];
@@ -21,6 +31,7 @@ export interface DiagramNode {
 	readonly width: number;
 	readonly height: number;
 	readonly ontology_item_type?: string;
+	readonly image?: string;
 	readonly style?: DiagramElementStyle;
 }
 
