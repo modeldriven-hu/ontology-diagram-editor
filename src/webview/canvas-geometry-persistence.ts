@@ -1,18 +1,15 @@
-import { Graph, InternalEvent, Rectangle, type Cell, type EventObject } from '@maxgraph/core';
-
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 import type { CanvasEventPublisher } from './canvas-event-bus';
+import type { BoundsDragKind, DiagramCanvasEngine } from './diagram-canvas-engine';
 
 interface CanvasGeometryPersistenceOptions {
-	readonly graph: Graph;
+	readonly canvas: DiagramCanvasEngine;
 	readonly postMessage: (message: WebviewMessage) => void;
 	readonly showStatus: (message: string) => void;
 	readonly events: CanvasEventPublisher;
 	readonly diagramFilePath?: string;
 }
-
-type BoundsDragKind = 'move' | 'resize';
 
 export class CanvasGeometryPersistence {
 	private readonly persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
@@ -27,14 +24,11 @@ export class CanvasGeometryPersistence {
 	public constructor(private readonly options: CanvasGeometryPersistenceOptions) {}
 
 	public register(): void {
-		this.options.graph.addListener(InternalEvent.CELLS_MOVED, (_sender: unknown, event: EventObject) => {
-			this.persistChangedElementBounds(event.getProperty('cells'), 'move');
+		this.options.canvas.onElementBoundsChanged((change) => {
+			this.persistChangedElementBounds(change.bounds, change.dragKind);
 		});
-		this.options.graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
-			this.persistChangedElementBounds(event.getProperty('cells'), 'resize');
-		});
-		this.options.graph.getDataModel().addListener(InternalEvent.CHANGE, (_sender: unknown, event: EventObject) => {
-			this.persistChangedEdgeRoutes(event.getProperty('edit'));
+		this.options.canvas.onEdgeRouteChanged((edgeIds) => {
+			this.persistChangedEdgeRoutes(edgeIds);
 		});
 	}
 
@@ -92,8 +86,8 @@ export class CanvasGeometryPersistence {
 		this.persistedLabelText.set(id, text);
 	}
 
-	private persistChangedElementBounds(cells: unknown, dragKind: BoundsDragKind): void {
-		if (this.suppressGeometryPersistence || !Array.isArray(cells)) {
+	private persistChangedElementBounds(bounds: readonly BoundsUpdate[], dragKind: BoundsDragKind): void {
+		if (this.suppressGeometryPersistence) {
 			return;
 		}
 
@@ -101,28 +95,24 @@ export class CanvasGeometryPersistence {
 		const noteUpdates: NoteBoundsUpdate[] = [];
 		const imageUpdates: ImageBoundsUpdate[] = [];
 		const labelUpdates: LabelBoundsUpdate[] = [];
-		for (const cell of cells) {
-			const nodeUpdate = this.boundsUpdate(cell, this.persistedNodeBounds);
-			if (nodeUpdate !== undefined) {
-				nodeUpdates.push(nodeUpdate);
+		for (const update of bounds) {
+			if (this.persistedNodeBounds.has(update.id)) {
+				nodeUpdates.push(update);
 				continue;
 			}
 
-			const noteUpdate = this.boundsUpdate(cell, this.persistedNoteBounds);
-			if (noteUpdate !== undefined) {
-				noteUpdates.push(noteUpdate);
+			if (this.persistedNoteBounds.has(update.id)) {
+				noteUpdates.push(update);
 				continue;
 			}
 
-			const imageUpdate = this.boundsUpdate(cell, this.persistedImageBounds);
-			if (imageUpdate !== undefined) {
-				imageUpdates.push(imageUpdate);
+			if (this.persistedImageBounds.has(update.id)) {
+				imageUpdates.push(update);
 				continue;
 			}
 
-			const labelUpdate = this.boundsUpdate(cell, this.persistedLabelBounds);
-			if (labelUpdate !== undefined) {
-				labelUpdates.push(labelUpdate);
+			if (this.persistedLabelBounds.has(update.id)) {
+				labelUpdates.push(update);
 			}
 		}
 
@@ -154,69 +144,31 @@ export class CanvasGeometryPersistence {
 		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates, dragKind);
 	}
 
-	private persistChangedEdgeRoutes(edit: unknown): void {
-		if (this.suppressGeometryPersistence || !isUndoableEdit(edit)) {
+	private persistChangedEdgeRoutes(edgeIds: readonly string[]): void {
+		if (this.suppressGeometryPersistence) {
 			return;
 		}
 
-		const changedEdgeIds = new Set<string>();
-		for (const change of edit.changes) {
-			const cell = change.cell;
-			if (isGraphCell(cell)) {
-				const id = cell.getId();
-				if (id !== null && this.persistedEdgeRoutes.has(id)) {
-					changedEdgeIds.add(id);
-				}
+		const updates: EdgeRouteUpdate[] = [];
+		for (const edgeId of edgeIds) {
+			const persisted = this.persistedEdgeRoutes.get(edgeId);
+			if (persisted === undefined) {
+				continue;
+			}
+			const update = this.options.canvas.edgeRoute(edgeId, persisted.label);
+			if (update !== undefined && !edgeRoutesEqual(update, persisted)) {
+				updates.push(update);
 			}
 		}
-		if (changedEdgeIds.size === 0) {
-			return;
+		for (const update of updates) {
+			this.persistedEdgeRoutes.set(update.id, update);
 		}
-
-		requestAnimationFrame(() => {
-			const updates: EdgeRouteUpdate[] = [];
-			for (const edgeId of changedEdgeIds) {
-				const update = this.edgeRouteUpdate(edgeId);
-				const persisted = this.persistedEdgeRoutes.get(edgeId);
-				if (update !== undefined && persisted !== undefined && !edgeRoutesEqual(update, persisted)) {
-					updates.push(update);
-				}
-			}
-			for (const update of updates) {
-				this.persistedEdgeRoutes.set(update.id, update);
-			}
-			if (updates.length > 0) {
-				this.options.postMessage({
-					type: 'updateEdgeRoute',
-					updates,
-				});
-			}
-		});
-	}
-
-	private edgeRouteUpdate(edgeId: string): EdgeRouteUpdate | undefined {
-		const cell = this.options.graph.getDataModel().getCell(edgeId);
-		if (cell === null) {
-			return undefined;
+		if (updates.length > 0) {
+			this.options.postMessage({
+				type: 'updateEdgeRoute',
+				updates,
+			});
 		}
-
-		this.options.graph.getView().validate();
-		const state = this.options.graph.getView().getState(cell);
-		const persisted = this.persistedEdgeRoutes.get(edgeId);
-		if (state === null || persisted === undefined || state.absolutePoints.length < 2) {
-			return undefined;
-		}
-
-		const points = state.absolutePoints.filter((point) => point !== null);
-		if (points.length < 2) {
-			return undefined;
-		}
-
-		return {
-			id: edgeId,
-			points: points.map((point) => graphPoint(point.x, point.y, this.options.graph)),
-			label: persisted.label,
-		};
 	}
 
 	private persistUpdates(
@@ -291,70 +243,17 @@ export class CanvasGeometryPersistence {
 		});
 	}
 
-	private boundsUpdate(cell: unknown, persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): BoundsUpdate | undefined {
-		if (!isGraphCell(cell)) {
-			return undefined;
-		}
-
-		const id = cell.getId();
-		const geometry = cell.getGeometry();
-		if (id === null || geometry === null || !persistedBoundsById.has(id)) {
-			return undefined;
-		}
-
-		return {
-			id,
-			x: Math.max(0, Math.round(geometry.x)),
-			y: Math.max(0, Math.round(geometry.y)),
-			width: Math.round(geometry.width),
-			height: Math.round(geometry.height),
-		};
-	}
-
 	private restorePersistedBounds(updates: readonly BoundsUpdate[], persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): void {
 		this.suppressGeometryPersistence = true;
 		try {
-			for (const update of updates) {
+			this.options.canvas.restoreBounds(updates.flatMap((update) => {
 				const persistedBounds = persistedBoundsById.get(update.id);
-				const cell = this.options.graph.getDataModel().getCell(update.id);
-				if (persistedBounds !== undefined && cell !== null) {
-					this.options.graph.resizeCell(
-						cell,
-						new Rectangle(
-							persistedBounds.x,
-							persistedBounds.y,
-							persistedBounds.width,
-							persistedBounds.height,
-						),
-					);
-				}
-			}
+				return persistedBounds === undefined ? [] : [persistedBounds];
+			}));
 		} finally {
 			this.suppressGeometryPersistence = false;
 		}
 	}
-}
-
-export function isGraphCell(value: unknown): value is Cell {
-	return typeof value === 'object'
-		&& value !== null
-		&& 'getId' in value
-		&& 'getGeometry' in value;
-}
-
-function isUndoableEdit(value: unknown): value is { readonly changes: readonly { readonly cell?: unknown }[] } {
-	return typeof value === 'object'
-		&& value !== null
-		&& 'changes' in value
-		&& Array.isArray((value as { readonly changes: unknown }).changes);
-}
-
-function graphPoint(x: number, y: number, graph: Graph): { readonly x: number; readonly y: number } {
-	const view = graph.getView();
-	return {
-		x: Math.max(0, Math.round(x / view.getScale() - view.getTranslate().x)),
-		y: Math.max(0, Math.round(y / view.getScale() - view.getTranslate().y)),
-	};
 }
 
 function edgeRoutesEqual(left: EdgeRouteUpdate, right: EdgeRouteUpdate): boolean {

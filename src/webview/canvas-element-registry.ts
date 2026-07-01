@@ -1,7 +1,4 @@
-import type { Cell } from '@maxgraph/core';
-
 import type { CanvasElementType } from '../shared/canvas-editor-events';
-import { isGraphCell } from './canvas-geometry-persistence';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 
 export type CanvasPropertyElement =
@@ -44,15 +41,6 @@ export class CanvasElementRegistry {
 			...this.notes.keys(),
 			...this.labels.keys(),
 		];
-	}
-
-	public elementForCell(cell: Cell | null): CanvasPropertyElement | undefined {
-		if (!isGraphCell(cell)) {
-			return undefined;
-		}
-
-		const id = cell.getId();
-		return id === null ? undefined : this.element(id);
 	}
 
 	public element(id: string): CanvasPropertyElement | undefined {

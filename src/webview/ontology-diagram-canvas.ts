@@ -1,17 +1,14 @@
-import { Graph, HandleConfig, InternalEvent, Point, StyleDefaultsConfig, VertexHandlerConfig, type CellState, type EventObject, type SelectionHandler } from '@maxgraph/core';
-
 import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasElementRegistry } from './canvas-element-registry';
 import { CanvasEventBus } from './canvas-event-bus';
 import { createPngExportMessage, createSvgExportMessage, renderDiagramExportToolbarIcons } from './canvas-export';
-import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
+import { CanvasGeometryPersistence } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
-import { insertEdge } from './ontology-diagram-edges';
-import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
-import { labelBounds, labelVertex, renderLabelToolbarIcon } from './ontology-diagram-labels';
-import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
-import { NoteEditorController, noteBounds, noteVertex, renderNoteToolbarIcon } from './ontology-diagram-notes';
+import { MaxGraphDiagramCanvasEngine } from './maxgraph-diagram-canvas-engine';
+import { renderImageToolbarIcon } from './ontology-diagram-images';
+import { renderLabelToolbarIcon } from './ontology-diagram-labels';
+import { NoteEditorController, renderNoteToolbarIcon } from './ontology-diagram-notes';
 import type { DiagramPayload } from './ontology-diagram-types';
 import { readTheme } from './webview-theme';
 
@@ -33,7 +30,7 @@ interface WebviewConfig {
 }
 
 interface WebviewState {
-	readonly selectedCellId?: string;
+	readonly selectedElementId?: string;
 	readonly propertyPanelCollapsed?: boolean;
 	readonly viewportPanX?: number;
 	readonly viewportPanY?: number;
@@ -64,11 +61,11 @@ const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
 const theme = readTheme();
-const graph = new Graph(canvasContent);
 const canvasEvents = new CanvasEventBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
+const canvas = new MaxGraphDiagramCanvasEngine(canvasContent, elementRegistry, theme);
 const geometryPersistence = new CanvasGeometryPersistence({
-	graph,
+	canvas,
 	postMessage: (message) => vscode.postMessage(message),
 	showStatus,
 	events: canvasEvents,
@@ -119,7 +116,6 @@ const noteEditorController = new NoteEditorController({
 	},
 });
 
-configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
@@ -158,7 +154,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 new CanvasPropertyPanel({
-	graph,
+	canvas,
 	payload: webviewConfig.payload,
 	registry: elementRegistry,
 	events: canvasEvents,
@@ -175,39 +171,6 @@ new CanvasPropertyPanel({
 }).register();
 registerNoteEditHandlers();
 registerDeleteHandlers();
-
-function configureGraph(graph: Graph): void {
-	VertexHandlerConfig.selectionColor = theme.focusBorder;
-	VertexHandlerConfig.selectionStrokeWidth = 2;
-	VertexHandlerConfig.selectionDashed = false;
-	VertexHandlerConfig.cursorMovable = 'move';
-	HandleConfig.fillColor = theme.editorBackground;
-	HandleConfig.strokeColor = theme.focusBorder;
-	HandleConfig.size = 7;
-	StyleDefaultsConfig.shadowColor = theme.shadowColor;
-	StyleDefaultsConfig.shadowOffsetX = 0;
-	StyleDefaultsConfig.shadowOffsetY = 2;
-	StyleDefaultsConfig.shadowOpacity = 0.18;
-
-	const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
-	if (selectionHandler !== undefined) {
-		selectionHandler.previewColor = theme.focusBorder;
-	}
-
-	graph.setHtmlLabels(true);
-	graph.setPanning(true);
-	graph.setCellsCloneable(false);
-	graph.setCellsDeletable(false);
-	graph.setCellsDisconnectable(true);
-	graph.setCellsEditable(false);
-	graph.setCellsBendable(false);
-	graph.setConnectable(false);
-	graph.setAllowDanglingEdges(false);
-	graph.setTooltips(true);
-	graph.setCellsResizable(true);
-	graph.setCellsMovable(true);
-	restrictEdgeEndpointEditing(graph);
-}
 
 function render(): void {
 	if (webviewConfig.payload.error !== undefined) {
@@ -242,72 +205,8 @@ function render(): void {
 		return;
 	}
 
-	graph.batchUpdate(() => {
-		for (const node of nodes) {
-			geometryPersistence.trackNodeBounds(nodeBounds(node));
-			const vertex = nodeVertex(node, theme);
-			graph.insertVertex(
-				graph.getDefaultParent(),
-				vertex.id,
-				vertex.value,
-				vertex.position[0],
-				vertex.position[1],
-				vertex.size[0],
-				vertex.size[1],
-				vertex.style,
-			);
-		}
-		for (const edge of edges) {
-			geometryPersistence.trackEdgeRoute({
-				id: edge.id,
-				points: edge.points,
-				label: edge.label,
-			});
-			insertEdge(graph, edge, theme);
-		}
-		for (const note of notes) {
-			geometryPersistence.trackNote(noteBounds(note), note.text);
-			const vertex = noteVertex(note, theme);
-			graph.insertVertex(
-				graph.getDefaultParent(),
-				vertex.id,
-				vertex.value,
-				vertex.position[0],
-				vertex.position[1],
-				vertex.size[0],
-				vertex.size[1],
-				vertex.style,
-			);
-		}
-		for (const label of labels) {
-			geometryPersistence.trackLabel(labelBounds(label), label.text);
-			const vertex = labelVertex(label, theme);
-			graph.insertVertex(
-				graph.getDefaultParent(),
-				vertex.id,
-				vertex.value,
-				vertex.position[0],
-				vertex.position[1],
-				vertex.size[0],
-				vertex.size[1],
-				vertex.style,
-			);
-		}
-		for (const image of images) {
-			geometryPersistence.trackImageBounds(imageBounds(image));
-			const vertex = imageVertex(image, theme);
-			graph.insertVertex(
-				graph.getDefaultParent(),
-				vertex.id,
-				vertex.value,
-				vertex.position[0],
-				vertex.position[1],
-				vertex.size[0],
-				vertex.size[1],
-				vertex.style,
-			);
-		}
-	});
+	trackRenderedGeometry(webviewConfig.payload);
+	canvas.renderDiagram(webviewConfig.payload, theme);
 	canvasEvents.publish({
 		type: 'canvasRendered',
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
@@ -316,90 +215,10 @@ function render(): void {
 	});
 }
 
-function restrictEdgeEndpointEditing(graph: Graph): void {
-	const createEdgeHandler = graph.createEdgeHandler.bind(graph);
-	graph.createEdgeHandler = (state, edgeStyle) => {
-		const handler = createEdgeHandler(state, edgeStyle);
-		const id = elementId(state.cell);
-		const element = id === undefined ? undefined : elementRegistry.element(id);
-		if (element?.kind === 'edge') {
-			handler.outlineConnect = true;
-			handler.snapToTerminals = false;
-			const getPreviewTerminalState = handler.getPreviewTerminalState.bind(handler);
-			handler.getPreviewTerminalState = (me) => {
-				const terminalId = handler.isSource ? element.value.source : handler.isTarget ? element.value.target : undefined;
-				if (terminalId === undefined || handler.currentPoint === null) {
-					return getPreviewTerminalState(me);
-				}
-
-				const terminal = graph.getDataModel().getCell(terminalId);
-				const terminalState = terminal === null ? null : graph.getView().getState(terminal);
-				if (terminalState === null) {
-					return getPreviewTerminalState(me);
-				}
-
-				const anchor = projectedBoundaryPoint(terminalState, handler.currentPoint);
-				handler.constraintHandler.setFocus(me, terminalState, handler.isSource);
-				handler.constraintHandler.currentFocus = terminalState;
-				handler.constraintHandler.currentConstraint = graph.getOutlineConstraint(anchor, terminalState, me);
-				handler.constraintHandler.currentPoint = anchor;
-				handler.error = null;
-
-				return terminalState;
-			};
-			handler.isCellEnabled = (cell) => {
-				const candidateId = elementId(cell);
-				if (handler.isSource) {
-					return candidateId === element.value.source;
-				}
-				if (handler.isTarget) {
-					return candidateId === element.value.target;
-				}
-
-				return true;
-			};
-			handler.validateConnection = (source, target) => {
-				return elementId(source) === element.value.source && elementId(target) === element.value.target ? null : '';
-			};
-		}
-
-		return handler;
-	};
-}
-
-function projectedBoundaryPoint(terminalState: CellState, point: Point): Point {
-	const centerX = terminalState.x + terminalState.width / 2;
-	const centerY = terminalState.y + terminalState.height / 2;
-	const deltaX = point.x - centerX;
-	const deltaY = point.y - centerY;
-	const halfWidth = terminalState.width / 2;
-	const halfHeight = terminalState.height / 2;
-	if (halfWidth <= 0 || halfHeight <= 0) {
-		return new Point(centerX, centerY);
-	}
-	if (deltaX === 0 && deltaY === 0) {
-		return new Point(centerX + halfWidth, centerY);
-	}
-
-	const widthScale = deltaX === 0 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(deltaX);
-	const heightScale = deltaY === 0 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(deltaY);
-	const scale = Math.min(widthScale, heightScale);
-
-	return new Point(centerX + deltaX * scale, centerY + deltaY * scale);
-}
-
-function elementId(cell: unknown): string | undefined {
-	if (!isGraphCell(cell)) {
-		return undefined;
-	}
-
-	return cell.getId() ?? undefined;
-}
-
 function registerCanvasStateSubscriptions(): void {
 	canvasEvents.subscribe((event) => {
 		if (event.type === 'canvasSelectionChanged') {
-			updateWebviewState({ selectedCellId: event.selectedElementIdentifier });
+			updateWebviewState({ selectedElementId: event.selectedElementIdentifier });
 		}
 		if (event.type === 'canvasPropertyPanelVisibilityChanged') {
 			updateWebviewState({ propertyPanelCollapsed: event.collapsed });
@@ -414,14 +233,13 @@ function registerCanvasStateSubscriptions(): void {
 }
 
 function registerSelectionEventPublishing(): void {
-	graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
-		const selectedCell = graph.getSelectionCell();
-		const selectedCellId = isGraphCell(selectedCell) ? selectedCell.getId() ?? undefined : undefined;
+	canvas.onSelectionChanged(() => {
+		const selectedElementId = canvas.selectedElementId();
 		canvasEvents.publish({
 			type: 'canvasSelectionChanged',
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
-			selectedElementIdentifier: selectedCellId,
-			selectedElementType: selectedCellId === undefined ? undefined : elementRegistry.elementType(selectedCellId),
+			selectedElementIdentifier: selectedElementId,
+			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
 		});
 	});
 }
@@ -433,15 +251,12 @@ function registerViewportEventPublishing(): void {
 }
 
 function restoreSelection(): void {
-	const selectedCellId = vscode.getState()?.selectedCellId;
-	if (selectedCellId === undefined) {
+	const selectedElementId = vscode.getState()?.selectedElementId;
+	if (selectedElementId === undefined) {
 		return;
 	}
 
-	const selectedCell = graph.getDataModel().getCell(selectedCellId);
-	if (selectedCell !== null) {
-		graph.setSelectionCell(selectedCell);
-	}
+	canvas.selectElement(selectedElementId);
 }
 
 function restoreViewport(): void {
@@ -467,7 +282,7 @@ function publishViewportChanged(changeSource: 'scroll' | 'restore' | 'fit' | 're
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
 		panX: canvasScroll.scrollLeft,
 		panY: canvasScroll.scrollTop,
-		zoom: graph.getView().getScale(),
+		zoom: canvas.zoom(),
 		changeSource,
 	});
 }
@@ -505,30 +320,21 @@ function registerNoteEditHandlers(): void {
 			return;
 		}
 
-		if (editNoteCell(graph.getSelectionCell())) {
+		const selectedElementId = canvas.selectedElementId();
+		if (selectedElementId !== undefined && editNote(selectedElementId)) {
 			event.preventDefault();
 		}
-		if (editLabelCell(graph.getSelectionCell())) {
+		if (selectedElementId !== undefined && editLabel(selectedElementId)) {
 			event.preventDefault();
 		}
 	});
-	graph.addListener(InternalEvent.DOUBLE_CLICK, (_sender: unknown, event: EventObject) => {
-		if (editNoteCell(event.getProperty('cell'))) {
-			event.consume();
-		}
-		if (editLabelCell(event.getProperty('cell'))) {
-			event.consume();
-		}
+	canvas.onElementDoubleClicked((id) => {
+		return editNote(id) || editLabel(id);
 	});
 }
 
-function editNoteCell(cell: unknown): boolean {
-	if (!isGraphCell(cell)) {
-		return false;
-	}
-
-	const id = cell.getId();
-	if (id === null || !geometryPersistence.hasNote(id)) {
+function editNote(id: string): boolean {
+	if (!geometryPersistence.hasNote(id)) {
 		return false;
 	}
 
@@ -537,13 +343,8 @@ function editNoteCell(cell: unknown): boolean {
 	return true;
 }
 
-function editLabelCell(cell: unknown): boolean {
-	if (!isGraphCell(cell)) {
-		return false;
-	}
-
-	const id = cell.getId();
-	if (id === null || !geometryPersistence.hasLabel(id)) {
+function editLabel(id: string): boolean {
+	if (!geometryPersistence.hasLabel(id)) {
 		return false;
 	}
 
@@ -564,7 +365,8 @@ function registerDeleteHandlers(): void {
 			return;
 		}
 
-		if (deleteSelectedCell(graph.getSelectionCell())) {
+		const selectedElementId = canvas.selectedElementId();
+		if (selectedElementId !== undefined && deleteElement(selectedElementId)) {
 			event.preventDefault();
 		}
 	});
@@ -578,16 +380,7 @@ function isKeyboardInputTarget(target: EventTarget | null): boolean {
 		|| (target instanceof HTMLElement && target.isContentEditable);
 }
 
-function deleteSelectedCell(cell: unknown): boolean {
-	if (!isGraphCell(cell)) {
-		return false;
-	}
-
-	const id = cell.getId();
-	if (id === null) {
-		return false;
-	}
-
+function deleteElement(id: string): boolean {
 	if (elementRegistry.element(id)?.kind === 'node') {
 		vscode.postMessage({
 			type: 'deleteNode',
@@ -634,6 +427,52 @@ function deleteSelectedCell(cell: unknown): boolean {
 	}
 
 	return false;
+}
+
+function trackRenderedGeometry(payload: DiagramPayload): void {
+	for (const node of payload.diagram?.nodes ?? []) {
+		geometryPersistence.trackNodeBounds({
+			id: node.id,
+			x: node.x,
+			y: node.y,
+			width: node.width,
+			height: node.height,
+		});
+	}
+	for (const edge of payload.diagram?.edges ?? []) {
+		geometryPersistence.trackEdgeRoute({
+			id: edge.id,
+			points: edge.points,
+			label: edge.label,
+		});
+	}
+	for (const note of payload.diagram?.notes ?? []) {
+		geometryPersistence.trackNote({
+			id: note.id,
+			x: note.x,
+			y: note.y,
+			width: note.width,
+			height: note.height,
+		}, note.text);
+	}
+	for (const label of payload.diagram?.labels ?? []) {
+		geometryPersistence.trackLabel({
+			id: label.id,
+			x: label.x,
+			y: label.y,
+			width: label.width,
+			height: label.height,
+		}, label.text);
+	}
+	for (const image of payload.diagram?.images ?? []) {
+		geometryPersistence.trackImageBounds({
+			id: image.id,
+			x: image.x,
+			y: image.y,
+			width: image.width,
+			height: image.height,
+		});
+	}
 }
 
 function insertionPosition(): CanvasPoint {

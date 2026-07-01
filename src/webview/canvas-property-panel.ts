@@ -1,15 +1,14 @@
-import { Graph, InternalEvent } from '@maxgraph/core';
-
 import type { BoundsUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementType } from '../shared/canvas-editor-events';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasEventPublisher } from './canvas-event-bus';
+import type { DiagramCanvasEngine } from './diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 
 interface CanvasPropertyPanelOptions {
-	readonly graph: Graph;
+	readonly canvas: Pick<DiagramCanvasEngine, 'selectedElementId' | 'onSelectionChanged'>;
 	readonly payload: DiagramPayload;
 	readonly registry: CanvasElementRegistry;
 	readonly events: CanvasEventPublisher;
@@ -42,7 +41,7 @@ export class CanvasPropertyPanel {
 				this.options.focusAfterEscape();
 			}
 		});
-		this.options.graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
+		this.options.canvas.onSelectionChanged(() => {
 			this.renderSelection();
 		});
 		this.renderSelection();
@@ -66,7 +65,8 @@ export class CanvasPropertyPanel {
 
 	private renderSelection(): void {
 		this.options.body.textContent = '';
-		const selectedElement = this.options.registry.elementForCell(this.options.graph.getSelectionCell());
+		const selectedElementId = this.options.canvas.selectedElementId();
+		const selectedElement = selectedElementId === undefined ? undefined : this.options.registry.element(selectedElementId);
 		if (selectedElement === undefined) {
 			this.options.title.textContent = 'Diagram Properties';
 			this.renderDiagramContext();
