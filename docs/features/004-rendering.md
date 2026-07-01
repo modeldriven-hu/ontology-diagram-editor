@@ -70,7 +70,7 @@ The renderer shall compute the diagram bounds from all visible renderable geomet
 - Node bounds.
 - Note bounds.
 - Image bounds.
-- Label text bounds.
+- Label bounds.
 - Edge route points and edge label bounds.
 
 If the diagram contains no renderable elements, the renderer shall use an empty canvas
@@ -144,8 +144,10 @@ newline characters in note text shall create line breaks. If the text does not f
 vertically after wrapping, the renderer shall clip or elide the overflow in a
 deterministic way. It shall not resize persisted element bounds during rendering.
 
-Standalone labels and edge labels do not have persisted width or height. Their rendered
-bounds shall be calculated from their text, font, and implementation-defined padding.
+Standalone labels shall render text within their persisted bounds and follow the same
+wrapping and clipping expectations as other bounded text elements. Edge labels do not
+have persisted width or height; their rendered bounds shall be calculated from their
+text, font, and implementation-defined padding.
 
 # Nodes
 

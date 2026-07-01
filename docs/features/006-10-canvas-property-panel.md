@@ -57,7 +57,7 @@ The panel shall expose only these editable fields in version 1:
 | Node | `x`, `y`, `width`, `height`, `image`. |
 | Edge | None. |
 | Note | `text`, `x`, `y`, `width`, `height`. |
-| Label | `text`, `x`, `y`. |
+| Label | `text`, `x`, `y`, `width`, `height`. |
 | Image | `source`, `x`, `y`, `width`, `height`. |
 
 Edge properties are inspection-only. Edge endpoints, route `points`, and label position

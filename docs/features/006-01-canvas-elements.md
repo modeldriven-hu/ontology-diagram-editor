@@ -14,7 +14,7 @@ Element-specific creation, movement, resizing, and editing behavior is defined i
 |---------------|-------|
 | `006-02-canvas-nodes.md` | Creating ontology-backed nodes from the model tree, moving nodes, resizing nodes, and maintaining connected edge endpoints. |
 | `006-04-canvas-notes.md` | Adding notes, editing note text, and moving and resizing notes. |
-| `006-05-canvas-labels.md` | Adding, editing, and moving standalone labels. |
+| `006-05-canvas-labels.md` | Adding, editing, moving, resizing, and deleting standalone labels. |
 | `006-06-canvas-images.md` | Adding, moving, resizing, and sourcing standalone images. |
 
 Edge-specific behavior is defined in `006-03-canvas-edges.md`. Floating toolbar behavior
@@ -45,10 +45,8 @@ not require any persisted `.odiagram` fields.
 The user can select a diagram element by clicking it on the canvas.
 
 The selected element shall show a visible selection outline. Elements with persisted
-bounds, such as nodes, notes, and images, shall show move and resize affordances.
-Standalone labels shall show move affordances but shall not show resize affordances in
-version 1 because labels do not have persisted width or height. Edges shall show edge
-label movement affordances.
+bounds, such as nodes, notes, images, and standalone labels, shall show move and resize
+affordances. Edges shall show edge label movement affordances.
 
 Version 1 shall support single selection.
 
