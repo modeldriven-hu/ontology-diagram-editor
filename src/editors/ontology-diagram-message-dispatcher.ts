@@ -12,6 +12,7 @@ import {
 	DeleteNodeUseCase,
 	DeleteNoteUseCase,
 	SaveDiagramExportUseCase,
+	UpdateEdgeRouteUseCase,
 	UpdateImageBoundsUseCase,
 	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
@@ -37,6 +38,7 @@ interface DiagramEditorUseCases {
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
+	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
@@ -66,6 +68,12 @@ export class OntologyDiagramMessageDispatcher {
 				return;
 			case 'updateNodeBounds':
 				await this.handleResult(this.useCases.updateNodeBounds.execute(
+					this.repository.load(),
+					message.updates,
+				));
+				return;
+			case 'updateEdgeRoute':
+				await this.handleResult(this.useCases.updateEdgeRoute.execute(
 					this.repository.load(),
 					message.updates,
 				));
@@ -321,6 +329,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
+		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),

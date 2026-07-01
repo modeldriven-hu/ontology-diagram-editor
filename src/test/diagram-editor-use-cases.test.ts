@@ -11,7 +11,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 import type { DiagramExportSavePort } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
@@ -282,6 +282,60 @@ suite('Diagram editor use cases', () => {
 
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'Edge creation needs exactly one source and one target ontology item.');
+	});
+
+	test('updates edge source and target anchor points', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+			],
+		);
+
+		const result = new UpdateEdgeRouteUseCase().execute(diagram, [{
+			id: 'edge_relates',
+			points: [
+				{ x: 30, y: 49 },
+				{ x: 240, y: 2 },
+			],
+			label: { x: 130, y: 12 },
+		}]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 30, y: 50 },
+			{ x: 240, y: 0 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 130,
+			y: 12,
+		});
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_source');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_target');
+	});
+
+	test('reports invalid edge routes without changing the diagram', () => {
+		const result = new UpdateEdgeRouteUseCase().execute(emptyDiagram(), [{
+			id: 'edge_missing',
+			points: [{ x: 0, y: 0 }],
+			label: { x: 0, y: 0 },
+		}]);
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Edges must have at least a source and target point.');
 	});
 
 	test('updates and removes node image sources', () => {

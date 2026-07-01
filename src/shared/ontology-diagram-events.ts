@@ -1,4 +1,4 @@
-import type { ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -24,6 +24,7 @@ export type WebviewMessage =
 	| DeleteImageMessage
 	| DeleteLabelMessage
 	| UpdateNodeBoundsMessage
+	| UpdateEdgeRouteMessage
 	| UpdateNoteBoundsMessage
 	| UpdateImageBoundsMessage
 	| UpdateLabelBoundsMessage
@@ -43,6 +44,11 @@ export interface CreateNodeMessage {
 export interface UpdateNodeBoundsMessage {
 	readonly type: 'updateNodeBounds';
 	readonly updates: readonly NodeBoundsUpdate[];
+}
+
+export interface UpdateEdgeRouteMessage {
+	readonly type: 'updateEdgeRoute';
+	readonly updates: readonly EdgeRouteUpdate[];
 }
 
 export interface CreateNoteMessage {

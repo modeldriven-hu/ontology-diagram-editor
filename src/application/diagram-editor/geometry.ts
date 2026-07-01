@@ -94,6 +94,30 @@ export function boundaryPoint(bounds: Bounds, toward: Point): Point {
 	);
 }
 
+export function nearestBoundaryPoint(bounds: Bounds, point: Point): Point {
+	const clampedX = Math.min(bounds.x + bounds.width, Math.max(bounds.x, point.x));
+	const clampedY = Math.min(bounds.y + bounds.height, Math.max(bounds.y, point.y));
+	const distances = [
+		{ side: 'left', value: Math.abs(clampedX - bounds.x) },
+		{ side: 'right', value: Math.abs((bounds.x + bounds.width) - clampedX) },
+		{ side: 'top', value: Math.abs(clampedY - bounds.y) },
+		{ side: 'bottom', value: Math.abs((bounds.y + bounds.height) - clampedY) },
+	].sort((left, right) => left.value - right.value);
+
+	switch (distances[0].side) {
+		case 'left':
+			return new Point(roundCoordinate(bounds.x), roundCoordinate(clampedY));
+		case 'right':
+			return new Point(roundCoordinate(bounds.x + bounds.width), roundCoordinate(clampedY));
+		case 'top':
+			return new Point(roundCoordinate(clampedX), roundCoordinate(bounds.y));
+		case 'bottom':
+			return new Point(roundCoordinate(clampedX), roundCoordinate(bounds.y + bounds.height));
+	}
+
+	return new Point(roundCoordinate(clampedX), roundCoordinate(clampedY));
+}
+
 export function selfLoopEdgePoints(bounds: Bounds): readonly [Point, Point, Point, Point] {
 	const right = bounds.x + bounds.width;
 	const bottom = bounds.y + bounds.height;

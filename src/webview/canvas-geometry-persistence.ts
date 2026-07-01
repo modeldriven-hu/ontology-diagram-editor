@@ -1,6 +1,6 @@
 import { Graph, InternalEvent, Rectangle, type Cell, type EventObject } from '@maxgraph/core';
 
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 import type { CanvasEventPublisher } from './canvas-event-bus';
 
@@ -19,6 +19,7 @@ export class CanvasGeometryPersistence {
 	private readonly persistedNoteBounds = new Map<string, NoteBoundsUpdate>();
 	private readonly persistedImageBounds = new Map<string, ImageBoundsUpdate>();
 	private readonly persistedLabelBounds = new Map<string, LabelBoundsUpdate>();
+	private readonly persistedEdgeRoutes = new Map<string, EdgeRouteUpdate>();
 	private readonly persistedNoteText = new Map<string, string>();
 	private readonly persistedLabelText = new Map<string, string>();
 	private suppressGeometryPersistence = false;
@@ -32,10 +33,17 @@ export class CanvasGeometryPersistence {
 		this.options.graph.addListener(InternalEvent.CELLS_RESIZED, (_sender: unknown, event: EventObject) => {
 			this.persistChangedElementBounds(event.getProperty('cells'), 'resize');
 		});
+		this.options.graph.getDataModel().addListener(InternalEvent.CHANGE, (_sender: unknown, event: EventObject) => {
+			this.persistChangedEdgeRoutes(event.getProperty('edit'));
+		});
 	}
 
 	public trackNodeBounds(update: NodeBoundsUpdate): void {
 		this.persistedNodeBounds.set(update.id, update);
+	}
+
+	public trackEdgeRoute(update: EdgeRouteUpdate): void {
+		this.persistedEdgeRoutes.set(update.id, update);
 	}
 
 	public trackNote(update: NoteBoundsUpdate, text: string): void {
@@ -62,6 +70,10 @@ export class CanvasGeometryPersistence {
 
 	public hasNote(id: string): boolean {
 		return this.persistedNoteBounds.has(id);
+	}
+
+	public hasEdge(id: string): boolean {
+		return this.persistedEdgeRoutes.has(id);
 	}
 
 	public getNoteText(id: string): string | undefined {
@@ -140,6 +152,71 @@ export class CanvasGeometryPersistence {
 		}
 
 		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates, dragKind);
+	}
+
+	private persistChangedEdgeRoutes(edit: unknown): void {
+		if (this.suppressGeometryPersistence || !isUndoableEdit(edit)) {
+			return;
+		}
+
+		const changedEdgeIds = new Set<string>();
+		for (const change of edit.changes) {
+			const cell = change.cell;
+			if (isGraphCell(cell)) {
+				const id = cell.getId();
+				if (id !== null && this.persistedEdgeRoutes.has(id)) {
+					changedEdgeIds.add(id);
+				}
+			}
+		}
+		if (changedEdgeIds.size === 0) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			const updates: EdgeRouteUpdate[] = [];
+			for (const edgeId of changedEdgeIds) {
+				const update = this.edgeRouteUpdate(edgeId);
+				const persisted = this.persistedEdgeRoutes.get(edgeId);
+				if (update !== undefined && persisted !== undefined && !edgeRoutesEqual(update, persisted)) {
+					updates.push(update);
+				}
+			}
+			for (const update of updates) {
+				this.persistedEdgeRoutes.set(update.id, update);
+			}
+			if (updates.length > 0) {
+				this.options.postMessage({
+					type: 'updateEdgeRoute',
+					updates,
+				});
+			}
+		});
+	}
+
+	private edgeRouteUpdate(edgeId: string): EdgeRouteUpdate | undefined {
+		const cell = this.options.graph.getDataModel().getCell(edgeId);
+		if (cell === null) {
+			return undefined;
+		}
+
+		this.options.graph.getView().validate();
+		const state = this.options.graph.getView().getState(cell);
+		const persisted = this.persistedEdgeRoutes.get(edgeId);
+		if (state === null || persisted === undefined || state.absolutePoints.length < 2) {
+			return undefined;
+		}
+
+		const points = state.absolutePoints.filter((point) => point !== null);
+		if (points.length < 2) {
+			return undefined;
+		}
+
+		return {
+			id: edgeId,
+			points: points.map((point) => graphPoint(point.x, point.y, this.options.graph)),
+			label: persisted.label,
+		};
 	}
 
 	private persistUpdates(
@@ -263,4 +340,26 @@ export function isGraphCell(value: unknown): value is Cell {
 		&& value !== null
 		&& 'getId' in value
 		&& 'getGeometry' in value;
+}
+
+function isUndoableEdit(value: unknown): value is { readonly changes: readonly { readonly cell?: unknown }[] } {
+	return typeof value === 'object'
+		&& value !== null
+		&& 'changes' in value
+		&& Array.isArray((value as { readonly changes: unknown }).changes);
+}
+
+function graphPoint(x: number, y: number, graph: Graph): { readonly x: number; readonly y: number } {
+	const view = graph.getView();
+	return {
+		x: Math.max(0, Math.round(x / view.getScale() - view.getTranslate().x)),
+		y: Math.max(0, Math.round(y / view.getScale() - view.getTranslate().y)),
+	};
+}
+
+function edgeRoutesEqual(left: EdgeRouteUpdate, right: EdgeRouteUpdate): boolean {
+	return left.points.length === right.points.length
+		&& left.points.every((point, index) => point.x === right.points[index].x && point.y === right.points[index].y)
+		&& left.label.x === right.label.x
+		&& left.label.y === right.label.y;
 }

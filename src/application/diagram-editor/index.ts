@@ -14,6 +14,7 @@ export { UpdateImageBoundsUseCase } from './update-image-bounds-use-case';
 export { UpdateImageSourceUseCase } from './update-image-source-use-case';
 export { UpdateLabelBoundsUseCase } from './update-label-bounds-use-case';
 export { UpdateLabelTextUseCase } from './update-label-text-use-case';
+export { UpdateEdgeRouteUseCase } from './update-edge-route-use-case';
 export { UpdateNodeBoundsUseCase } from './update-node-bounds-use-case';
 export { UpdateNodeImageUseCase } from './update-node-image-use-case';
 export { UpdateNoteBoundsUseCase } from './update-note-bounds-use-case';

@@ -17,7 +17,7 @@ export function insertEdge(graph: Graph, edge: DiagramEdge, theme: WebviewTheme)
 		edgeLabelHtml(edge),
 		source,
 		target,
-		edgeStyle(edge, theme),
+		edgeStyle(edge, theme, source, target),
 	);
 	const geometry = new Geometry();
 	geometry.relative = true;
@@ -60,7 +60,7 @@ export function edgeDisplayName(ontologyRef: string): string {
 	return displayName.length > 0 ? displayName : ontologyRef;
 }
 
-function edgeStyle(edge: DiagramEdge, theme: WebviewTheme): CellStyle {
+function edgeStyle(edge: DiagramEdge, theme: WebviewTheme, source: Cell, target: Cell): CellStyle {
 	const lineStyle = edge.style?.line_style;
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const strokeColor = edge.style?.color ?? theme.edgeColor;
@@ -76,6 +76,8 @@ function edgeStyle(edge: DiagramEdge, theme: WebviewTheme): CellStyle {
 		endArrow: edge.ontology_item_type === 'subclassRelationship' ? 'block' : 'open',
 		endFill: edge.ontology_item_type === 'subclassRelationship' ? false : undefined,
 		endSize: edge.ontology_item_type === 'subclassRelationship' ? 14 : 10,
+		...edgeEndpointStyle(edge, source, true),
+		...edgeEndpointStyle(edge, target, false),
 	};
 
 	if (edge.style?.font?.bold === true || edge.style?.font?.italic === true) {
@@ -92,6 +94,24 @@ function edgeStyle(edge: DiagramEdge, theme: WebviewTheme): CellStyle {
 	}
 
 	return style;
+}
+
+function edgeEndpointStyle(edge: DiagramEdge, terminal: Cell, source: boolean): CellStyle {
+	const point = source ? edge.points[0] : edge.points.at(-1);
+	const geometry = terminal.getGeometry();
+	if (point === undefined || geometry === null || geometry.width === 0 || geometry.height === 0) {
+		return {};
+	}
+
+	const x = clampRatio((point.x - geometry.x) / geometry.width);
+	const y = clampRatio((point.y - geometry.y) / geometry.height);
+	return source
+		? { exitX: x, exitY: y, exitPerimeter: false }
+		: { entryX: x, entryY: y, entryPerimeter: false };
+}
+
+function clampRatio(value: number): number {
+	return Math.max(0, Math.min(1, Math.round(value * 1000) / 1000));
 }
 
 export function edgeLabelHtml(edge: DiagramEdge): string {

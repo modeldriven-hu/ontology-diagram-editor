@@ -1,4 +1,4 @@
-import { Graph, HandleConfig, InternalEvent, StyleDefaultsConfig, VertexHandlerConfig, type EventObject, type SelectionHandler } from '@maxgraph/core';
+import { Graph, HandleConfig, InternalEvent, Point, StyleDefaultsConfig, VertexHandlerConfig, type CellState, type EventObject, type SelectionHandler } from '@maxgraph/core';
 
 import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
 import { CanvasDropController } from './canvas-drop-controller';
@@ -198,12 +198,15 @@ function configureGraph(graph: Graph): void {
 	graph.setPanning(true);
 	graph.setCellsCloneable(false);
 	graph.setCellsDeletable(false);
-	graph.setCellsDisconnectable(false);
+	graph.setCellsDisconnectable(true);
 	graph.setCellsEditable(false);
+	graph.setCellsBendable(false);
 	graph.setConnectable(false);
+	graph.setAllowDanglingEdges(false);
 	graph.setTooltips(true);
 	graph.setCellsResizable(true);
 	graph.setCellsMovable(true);
+	restrictEdgeEndpointEditing(graph);
 }
 
 function render(): void {
@@ -255,6 +258,11 @@ function render(): void {
 			);
 		}
 		for (const edge of edges) {
+			geometryPersistence.trackEdgeRoute({
+				id: edge.id,
+				points: edge.points,
+				label: edge.label,
+			});
 			insertEdge(graph, edge, theme);
 		}
 		for (const note of notes) {
@@ -306,6 +314,86 @@ function render(): void {
 		renderedElementIdentifiers: elementRegistry.renderedElementIdentifiers(),
 		warnings: [],
 	});
+}
+
+function restrictEdgeEndpointEditing(graph: Graph): void {
+	const createEdgeHandler = graph.createEdgeHandler.bind(graph);
+	graph.createEdgeHandler = (state, edgeStyle) => {
+		const handler = createEdgeHandler(state, edgeStyle);
+		const id = elementId(state.cell);
+		const element = id === undefined ? undefined : elementRegistry.element(id);
+		if (element?.kind === 'edge') {
+			handler.outlineConnect = true;
+			handler.snapToTerminals = false;
+			const getPreviewTerminalState = handler.getPreviewTerminalState.bind(handler);
+			handler.getPreviewTerminalState = (me) => {
+				const terminalId = handler.isSource ? element.value.source : handler.isTarget ? element.value.target : undefined;
+				if (terminalId === undefined || handler.currentPoint === null) {
+					return getPreviewTerminalState(me);
+				}
+
+				const terminal = graph.getDataModel().getCell(terminalId);
+				const terminalState = terminal === null ? null : graph.getView().getState(terminal);
+				if (terminalState === null) {
+					return getPreviewTerminalState(me);
+				}
+
+				const anchor = projectedBoundaryPoint(terminalState, handler.currentPoint);
+				handler.constraintHandler.setFocus(me, terminalState, handler.isSource);
+				handler.constraintHandler.currentFocus = terminalState;
+				handler.constraintHandler.currentConstraint = graph.getOutlineConstraint(anchor, terminalState, me);
+				handler.constraintHandler.currentPoint = anchor;
+				handler.error = null;
+
+				return terminalState;
+			};
+			handler.isCellEnabled = (cell) => {
+				const candidateId = elementId(cell);
+				if (handler.isSource) {
+					return candidateId === element.value.source;
+				}
+				if (handler.isTarget) {
+					return candidateId === element.value.target;
+				}
+
+				return true;
+			};
+			handler.validateConnection = (source, target) => {
+				return elementId(source) === element.value.source && elementId(target) === element.value.target ? null : '';
+			};
+		}
+
+		return handler;
+	};
+}
+
+function projectedBoundaryPoint(terminalState: CellState, point: Point): Point {
+	const centerX = terminalState.x + terminalState.width / 2;
+	const centerY = terminalState.y + terminalState.height / 2;
+	const deltaX = point.x - centerX;
+	const deltaY = point.y - centerY;
+	const halfWidth = terminalState.width / 2;
+	const halfHeight = terminalState.height / 2;
+	if (halfWidth <= 0 || halfHeight <= 0) {
+		return new Point(centerX, centerY);
+	}
+	if (deltaX === 0 && deltaY === 0) {
+		return new Point(centerX + halfWidth, centerY);
+	}
+
+	const widthScale = deltaX === 0 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(deltaX);
+	const heightScale = deltaY === 0 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(deltaY);
+	const scale = Math.min(widthScale, heightScale);
+
+	return new Point(centerX + deltaX * scale, centerY + deltaY * scale);
+}
+
+function elementId(cell: unknown): string | undefined {
+	if (!isGraphCell(cell)) {
+		return undefined;
+	}
+
+	return cell.getId() ?? undefined;
 }
 
 function registerCanvasStateSubscriptions(): void {

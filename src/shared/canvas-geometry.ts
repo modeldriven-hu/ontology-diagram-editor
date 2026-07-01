@@ -19,3 +19,14 @@ export type NodeBoundsUpdate = BoundsUpdate;
 export type NoteBoundsUpdate = BoundsUpdate;
 export type ImageBoundsUpdate = BoundsUpdate;
 export type LabelBoundsUpdate = BoundsUpdate;
+
+export interface EdgeRouteUpdate {
+	readonly id: string;
+	readonly points: readonly CanvasRoutePoint[];
+	readonly label: CanvasRoutePoint;
+}
+
+export interface CanvasRoutePoint {
+	readonly x: number;
+	readonly y: number;
+}
