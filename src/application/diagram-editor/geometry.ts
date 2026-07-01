@@ -12,6 +12,30 @@ export function recalculateConnectedEdgeEndpoints(
 		return edge;
 	}
 
+	if (edge.source.value === edge.target.value) {
+		const selfBounds = boundsByNodeId.get(edge.source.value);
+		if (selfBounds === undefined) {
+			return edge;
+		}
+
+		const nextPoints = selfLoopEdgePoints(selfBounds);
+		const nextLabel = selfLoopEdgeLabel(nextPoints);
+		if (samePoints(edge.points, nextPoints) && pointsEqual(edge.label, nextLabel)) {
+			return edge;
+		}
+
+		return new DiagramEdge(
+			edge.id.value,
+			edge.source.value,
+			edge.target.value,
+			edge.ontologyRef.value,
+			nextLabel,
+			nextPoints,
+			edge.style,
+			edge.extra,
+		);
+	}
+
 	const nextPoints = [...edge.points];
 	if (sourceChanged) {
 		const sourceBounds = boundsByNodeId.get(edge.source.value);
@@ -26,7 +50,7 @@ export function recalculateConnectedEdgeEndpoints(
 		}
 	}
 
-	if (edge.points.every((point, index) => pointsEqual(point, nextPoints[index]))) {
+	if (samePoints(edge.points, nextPoints)) {
 		return edge;
 	}
 
@@ -50,7 +74,7 @@ export function roundPositiveSize(value: number): number {
 	return Math.max(1, Math.round(value));
 }
 
-function boundaryPoint(bounds: Bounds, toward: Point): Point {
+export function boundaryPoint(bounds: Bounds, toward: Point): Point {
 	const centerX = bounds.x + bounds.width / 2;
 	const centerY = bounds.y + bounds.height / 2;
 	const dx = toward.x - centerX;
@@ -70,6 +94,33 @@ function boundaryPoint(bounds: Bounds, toward: Point): Point {
 	);
 }
 
+export function selfLoopEdgePoints(bounds: Bounds): readonly [Point, Point, Point, Point] {
+	const right = bounds.x + bounds.width;
+	const bottom = bounds.y + bounds.height;
+	const startY = bounds.y + bounds.height * 0.35;
+	const loopX = right + Math.max(80, bounds.width * 0.45);
+	const loopY = bottom + Math.max(56, bounds.height * 0.75);
+	const endX = bounds.x + bounds.width * 0.65;
+
+	return [
+		new Point(roundCoordinate(right), roundCoordinate(startY)),
+		new Point(roundCoordinate(loopX), roundCoordinate(startY)),
+		new Point(roundCoordinate(loopX), roundCoordinate(loopY)),
+		new Point(roundCoordinate(endX), roundCoordinate(bottom)),
+	];
+}
+
+export function selfLoopEdgeLabel(points: readonly [Point, Point, Point, Point]): Point {
+	return new Point(
+		roundCoordinate(points[1].x + 8),
+		roundCoordinate(((points[1].y + points[2].y) / 2) - 12),
+	);
+}
+
 function pointsEqual(left: Point, right: Point): boolean {
 	return left.x === right.x && left.y === right.y;
+}
+
+function samePoints(left: readonly Point[], right: readonly Point[]): boolean {
+	return left.length === right.length && left.every((point, index) => pointsEqual(point, right[index]));
 }

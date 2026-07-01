@@ -2,12 +2,14 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 
 import {
+	CreateEdgeUseCase,
 	CreateImageUseCase,
 	CreateLabelUseCase,
 	CreateNodeUseCase,
 	CreateNoteUseCase,
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
+	DeleteNodeUseCase,
 	DeleteNoteUseCase,
 	SaveDiagramExportUseCase,
 	UpdateImageBoundsUseCase,
@@ -27,9 +29,11 @@ import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-r
 
 interface DiagramEditorUseCases {
 	readonly createNode: CreateNodeUseCase;
+	readonly createEdge: CreateEdgeUseCase;
 	readonly createNote: CreateNoteUseCase;
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
+	readonly deleteNode: DeleteNodeUseCase;
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
@@ -92,6 +96,9 @@ export class OntologyDiagramMessageDispatcher {
 				return;
 			case 'saveDiagramExport':
 				await this.saveDiagramExport(message);
+				return;
+			case 'deleteNode':
+				await this.deleteNode(message);
 				return;
 			case 'deleteNote':
 				await this.deleteNote(message);
@@ -157,6 +164,15 @@ export class OntologyDiagramMessageDispatcher {
 			return;
 		}
 
+		if (isConnectionCapableOntologyItem(resolvedPayload.ontologyItemType)) {
+			await this.handleResult(this.useCases.createEdge.execute(
+				this.repository.load(),
+				resolvedPayload,
+				message.position,
+			));
+			return;
+		}
+
 		await this.handleResult(this.useCases.createNode.execute(
 			this.repository.load(),
 			resolvedPayload,
@@ -176,6 +192,26 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteImage.execute(
 			this.repository.load(),
+			message.id,
+		));
+	}
+
+	private async deleteNode(message: Extract<WebviewMessage, { readonly type: 'deleteNode' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const connectedEdgeCount = diagram.edges.filter((edge) => edge.source.value === message.id || edge.target.value === message.id).length;
+		const confirmed = await vscode.window.showWarningMessage(
+			connectedEdgeCount > 0
+				? `Delete this node and ${connectedEdgeCount} connected edge${connectedEdgeCount === 1 ? '' : 's'} from the diagram?`
+				: 'Delete this node from the diagram?',
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteNode.execute(
+			diagram,
 			message.id,
 		));
 	}
@@ -277,9 +313,11 @@ export class OntologyDiagramMessageDispatcher {
 function createDefaultUseCases(): DiagramEditorUseCases {
 	return {
 		createNode: new CreateNodeUseCase(),
+		createEdge: new CreateEdgeUseCase(),
 		createNote: new CreateNoteUseCase(),
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
+		deleteNode: new DeleteNodeUseCase(),
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
@@ -293,6 +331,10 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateLabelText: new UpdateLabelTextUseCase(),
 		saveDiagramExport: new SaveDiagramExportUseCase(new VsCodeDiagramExportSavePort()),
 	};
+}
+
+function isConnectionCapableOntologyItem(type: string): boolean {
+	return type === 'objectProperty' || type === 'dataProperty' || type === 'subclassRelationship';
 }
 
 class VsCodeDiagramExportSavePort implements DiagramExportSavePort {

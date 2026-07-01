@@ -2,16 +2,18 @@ import type { Cell } from '@maxgraph/core';
 
 import type { CanvasElementType } from '../shared/canvas-editor-events';
 import { isGraphCell } from './canvas-geometry-persistence';
-import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 
 export type CanvasPropertyElement =
 	| { readonly kind: 'node'; readonly value: DiagramNode }
+	| { readonly kind: 'edge'; readonly value: DiagramEdge }
 	| { readonly kind: 'note'; readonly value: DiagramNote }
 	| { readonly kind: 'label'; readonly value: DiagramLabel }
 	| { readonly kind: 'image'; readonly value: DiagramImage };
 
 export class CanvasElementRegistry {
 	private readonly nodes = new Map<string, DiagramNode>();
+	private readonly edges = new Map<string, DiagramEdge>();
 	private readonly notes = new Map<string, DiagramNote>();
 	private readonly labels = new Map<string, DiagramLabel>();
 	private readonly images = new Map<string, DiagramImage>();
@@ -19,6 +21,9 @@ export class CanvasElementRegistry {
 	public constructor(payload: DiagramPayload) {
 		for (const node of payload.diagram?.nodes ?? []) {
 			this.nodes.set(node.id, node);
+		}
+		for (const edge of payload.diagram?.edges ?? []) {
+			this.edges.set(edge.id, edge);
 		}
 		for (const note of payload.diagram?.notes ?? []) {
 			this.notes.set(note.id, note);
@@ -34,6 +39,7 @@ export class CanvasElementRegistry {
 	public renderedElementIdentifiers(): readonly string[] {
 		return [
 			...this.images.keys(),
+			...this.edges.keys(),
 			...this.nodes.keys(),
 			...this.notes.keys(),
 			...this.labels.keys(),
@@ -53,6 +59,10 @@ export class CanvasElementRegistry {
 		const node = this.nodes.get(id);
 		if (node !== undefined) {
 			return { kind: 'node', value: node };
+		}
+		const edge = this.edges.get(id);
+		if (edge !== undefined) {
+			return { kind: 'edge', value: edge };
 		}
 		const note = this.notes.get(id);
 		if (note !== undefined) {

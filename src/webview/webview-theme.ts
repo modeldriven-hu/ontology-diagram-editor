@@ -1,4 +1,7 @@
 export interface WebviewTheme {
+	readonly edgeColor: string;
+	readonly edgeTextColor: string;
+	readonly edgeWeight: number;
 	readonly editorBackground: string;
 	readonly editorForeground: string;
 	readonly focusBorder: string;
@@ -18,6 +21,9 @@ export function readTheme(): WebviewTheme {
 	const widgetBorder = cssVariable(styles, '--vscode-editorWidget-border', cssVariable(styles, '--vscode-panel-border', '#454545'));
 
 	return {
+		edgeColor: foreground,
+		edgeTextColor: foreground,
+		edgeWeight: 2,
 		editorBackground: background,
 		editorForeground: foreground,
 		focusBorder: cssVariable(styles, '--vscode-focusBorder', '#007fd4'),

@@ -3,9 +3,10 @@ import { Graph, InternalEvent } from '@maxgraph/core';
 import type { BoundsUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementType } from '../shared/canvas-editor-events';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
-import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasEventPublisher } from './canvas-event-bus';
+import { edgeDisplayName } from './ontology-diagram-edges';
 
 interface CanvasPropertyPanelOptions {
 	readonly graph: Graph;
@@ -95,6 +96,8 @@ export class CanvasPropertyPanel {
 
 		if (element.kind === 'node') {
 			this.renderNode(element.value);
+		} else if (element.kind === 'edge') {
+			this.renderEdge(element.value);
 		} else if (element.kind === 'note') {
 			this.renderNote(element.value);
 		} else if (element.kind === 'label') {
@@ -119,6 +122,17 @@ export class CanvasPropertyPanel {
 			}, () => {
 				this.options.postMessage({ type: 'pickNodeImage', id: node.id });
 			}),
+		]));
+	}
+
+	private renderEdge(edge: DiagramEdge): void {
+		this.options.body.appendChild(sectionElement('Ontology', [
+			readonlyField('Ref', edge.ontology_ref),
+			readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
+		]));
+		this.options.body.appendChild(sectionElement('Connection', [
+			readonlyField('Source', edge.source),
+			readonlyField('Target', edge.target),
 		]));
 	}
 

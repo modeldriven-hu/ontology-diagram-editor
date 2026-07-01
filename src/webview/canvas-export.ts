@@ -2,7 +2,8 @@ import { FileCode, ImageDown, createElement as createIconElement } from 'lucide'
 
 import { escapeHtml } from '../shared/html';
 import type { SaveDiagramExportMessage } from '../shared/ontology-diagram-events';
-import type { DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
+import { edgeDisplayName } from './ontology-diagram-edges';
 import type { WebviewTheme } from './webview-theme';
 
 type ExportFormat = 'svg' | 'png';
@@ -86,11 +87,13 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 	}
 
 	const nodes = diagram.nodes ?? [];
+	const edges = diagram.edges ?? [];
 	const notes = diagram.notes ?? [];
 	const images = diagram.images ?? [];
 	const labels = diagram.labels ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
+		...edges.flatMap(edgeExportBounds),
 		...notes,
 		...images,
 		...labels,
@@ -115,9 +118,11 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		'<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
 		'<feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>',
 		'</filter>',
+		...edges.flatMap((edge) => renderEdgeMarkerDefinitions(edge, theme)),
 		'</defs>',
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.editorBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme, imageHrefMode)),
+		...edges.map((edge) => renderEdge(edge, theme)),
 		...nodes.map((node) => renderNode(node, theme)),
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
@@ -130,6 +135,76 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		height,
 		defaultFileName: `${diagramBaseName(payload)}.svg`,
 	};
+}
+
+function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
+	const points = edge.points.length >= 2 ? edge.points : [];
+	if (points.length < 2) {
+		return '';
+	}
+
+	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
+	const lineStyle = edge.style?.line_style;
+	const stroke = edgeStroke(edge, theme);
+	const dashArray = lineStyle === 'dotted'
+		? ` stroke-dasharray="${numberValue(strokeWidth)} ${numberValue(strokeWidth * 3)}"`
+		: lineStyle === 'dashed'
+			? ` stroke-dasharray="${numberValue(strokeWidth * 4)} ${numberValue(strokeWidth * 3)}"`
+			: '';
+	const marker = lineStyle === 'none' || strokeWidth === 0
+		? ''
+		: edge.ontology_item_type === 'subclassRelationship'
+			? ` marker-end="url(#${edgeMarkerId(edge, 'hollow-triangle')})"`
+			: ` marker-end="url(#${edgeMarkerId(edge, 'open-arrow')})"`;
+
+	return [
+		`<polyline points="${points.map((point) => `${numberValue(point.x)},${numberValue(point.y)}`).join(' ')}" fill="none" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"${dashArray}${marker}/>`,
+		renderTextBlock({
+			id: edge.id,
+			text: edgeDisplayName(edge.ontology_ref),
+			bounds: {
+				x: edge.label.x,
+				y: edge.label.y,
+				width: Math.max(80, edgeDisplayName(edge.ontology_ref).length * 7),
+				height: 24,
+			},
+			color: edge.style?.text_color ?? theme.edgeTextColor,
+			fontFamily: edge.style?.font?.family ?? theme.fontFamily,
+			fontSize: edge.style?.font?.size ?? Math.max(10, theme.fontSize - 1),
+			bold: edge.style?.font?.bold,
+			italic: edge.style?.font?.italic,
+			align: 'center',
+			verticalAlign: 'middle',
+			padding: 2,
+		}),
+	].join('\n');
+}
+
+function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): readonly string[] {
+	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
+	if (edge.style?.line_style === 'none' || strokeWidth === 0) {
+		return [];
+	}
+
+	const stroke = edgeStroke(edge, theme);
+	if (edge.ontology_item_type === 'subclassRelationship') {
+		return [
+			`<marker id="${edgeMarkerId(edge, 'hollow-triangle')}" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 1 1 L 11 5 L 1 9 Z" fill="${escapeAttribute(theme.editorBackground)}" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"/></marker>`,
+		];
+	}
+
+	return [
+		`<marker id="${edgeMarkerId(edge, 'open-arrow')}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"/></marker>`,
+	];
+}
+
+function edgeStroke(edge: DiagramEdge, theme: WebviewTheme): string {
+	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
+	return edge.style?.line_style === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
+}
+
+function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow'): string {
+	return `${marker}_${safeIdentifier(edge.id)}`;
 }
 
 function renderNode(node: DiagramNode, theme: WebviewTheme): string {
@@ -311,6 +386,25 @@ function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds |
 		width: maxX - minX,
 		height: maxY - minY,
 	};
+}
+
+function edgeExportBounds(edge: DiagramEdge): readonly ExportBounds[] {
+	const pointBounds = edge.points.map((point) => ({
+		x: point.x,
+		y: point.y,
+		width: 1,
+		height: 1,
+	}));
+
+	return [
+		...pointBounds,
+		{
+			x: edge.label.x,
+			y: edge.label.y,
+			width: Math.max(80, edgeDisplayName(edge.ontology_ref).length * 7),
+			height: 24,
+		},
+	];
 }
 
 function elementBounds(element: ExportBounds): ExportBounds {

@@ -16,6 +16,7 @@ export interface DiagramPayload {
 		};
 		readonly ontologies?: readonly unknown[];
 		readonly nodes?: readonly DiagramNode[];
+		readonly edges?: readonly DiagramEdge[];
 		readonly notes?: readonly DiagramNote[];
 		readonly images?: readonly DiagramImage[];
 		readonly labels?: readonly DiagramLabel[];
@@ -33,6 +34,17 @@ export interface DiagramNode {
 	readonly ontology_item_type?: string;
 	readonly image?: string;
 	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramEdge {
+	readonly id: string;
+	readonly source: string;
+	readonly target: string;
+	readonly ontology_ref: string;
+	readonly label: CanvasPoint;
+	readonly points: readonly CanvasPoint[];
+	readonly ontology_item_type?: string;
+	readonly style?: DiagramEdgeStyle;
 }
 
 export interface DiagramNote {
@@ -82,6 +94,19 @@ export interface DiagramElementStyle {
 }
 
 export interface DiagramLabelStyle {
+	readonly text_color?: string;
+	readonly font?: {
+		readonly family?: string;
+		readonly bold?: boolean;
+		readonly italic?: boolean;
+		readonly size?: number;
+	};
+}
+
+export interface DiagramEdgeStyle {
+	readonly color?: string;
+	readonly line_style?: 'solid' | 'dashed' | 'dotted' | 'none';
+	readonly weight?: number;
 	readonly text_color?: string;
 	readonly font?: {
 		readonly family?: string;

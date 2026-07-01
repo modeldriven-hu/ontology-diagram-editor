@@ -6,9 +6,11 @@ export interface CanvasPoint {
 }
 
 export interface ModelTreeItemDropPayload {
+	readonly sourceOntologyFilePath?: string;
 	readonly ontologyItemType: string;
 	readonly ontologyItemReference: string;
 	readonly displayLabel: string;
+	readonly ontologyItemMetadata?: unknown;
 }
 
 export type WebviewMessage =
@@ -17,6 +19,7 @@ export type WebviewMessage =
 	| CreateImageMessage
 	| CreateLabelMessage
 	| SaveDiagramExportMessage
+	| DeleteNodeMessage
 	| DeleteNoteMessage
 	| DeleteImageMessage
 	| DeleteLabelMessage
@@ -65,6 +68,11 @@ export interface SaveDiagramExportMessage {
 	readonly defaultFileName: string;
 	readonly content: string;
 	readonly encoding: 'utf8' | 'base64';
+}
+
+export interface DeleteNodeMessage {
+	readonly type: 'deleteNode';
+	readonly id: string;
 }
 
 export interface DeleteNoteMessage {

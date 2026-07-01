@@ -1,7 +1,5 @@
 import type { CanvasPoint, ModelTreeItemDropPayload, WebviewMessage } from '../shared/ontology-diagram-events';
 
-const nodeCapableTypes = new Set(['class', 'individual', 'datatype']);
-
 interface CanvasDropControllerOptions {
 	readonly scrollElement: HTMLElement;
 	readonly contentElement: HTMLElement;
@@ -36,12 +34,6 @@ export class CanvasDropController {
 			this.options.scrollElement.classList.remove('drop-active', 'drop-rejected');
 
 			const dragPayload = this.readDragPayload(event.dataTransfer);
-			if (dragPayload !== undefined && !nodeCapableTypes.has(dragPayload.ontologyItemType)) {
-				this.options.scrollElement.classList.add('drop-rejected');
-				this.options.showStatus('Only classes, individuals, and datatypes can create nodes for now.');
-				return;
-			}
-
 			this.options.postMessage({
 				type: 'createNode',
 				payload: dragPayload,

@@ -11,7 +11,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 import type { DiagramExportSavePort } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
@@ -61,6 +61,50 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.notification, '"Person" already has a node in this diagram.');
 	});
 
+	test('deletes a node and its connected edges from the diagram', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_group', 'ex:Group', new Bounds(200, 0, 100, 50)),
+				new DiagramNode('node_role', 'ex:Role', new Bounds(400, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_memberOf',
+					'node_person',
+					'node_group',
+					'ex:memberOf',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+				new DiagramEdge(
+					'edge_hasRole',
+					'node_group',
+					'node_role',
+					'ex:hasRole',
+					new Point(350, 25),
+					[new Point(300, 25), new Point(400, 25)],
+				),
+			],
+		);
+
+		const result = new DeleteNodeUseCase().execute(diagram, 'node_group');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_person', 'node_role']);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.id.value), []);
+	});
+
+	test('does not change the diagram when deleting a missing node', () => {
+		const result = new DeleteNodeUseCase().execute(emptyDiagram(), 'node_missing');
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, undefined);
+	});
+
 	test('updates node bounds and keeps connected edge endpoints on node boundaries', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
@@ -106,6 +150,138 @@ suite('Diagram editor use cases', () => {
 
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'Notes must be at least 120 x 64.');
+	});
+
+	test('materializes object property edges with missing endpoint nodes', () => {
+		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:memberOf',
+			displayLabel: 'memberOf',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Person'],
+				rangeReferences: ['ex:Organization'],
+			},
+		}, { x: 400, y: 120 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes.length, 2);
+		assert.strictEqual(result.diagram.edges.length, 1);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value), ['ex:Person', 'ex:Organization']);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_item1');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_item2');
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'ex:memberOf');
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 320, y: 156 },
+			{ x: 480, y: 156 },
+		]);
+	});
+
+	test('materializes same-source-target property edges as self loops', () => {
+		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:knowsSelf',
+			displayLabel: 'knowsSelf',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Person'],
+				rangeReferences: ['ex:Person'],
+			},
+		}, { x: 400, y: 120 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes.length, 1);
+		assert.strictEqual(result.diagram.edges.length, 1);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_item1');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_item1');
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 490, y: 145 },
+			{ x: 571, y: 145 },
+			{ x: 571, y: 248 },
+			{ x: 427, y: 192 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 579,
+			y: 185,
+		});
+	});
+
+	test('materializes subclass edges between existing nodes', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_person', 'ex:Person', new Bounds(10, 20, 180, 72)),
+				new DiagramNode('node_agent', 'ex:Agent', new Bounds(360, 20, 180, 72)),
+			],
+			[],
+		);
+
+		const result = new CreateEdgeUseCase().execute(diagram, {
+			ontologyItemType: 'subclassRelationship',
+			ontologyItemReference: 'rdfs:subClassOf',
+			displayLabel: 'Person -> Agent',
+			ontologyItemMetadata: {
+				subclassReference: 'ex:Person',
+				superclassReference: 'ex:Agent',
+			},
+		}, { x: 200, y: 20 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes.length, 2);
+		assert.strictEqual(result.diagram.edges.length, 1);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_person');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_agent');
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
+	});
+
+	test('reports duplicate materialized edges without changing the diagram', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_person', 'ex:Person', new Bounds(10, 20, 180, 72)),
+				new DiagramNode('node_agent', 'ex:Agent', new Bounds(360, 20, 180, 72)),
+			],
+			[
+				new DiagramEdge(
+					'edge_item1',
+					'node_person',
+					'node_agent',
+					'rdfs:subClassOf',
+					new Point(275, 56),
+					[new Point(190, 56), new Point(360, 56)],
+				),
+			],
+		);
+
+		const result = new CreateEdgeUseCase().execute(diagram, {
+			ontologyItemType: 'subclassRelationship',
+			ontologyItemReference: 'rdfs:subClassOf',
+			displayLabel: 'Person -> Agent',
+			ontologyItemMetadata: {
+				subclassReference: 'ex:Person',
+				superclassReference: 'ex:Agent',
+			},
+		}, { x: 200, y: 20 });
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, '"Person -> Agent" already has an edge in this diagram.');
+	});
+
+	test('reports ambiguous edge endpoint metadata without changing the diagram', () => {
+		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:ambiguous',
+			displayLabel: 'ambiguous',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Person', 'ex:Organization'],
+				rangeReferences: ['ex:Role'],
+			},
+		}, { x: 200, y: 20 });
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Edge creation needs exactly one source and one target ontology item.');
 	});
 
 	test('updates and removes node image sources', () => {

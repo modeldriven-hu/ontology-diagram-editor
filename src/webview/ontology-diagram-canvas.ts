@@ -7,6 +7,7 @@ import { CanvasEventBus } from './canvas-event-bus';
 import { createPngExportMessage, createSvgExportMessage, renderDiagramExportToolbarIcons } from './canvas-export';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
+import { insertEdge } from './ontology-diagram-edges';
 import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
 import { labelBounds, labelVertex, renderLabelToolbarIcon } from './ontology-diagram-labels';
 import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
@@ -219,10 +220,11 @@ function render(): void {
 	}
 
 	const nodes = webviewConfig.payload.diagram?.nodes ?? [];
+	const edges = webviewConfig.payload.diagram?.edges ?? [];
 	const notes = webviewConfig.payload.diagram?.notes ?? [];
 	const images = webviewConfig.payload.diagram?.images ?? [];
 	const labels = webviewConfig.payload.diagram?.labels ?? [];
-	if (nodes.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0) {
+	if (nodes.length === 0 && edges.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
@@ -251,6 +253,9 @@ function render(): void {
 				vertex.size[1],
 				vertex.style,
 			);
+		}
+		for (const edge of edges) {
+			insertEdge(graph, edge, theme);
 		}
 		for (const note of notes) {
 			geometryPersistence.trackNote(noteBounds(note), note.text);
@@ -493,6 +498,15 @@ function deleteSelectedCell(cell: unknown): boolean {
 	const id = cell.getId();
 	if (id === null) {
 		return false;
+	}
+
+	if (elementRegistry.element(id)?.kind === 'node') {
+		vscode.postMessage({
+			type: 'deleteNode',
+			id,
+		});
+
+		return true;
 	}
 
 	if (geometryPersistence.hasNote(id)) {
