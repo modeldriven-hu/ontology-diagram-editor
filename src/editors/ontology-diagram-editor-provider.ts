@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
@@ -23,6 +24,10 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 
 		webviewPanel.webview.options = {
 			enableScripts: true,
+			localResourceRoots: [
+				vscode.Uri.file(__dirname),
+				vscode.Uri.file(path.dirname(document.uri.fsPath)),
+			],
 		};
 
 		const updateWebview = (): void => {

@@ -3,12 +3,13 @@ import * as assert from 'assert';
 import {
 	Bounds,
 	DiagramEdge,
+	DiagramImage,
 	DiagramMetadata,
 	DiagramNode,
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateNodeUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateImageUseCase, CreateNodeUseCase, UpdateImageBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -103,6 +104,53 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'Notes must be at least 120 x 64.');
 	});
+
+	test('creates a diagram image with persisted source and default bounds', () => {
+		const result = new CreateImageUseCase().execute(
+			emptyDiagram(),
+			'data:image/png;base64,aW1hZ2U=',
+			{ x: 25.4, y: 40.6 },
+		);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.images.length, 1);
+		assert.strictEqual(result.diagram.images[0].id.value, 'image_item1');
+		assert.strictEqual(result.diagram.images[0].source, 'data:image/png;base64,aW1hZ2U=');
+		assert.deepStrictEqual(result.diagram.images[0].bounds.toPersistenceObject(), {
+			x: 25,
+			y: 41,
+			width: 240,
+			height: 160,
+		});
+	});
+
+	test('updates image bounds', () => {
+		const diagram = diagramWithImages([
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+		]);
+
+		const result = new UpdateImageBoundsUseCase().execute(diagram, [
+			{ id: 'image_logo', x: 30.4, y: 50.6, width: 180.2, height: 120.8 },
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.images[0].bounds.toPersistenceObject(), {
+			x: 30,
+			y: 51,
+			width: 180,
+			height: 121,
+		});
+	});
+
+	test('reports invalid image sizes without changing the diagram', () => {
+		const result = new UpdateImageBoundsUseCase().execute(emptyDiagram(), [
+			{ id: 'image_logo', x: 0, y: 0, width: 31, height: 32 },
+		]);
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Images must be at least 32 x 32.');
+	});
 });
 
 function emptyDiagram(): OntologyDiagramDocument {
@@ -116,5 +164,17 @@ function diagramWithNodes(nodes: readonly DiagramNode[]): OntologyDiagramDocumen
 		new Map([['ex', 'https://example.com/ontology#']]),
 		nodes,
 		[],
+	);
+}
+
+function diagramWithImages(images: readonly DiagramImage[]): OntologyDiagramDocument {
+	return new OntologyDiagramDocument(
+		DiagramMetadata.createEmpty('Example'),
+		[],
+		new Map([['ex', 'https://example.com/ontology#']]),
+		[],
+		[],
+		[],
+		images,
 	);
 }

@@ -9,7 +9,7 @@ export function buildOntologyDiagramWebviewHtml(
 	document: vscode.TextDocument,
 	webview: vscode.Webview,
 ): string {
-	const payload = getDiagramPayload(document);
+	const payload = getDiagramPayload(document, webview);
 	const nonce = createNonce();
 	const scriptUri = webview.asWebviewUri(
 		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'ontology-diagram-canvas.js'),
@@ -50,6 +50,7 @@ function webviewBody(
 		<div class="canvas-scroll" id="canvasScroll" tabindex="0">
 			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
+				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
 			</div>
 			<form class="note-editor" id="noteEditor" hidden>
 				<textarea class="note-editor-text" id="noteEditorText" rows="5" aria-label="Note text"></textarea>
@@ -321,9 +322,10 @@ function webviewStyles(): string {
 	}`;
 }
 
-function getDiagramPayload(document: vscode.TextDocument): JsonPayload {
+function getDiagramPayload(document: vscode.TextDocument, webview: vscode.Webview): JsonPayload {
 	try {
 		const diagram = parseOntologyDiagramTextDocument(document);
+		const persistenceObject = diagram.toPersistenceObject();
 
 		return {
 			file: {
@@ -331,7 +333,13 @@ function getDiagramPayload(document: vscode.TextDocument): JsonPayload {
 				uri: document.uri.toString(),
 				directory: path.dirname(document.uri.fsPath),
 			},
-			diagram: diagram.toPersistenceObject(),
+			diagram: {
+				...persistenceObject,
+				images: diagram.images.map((image) => ({
+					...image.toPersistenceObject(),
+					webview_src: imageWebviewSource(document, webview, image.source),
+				})),
+			},
 		};
 	} catch (error) {
 		return {
@@ -343,6 +351,16 @@ function getDiagramPayload(document: vscode.TextDocument): JsonPayload {
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
+}
+
+function imageWebviewSource(document: vscode.TextDocument, webview: vscode.Webview, source: string): string {
+	if (source.startsWith('data:image/')) {
+		return source;
+	}
+
+	const imagePath = path.resolve(path.dirname(document.uri.fsPath), source);
+
+	return webview.asWebviewUri(vscode.Uri.file(imagePath)).toString();
 }
 
 interface JsonPayload {

@@ -66,9 +66,9 @@ through canvas gestures.
 
 Node `image` fields and standalone image `source` fields shall use the same image
 source rules. The property panel shall provide a file picker for choosing a local image
-file for either field and persist that path relative to the `.odiagram` file. The panel
-shall allow direct text entry for data URI image sources. Remote URL image sources are
-not supported in version 1.
+file for either field and persist the selected image as an embedded data URI. The panel
+shall allow direct text entry for data URI or relative file-path image sources. Remote
+URL image sources are not supported in version 1.
 
 The panel shall display effective read-only values when a field is derived from the
 ontology, renderer, or active theme rather than stored directly on the element.

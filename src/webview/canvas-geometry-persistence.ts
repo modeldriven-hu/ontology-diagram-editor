@@ -1,6 +1,6 @@
 import { Graph, InternalEvent, Rectangle, type Cell, type EventObject } from '@maxgraph/core';
 
-import { minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 
 interface CanvasGeometryPersistenceOptions {
@@ -12,6 +12,7 @@ interface CanvasGeometryPersistenceOptions {
 export class CanvasGeometryPersistence {
 	private readonly persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
 	private readonly persistedNoteBounds = new Map<string, NoteBoundsUpdate>();
+	private readonly persistedImageBounds = new Map<string, ImageBoundsUpdate>();
 	private readonly persistedNoteText = new Map<string, string>();
 	private suppressGeometryPersistence = false;
 
@@ -35,6 +36,10 @@ export class CanvasGeometryPersistence {
 		this.persistedNoteText.set(update.id, text);
 	}
 
+	public trackImageBounds(update: ImageBoundsUpdate): void {
+		this.persistedImageBounds.set(update.id, update);
+	}
+
 	public hasNote(id: string): boolean {
 		return this.persistedNoteBounds.has(id);
 	}
@@ -54,6 +59,7 @@ export class CanvasGeometryPersistence {
 
 		const nodeUpdates: NodeBoundsUpdate[] = [];
 		const noteUpdates: NoteBoundsUpdate[] = [];
+		const imageUpdates: ImageBoundsUpdate[] = [];
 		for (const cell of cells) {
 			const nodeUpdate = this.boundsUpdate(cell, this.persistedNodeBounds);
 			if (nodeUpdate !== undefined) {
@@ -64,6 +70,12 @@ export class CanvasGeometryPersistence {
 			const noteUpdate = this.boundsUpdate(cell, this.persistedNoteBounds);
 			if (noteUpdate !== undefined) {
 				noteUpdates.push(noteUpdate);
+				continue;
+			}
+
+			const imageUpdate = this.boundsUpdate(cell, this.persistedImageBounds);
+			if (imageUpdate !== undefined) {
+				imageUpdates.push(imageUpdate);
 			}
 		}
 
@@ -79,16 +91,29 @@ export class CanvasGeometryPersistence {
 			this.options.showStatus(`Notes must be at least ${minimumNoteWidth} x ${minimumNoteHeight}.`);
 			return;
 		}
+		const invalidImageUpdate = imageUpdates.find((update) => update.width < minimumImageWidth || update.height < minimumImageHeight);
+		if (invalidImageUpdate !== undefined) {
+			this.restorePersistedBounds(imageUpdates, this.persistedImageBounds);
+			this.options.showStatus(`Images must be at least ${minimumImageWidth} x ${minimumImageHeight}.`);
+			return;
+		}
 
-		this.persistUpdates(nodeUpdates, noteUpdates);
+		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates);
 	}
 
-	private persistUpdates(nodeUpdates: readonly NodeBoundsUpdate[], noteUpdates: readonly NoteBoundsUpdate[]): void {
+	private persistUpdates(
+		nodeUpdates: readonly NodeBoundsUpdate[],
+		noteUpdates: readonly NoteBoundsUpdate[],
+		imageUpdates: readonly ImageBoundsUpdate[],
+	): void {
 		for (const update of nodeUpdates) {
 			this.persistedNodeBounds.set(update.id, update);
 		}
 		for (const update of noteUpdates) {
 			this.persistedNoteBounds.set(update.id, update);
+		}
+		for (const update of imageUpdates) {
+			this.persistedImageBounds.set(update.id, update);
 		}
 		if (nodeUpdates.length > 0) {
 			this.options.postMessage({
@@ -100,6 +125,12 @@ export class CanvasGeometryPersistence {
 			this.options.postMessage({
 				type: 'updateNoteBounds',
 				updates: noteUpdates,
+			});
+		}
+		if (imageUpdates.length > 0) {
+			this.options.postMessage({
+				type: 'updateImageBounds',
+				updates: imageUpdates,
 			});
 		}
 	}

@@ -7,6 +7,7 @@ export interface DiagramPayload {
 	readonly diagram?: {
 		readonly nodes?: readonly DiagramNode[];
 		readonly notes?: readonly DiagramNote[];
+		readonly images?: readonly DiagramImage[];
 	};
 	readonly error?: string;
 }
@@ -30,6 +31,16 @@ export interface DiagramNote {
 	readonly height: number;
 	readonly text: string;
 	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramImage {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly source: string;
+	readonly webview_src: string;
 }
 
 export interface DiagramElementStyle {

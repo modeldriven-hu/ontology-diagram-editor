@@ -178,4 +178,61 @@ custom_section:
 			OntologyDiagramValidationError,
 		);
 	});
+
+	test('accepts relative and data URI image sources', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Example"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - id: "node_person"
+    ontology_ref: "ex:Person"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    image: "data:image/png;base64,iVBORw0KGgo="
+edges: []
+images:
+  - id: "image_logo"
+    x: 0
+    y: 0
+    width: 100
+    height: 80
+    source: "images/logo.png"
+`);
+
+		assert.strictEqual(document.nodes[0].image, 'data:image/png;base64,iVBORw0KGgo=');
+		assert.strictEqual(document.images[0].source, 'images/logo.png');
+	});
+
+	test('rejects remote image sources', () => {
+		assert.throws(
+			() => parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Example"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes: []
+edges: []
+images:
+  - id: "image_logo"
+    x: 0
+    y: 0
+    width: 100
+    height: 80
+    source: "https://example.com/logo.png"
+`),
+			OntologyDiagramValidationError,
+		);
+	});
 });

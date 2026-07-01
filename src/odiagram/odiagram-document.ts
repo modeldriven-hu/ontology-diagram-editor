@@ -6,6 +6,7 @@ export type JsonObject = { [key: string]: JsonValue };
 
 const identifierLocalPartPattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const compactIriPattern = /^([^:/?#]+):(.+)$/;
+const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
@@ -277,6 +278,9 @@ export class DiagramNode {
 		this.id = DiagramIdentifier.create(id, 'node');
 		this.ontologyRef = OntologyReference.create(ontologyRef);
 		this.bounds = bounds;
+		if (image !== undefined) {
+			assertImageSource(image);
+		}
 	}
 
 	public toPersistenceObject(): JsonObject {
@@ -369,9 +373,7 @@ export class DiagramImage {
 	) {
 		this.id = DiagramIdentifier.create(id, 'image');
 		this.bounds = bounds;
-		if (source.trim().length === 0) {
-			throw new OntologyDiagramValidationError('Image source must be a non-empty string.');
-		}
+		assertImageSource(source);
 	}
 
 	public toPersistenceObject(): JsonObject {
@@ -764,6 +766,18 @@ function validateUniqueOntologyPaths(document: OntologyDiagramDocument): string[
 	});
 
 	return [...new Set(duplicates)].map((path) => `Duplicate ontology path "${path}".`);
+}
+
+function assertImageSource(source: string): void {
+	if (source.trim().length === 0) {
+		throw new OntologyDiagramValidationError('Image source must be a non-empty string.');
+	}
+	if (source.startsWith('data:image/')) {
+		return;
+	}
+	if (source.startsWith('/') || /^[A-Za-z]:[\\/]/.test(source) || uriSchemePattern.test(source)) {
+		throw new OntologyDiagramValidationError('Image source must be a relative file path or data image URI.');
+	}
 }
 
 function assertFiniteNumber(value: number, fieldName: string): void {

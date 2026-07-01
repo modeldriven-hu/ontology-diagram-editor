@@ -3,6 +3,7 @@ import { Graph, HandleConfig, InternalEvent, StyleDefaultsConfig, VertexHandlerC
 import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
+import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
 import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
 import { NoteEditorController, noteBounds, noteVertex, renderNoteToolbarIcon } from './ontology-diagram-notes';
 import type { DiagramPayload } from './ontology-diagram-types';
@@ -34,6 +35,7 @@ const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
+const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
@@ -75,8 +77,15 @@ const noteEditorController = new NoteEditorController({
 
 configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
+renderImageToolbarIcon(addImageButton);
 render();
 noteEditorController.register();
+addImageButton.addEventListener('click', () => {
+	vscode.postMessage({
+		type: 'createImage',
+		position: insertionPosition(),
+	});
+});
 new CanvasDropController({
 	scrollElement: canvasScroll,
 	contentElement: canvasContent,
@@ -126,11 +135,12 @@ function render(): void {
 
 	const nodes = config?.payload.diagram?.nodes ?? [];
 	const notes = config?.payload.diagram?.notes ?? [];
-	if (nodes.length === 0 && notes.length === 0) {
+	const images = config?.payload.diagram?.images ?? [];
+	if (nodes.length === 0 && notes.length === 0 && images.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
-			'Drag a class, individual, or datatype from the model tree, or add a note from the canvas toolbar.',
+			'Drag a class, individual, or datatype from the model tree, or add a note or image from the canvas toolbar.',
 		));
 		return;
 	}
@@ -153,6 +163,20 @@ function render(): void {
 		for (const note of notes) {
 			geometryPersistence.trackNote(noteBounds(note), note.text);
 			const vertex = noteVertex(note, theme);
+			graph.insertVertex(
+				graph.getDefaultParent(),
+				vertex.id,
+				vertex.value,
+				vertex.position[0],
+				vertex.position[1],
+				vertex.size[0],
+				vertex.size[1],
+				vertex.style,
+			);
+		}
+		for (const image of images) {
+			geometryPersistence.trackImageBounds(imageBounds(image));
+			const vertex = imageVertex(image, theme);
 			graph.insertVertex(
 				graph.getDefaultParent(),
 				vertex.id,

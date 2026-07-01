@@ -1,4 +1,4 @@
-import type { NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { ImageBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -11,7 +11,14 @@ export interface ModelTreeItemDropPayload {
 	readonly displayLabel: string;
 }
 
-export type WebviewMessage = CreateNodeMessage | CreateNoteMessage | UpdateNodeBoundsMessage | UpdateNoteBoundsMessage | UpdateNoteTextMessage;
+export type WebviewMessage =
+	| CreateNodeMessage
+	| CreateNoteMessage
+	| CreateImageMessage
+	| UpdateNodeBoundsMessage
+	| UpdateNoteBoundsMessage
+	| UpdateImageBoundsMessage
+	| UpdateNoteTextMessage;
 
 export interface CreateNodeMessage {
 	readonly type: 'createNode';
@@ -30,9 +37,19 @@ export interface CreateNoteMessage {
 	readonly position: CanvasPoint;
 }
 
+export interface CreateImageMessage {
+	readonly type: 'createImage';
+	readonly position: CanvasPoint;
+}
+
 export interface UpdateNoteBoundsMessage {
 	readonly type: 'updateNoteBounds';
 	readonly updates: readonly NoteBoundsUpdate[];
+}
+
+export interface UpdateImageBoundsMessage {
+	readonly type: 'updateImageBounds';
+	readonly updates: readonly ImageBoundsUpdate[];
 }
 
 export interface UpdateNoteTextMessage {

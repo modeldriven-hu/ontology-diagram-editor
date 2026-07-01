@@ -12,7 +12,7 @@
 - Given a node is selected, when the panel is shown, then `x`, `y`, `width`, `height`, and `image` are editable.
 - Given an edge is selected, when the panel is shown, then edge fields are inspection-only and endpoints, route points, and label position are not editable.
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.
-- Given a node image or standalone image source is edited, when a local file is selected, then the path is persisted relative to the `.odiagram` file.
+- Given a node image or standalone image source is edited, when a local file is selected, then the selected image bytes are embedded as a `data:image/...` URI.
 - Given a data URI image source is entered, when validation succeeds, then it is persisted.
 
 ## Validation And Persistence

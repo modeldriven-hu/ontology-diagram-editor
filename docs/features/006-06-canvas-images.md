@@ -12,7 +12,8 @@ image sources.
 The canvas shall provide a command for adding a standalone image.
 
 When the user adds an image, the canvas shall ask for an image file using a file picker.
-The selected source shall be a file path allowed by the `.odiagram` image source rules.
+The selected image file shall be embedded into the `.odiagram` file as a data URI image
+source so diagrams remain portable without copying external image files.
 
 The new image shall:
 
@@ -20,12 +21,11 @@ The new image shall:
 - Store the insertion position as `x` and `y`.
 - Store default width and height selected by the implementation or derived from the image
   dimensions.
-- Store the selected image source as `source`.
+- Store the embedded data URI image source as `source`.
 
-If the source is a file path, it shall be persisted relative to the `.odiagram` file.
-
-Data URI image sources are valid `.odiagram` values, but in version 1 they are entered
-or edited through the property panel rather than the add-image command.
+Relative file path image sources are valid `.odiagram` values for compatibility and
+typed/property-panel editing, but the add-image command shall not create external file
+links.
 
 Remote URL image sources are not supported in version 1.
 
