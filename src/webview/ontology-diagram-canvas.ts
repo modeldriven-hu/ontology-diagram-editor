@@ -4,6 +4,7 @@ import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-eve
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasGeometryPersistence, isGraphCell } from './canvas-geometry-persistence';
 import { imageBounds, imageVertex, renderImageToolbarIcon } from './ontology-diagram-images';
+import { labelBounds, labelVertex, renderLabelToolbarIcon } from './ontology-diagram-labels';
 import { nodeBounds, nodeVertex } from './ontology-diagram-nodes';
 import { NoteEditorController, noteBounds, noteVertex, renderNoteToolbarIcon } from './ontology-diagram-notes';
 import type { DiagramPayload } from './ontology-diagram-types';
@@ -35,6 +36,7 @@ const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
+const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
@@ -49,14 +51,23 @@ const geometryPersistence = new CanvasGeometryPersistence({
 });
 const noteEditorController = new NoteEditorController({
 	addNoteButton,
+	addLabelButton,
 	noteEditor,
 	noteEditorText,
 	saveNoteButton,
 	cancelNoteButton,
 	getNoteText: (noteId) => geometryPersistence.getNoteText(noteId),
+	getLabelText: (labelId) => geometryPersistence.getLabelText(labelId),
 	createNote: (text) => {
 		vscode.postMessage({
 			type: 'createNote',
+			text,
+			position: insertionPosition(),
+		});
+	},
+	createLabel: (text) => {
+		vscode.postMessage({
+			type: 'createLabel',
 			text,
 			position: insertionPosition(),
 		});
@@ -69,6 +80,14 @@ const noteEditorController = new NoteEditorController({
 			text,
 		});
 	},
+	updateLabelText: (labelId, text) => {
+		geometryPersistence.setLabelText(labelId, text);
+		vscode.postMessage({
+			type: 'updateLabelText',
+			id: labelId,
+			text,
+		});
+	},
 	showStatus,
 	focusAfterClose: () => {
 		canvasScroll.focus();
@@ -77,6 +96,7 @@ const noteEditorController = new NoteEditorController({
 
 configureGraph(graph);
 renderNoteToolbarIcon(addNoteButton);
+renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 render();
 noteEditorController.register();
@@ -137,11 +157,12 @@ function render(): void {
 	const nodes = config?.payload.diagram?.nodes ?? [];
 	const notes = config?.payload.diagram?.notes ?? [];
 	const images = config?.payload.diagram?.images ?? [];
-	if (nodes.length === 0 && notes.length === 0 && images.length === 0) {
+	const labels = config?.payload.diagram?.labels ?? [];
+	if (nodes.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
-			'Drag a class, individual, or datatype from the model tree, or add a note or image from the canvas toolbar.',
+			'Drag a class, individual, or datatype from the model tree, or add a note, label, or image from the canvas toolbar.',
 		));
 		return;
 	}
@@ -164,6 +185,20 @@ function render(): void {
 		for (const note of notes) {
 			geometryPersistence.trackNote(noteBounds(note), note.text);
 			const vertex = noteVertex(note, theme);
+			graph.insertVertex(
+				graph.getDefaultParent(),
+				vertex.id,
+				vertex.value,
+				vertex.position[0],
+				vertex.position[1],
+				vertex.size[0],
+				vertex.size[1],
+				vertex.style,
+			);
+		}
+		for (const label of labels) {
+			geometryPersistence.trackLabel(labelBounds(label), label.text);
+			const vertex = labelVertex(label, theme);
 			graph.insertVertex(
 				graph.getDefaultParent(),
 				vertex.id,
@@ -207,9 +242,15 @@ function registerNoteEditHandlers(): void {
 		if (editNoteCell(graph.getSelectionCell())) {
 			event.preventDefault();
 		}
+		if (editLabelCell(graph.getSelectionCell())) {
+			event.preventDefault();
+		}
 	});
 	graph.addListener(InternalEvent.DOUBLE_CLICK, (_sender: unknown, event: EventObject) => {
 		if (editNoteCell(event.getProperty('cell'))) {
+			event.consume();
+		}
+		if (editLabelCell(event.getProperty('cell'))) {
 			event.consume();
 		}
 	});
@@ -225,7 +266,22 @@ function editNoteCell(cell: unknown): boolean {
 		return false;
 	}
 
-	noteEditorController.open(id);
+	noteEditorController.open('note', id);
+
+	return true;
+}
+
+function editLabelCell(cell: unknown): boolean {
+	if (!isGraphCell(cell)) {
+		return false;
+	}
+
+	const id = cell.getId();
+	if (id === null || !geometryPersistence.hasLabel(id)) {
+		return false;
+	}
+
+	noteEditorController.open('label', id);
 
 	return true;
 }
@@ -278,6 +334,15 @@ function deleteSelectedCell(cell: unknown): boolean {
 	if (geometryPersistence.hasImage(id)) {
 		vscode.postMessage({
 			type: 'deleteImage',
+			id,
+		});
+
+		return true;
+	}
+
+	if (geometryPersistence.hasLabel(id)) {
+		vscode.postMessage({
+			type: 'deleteLabel',
 			id,
 		});
 

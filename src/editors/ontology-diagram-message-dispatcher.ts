@@ -2,11 +2,15 @@ import * as vscode from 'vscode';
 
 import {
 	CreateImageUseCase,
+	CreateLabelUseCase,
 	CreateNodeUseCase,
 	CreateNoteUseCase,
 	DeleteImageUseCase,
+	DeleteLabelUseCase,
 	DeleteNoteUseCase,
 	UpdateImageBoundsUseCase,
+	UpdateLabelBoundsUseCase,
+	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
 	UpdateNoteBoundsUseCase,
 	UpdateNoteTextUseCase,
@@ -21,12 +25,16 @@ interface DiagramEditorUseCases {
 	readonly createNode: CreateNodeUseCase;
 	readonly createNote: CreateNoteUseCase;
 	readonly createImage: CreateImageUseCase;
+	readonly createLabel: CreateLabelUseCase;
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
+	readonly deleteLabel: DeleteLabelUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
+	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
+	readonly updateLabelText: UpdateLabelTextUseCase;
 }
 
 export class OntologyDiagramMessageDispatcher {
@@ -61,11 +69,21 @@ export class OntologyDiagramMessageDispatcher {
 			case 'createImage':
 				await this.createImage(message);
 				return;
+			case 'createLabel':
+				await this.handleResult(this.useCases.createLabel.execute(
+					this.repository.load(),
+					message.text,
+					message.position,
+				));
+				return;
 			case 'deleteNote':
 				await this.deleteNote(message);
 				return;
 			case 'deleteImage':
 				await this.deleteImage(message);
+				return;
+			case 'deleteLabel':
+				await this.deleteLabel(message);
 				return;
 			case 'updateNoteBounds':
 				await this.handleResult(this.useCases.updateNoteBounds.execute(
@@ -79,8 +97,21 @@ export class OntologyDiagramMessageDispatcher {
 					message.updates,
 				));
 				return;
+			case 'updateLabelBounds':
+				await this.handleResult(this.useCases.updateLabelBounds.execute(
+					this.repository.load(),
+					message.updates,
+				));
+				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
+					this.repository.load(),
+					message.id,
+					message.text,
+				));
+				return;
+			case 'updateLabelText':
+				await this.handleResult(this.useCases.updateLabelText.execute(
 					this.repository.load(),
 					message.id,
 					message.text,
@@ -135,6 +166,22 @@ export class OntologyDiagramMessageDispatcher {
 		));
 	}
 
+	private async deleteLabel(message: Extract<WebviewMessage, { readonly type: 'deleteLabel' }>): Promise<void> {
+		const confirmed = await vscode.window.showWarningMessage(
+			'Delete this label from the diagram?',
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteLabel.execute(
+			this.repository.load(),
+			message.id,
+		));
+	}
+
 	private async createImage(message: Extract<WebviewMessage, { readonly type: 'createImage' }>): Promise<void> {
 		const selectedImage = await vscode.window.showOpenDialog({
 			canSelectFiles: true,
@@ -173,11 +220,15 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createNode: new CreateNodeUseCase(),
 		createNote: new CreateNoteUseCase(),
 		createImage: new CreateImageUseCase(),
+		createLabel: new CreateLabelUseCase(),
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
+		deleteLabel: new DeleteLabelUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),
 		updateImageBounds: new UpdateImageBoundsUseCase(),
+		updateLabelBounds: new UpdateLabelBoundsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
+		updateLabelText: new UpdateLabelTextUseCase(),
 	};
 }

@@ -1,8 +1,8 @@
 import { Bounds } from '../../odiagram';
-import type { NodeBoundsUpdate, NoteBoundsUpdate } from '../../shared/canvas-geometry';
+import type { BoundsUpdate } from '../../shared/canvas-geometry';
 import { roundCoordinate, roundPositiveSize } from './geometry';
 
-export function toBounds(update: NodeBoundsUpdate | NoteBoundsUpdate): Bounds {
+export function toBounds(update: BoundsUpdate): Bounds {
 	return new Bounds(
 		roundCoordinate(update.x),
 		roundCoordinate(update.y),

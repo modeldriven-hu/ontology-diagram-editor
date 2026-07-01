@@ -8,6 +8,7 @@ export interface DiagramPayload {
 		readonly nodes?: readonly DiagramNode[];
 		readonly notes?: readonly DiagramNote[];
 		readonly images?: readonly DiagramImage[];
+		readonly labels?: readonly DiagramLabel[];
 	};
 	readonly error?: string;
 }
@@ -43,6 +44,16 @@ export interface DiagramImage {
 	readonly webview_src: string;
 }
 
+export interface DiagramLabel {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly text: string;
+	readonly style?: DiagramLabelStyle;
+}
+
 export interface DiagramElementStyle {
 	readonly bg_color?: string;
 	readonly text_color?: string;
@@ -56,5 +67,15 @@ export interface DiagramElementStyle {
 		readonly type?: 'solid' | 'dashed' | 'dotted' | 'none';
 		readonly weight?: number;
 		readonly color?: string;
+	};
+}
+
+export interface DiagramLabelStyle {
+	readonly text_color?: string;
+	readonly font?: {
+		readonly family?: string;
+		readonly bold?: boolean;
+		readonly italic?: boolean;
+		readonly size?: number;
 	};
 }

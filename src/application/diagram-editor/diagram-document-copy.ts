@@ -5,6 +5,7 @@ interface DiagramOverrides {
 	readonly edges?: OntologyDiagramDocument['edges'];
 	readonly notes?: OntologyDiagramDocument['notes'];
 	readonly images?: OntologyDiagramDocument['images'];
+	readonly labels?: OntologyDiagramDocument['labels'];
 }
 
 export function cloneDiagram(
@@ -19,7 +20,7 @@ export function cloneDiagram(
 		overrides.edges ?? diagram.edges,
 		overrides.notes ?? diagram.notes,
 		overrides.images ?? diagram.images,
-		diagram.labels,
+		overrides.labels ?? diagram.labels,
 		diagram.extra,
 	);
 }

@@ -1,4 +1,4 @@
-import type { ImageBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -15,11 +15,15 @@ export type WebviewMessage =
 	| CreateNodeMessage
 	| CreateNoteMessage
 	| CreateImageMessage
+	| CreateLabelMessage
 	| DeleteNoteMessage
 	| DeleteImageMessage
+	| DeleteLabelMessage
 	| UpdateNodeBoundsMessage
 	| UpdateNoteBoundsMessage
 	| UpdateImageBoundsMessage
+	| UpdateLabelBoundsMessage
+	| UpdateLabelTextMessage
 	| UpdateNoteTextMessage;
 
 export interface CreateNodeMessage {
@@ -44,6 +48,12 @@ export interface CreateImageMessage {
 	readonly position: CanvasPoint;
 }
 
+export interface CreateLabelMessage {
+	readonly type: 'createLabel';
+	readonly text: string;
+	readonly position: CanvasPoint;
+}
+
 export interface DeleteNoteMessage {
 	readonly type: 'deleteNote';
 	readonly id: string;
@@ -51,6 +61,11 @@ export interface DeleteNoteMessage {
 
 export interface DeleteImageMessage {
 	readonly type: 'deleteImage';
+	readonly id: string;
+}
+
+export interface DeleteLabelMessage {
+	readonly type: 'deleteLabel';
 	readonly id: string;
 }
 
@@ -64,8 +79,19 @@ export interface UpdateImageBoundsMessage {
 	readonly updates: readonly ImageBoundsUpdate[];
 }
 
+export interface UpdateLabelBoundsMessage {
+	readonly type: 'updateLabelBounds';
+	readonly updates: readonly LabelBoundsUpdate[];
+}
+
 export interface UpdateNoteTextMessage {
 	readonly type: 'updateNoteText';
+	readonly id: string;
+	readonly text: string;
+}
+
+export interface UpdateLabelTextMessage {
+	readonly type: 'updateLabelText';
 	readonly id: string;
 	readonly text: string;
 }

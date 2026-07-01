@@ -4,13 +4,14 @@ import {
 	Bounds,
 	DiagramEdge,
 	DiagramImage,
+	DiagramLabel,
 	DiagramMetadata,
 	DiagramNode,
 	DiagramNote,
 	OntologyDiagramDocument,
 	Point,
 } from '../odiagram';
-import { CreateImageUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
+import { CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNoteUseCase, UpdateImageBoundsUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNoteBoundsUseCase } from '../application/diagram-editor';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -176,6 +177,76 @@ suite('Diagram editor use cases', () => {
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_second']);
 	});
+
+	test('creates a diagram label with persisted text and default bounds', () => {
+		const result = new CreateLabelUseCase().execute(
+			emptyDiagram(),
+			'Core model',
+			{ x: 12.4, y: 24.6 },
+		);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.labels.length, 1);
+		assert.strictEqual(result.diagram.labels[0].id.value, 'label_item1');
+		assert.strictEqual(result.diagram.labels[0].text, 'Core model');
+		assert.deepStrictEqual(result.diagram.labels[0].bounds.toPersistenceObject(), {
+			x: 12,
+			y: 25,
+			width: 180,
+			height: 40,
+		});
+	});
+
+	test('updates label bounds', () => {
+		const diagram = diagramWithLabels([
+			new DiagramLabel('label_title', new Bounds(10, 20, 100, 40), 'Title'),
+		]);
+
+		const result = new UpdateLabelBoundsUseCase().execute(diagram, [
+			{ id: 'label_title', x: 30.4, y: 50.6, width: 180.2, height: 42.8 },
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.labels[0].bounds.toPersistenceObject(), {
+			x: 30,
+			y: 51,
+			width: 180,
+			height: 43,
+		});
+	});
+
+	test('reports invalid label sizes without changing the diagram', () => {
+		const result = new UpdateLabelBoundsUseCase().execute(emptyDiagram(), [
+			{ id: 'label_title', x: 0, y: 0, width: 47, height: 24 },
+		]);
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Labels must be at least 48 x 24.');
+	});
+
+	test('updates label text', () => {
+		const diagram = diagramWithLabels([
+			new DiagramLabel('label_title', new Bounds(10, 20, 100, 40), 'Old'),
+		]);
+
+		const result = new UpdateLabelTextUseCase().execute(diagram, 'label_title', 'New');
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.labels[0].text, 'New');
+	});
+
+	test('deletes a label from the diagram', () => {
+		const diagram = diagramWithLabels([
+			new DiagramLabel('label_first', new Bounds(10, 20, 100, 40), 'First'),
+			new DiagramLabel('label_second', new Bounds(40, 50, 120, 40), 'Second'),
+		]);
+
+		const result = new DeleteLabelUseCase().execute(diagram, 'label_first');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.labels.map((label) => label.id.value), ['label_second']);
+	});
 });
 
 function emptyDiagram(): OntologyDiagramDocument {
@@ -212,5 +283,18 @@ function diagramWithNotes(notes: readonly DiagramNote[]): OntologyDiagramDocumen
 		[],
 		[],
 		notes,
+	);
+}
+
+function diagramWithLabels(labels: readonly DiagramLabel[]): OntologyDiagramDocument {
+	return new OntologyDiagramDocument(
+		DiagramMetadata.createEmpty('Example'),
+		[],
+		new Map([['ex', 'https://example.com/ontology#']]),
+		[],
+		[],
+		[],
+		[],
+		labels,
 	);
 }

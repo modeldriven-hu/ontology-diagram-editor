@@ -50,6 +50,7 @@ function webviewBody(
 		<div class="canvas-scroll" id="canvasScroll" tabindex="0">
 			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
+				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
 			</div>
 			<form class="note-editor" id="noteEditor" hidden>

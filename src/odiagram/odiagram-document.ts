@@ -388,23 +388,24 @@ export class DiagramImage {
 
 export class DiagramLabel {
 	public readonly id: DiagramIdentifier;
+	public readonly bounds: Bounds;
 
 	public constructor(
 		id: string,
-		public readonly position: Point,
+		bounds: Bounds,
 		public readonly text: string,
 		public readonly style?: LabelStyle,
 		public readonly extra: JsonObject = {},
 	) {
 		this.id = DiagramIdentifier.create(id, 'label');
+		this.bounds = bounds;
 	}
 
 	public toPersistenceObject(): JsonObject {
 		return omitUndefined({
 			...this.extra,
 			id: this.id.value,
-			x: this.position.x,
-			y: this.position.y,
+			...this.bounds.toPersistenceObject(),
 			text: this.text,
 			style: this.style?.toPersistenceObject(),
 		});
@@ -542,10 +543,8 @@ const imageSchema = boundsFieldsSchema.extend({
 	source: z.string(),
 });
 
-const labelSchema = z.object({
+const labelSchema = boundsFieldsSchema.extend({
 	id: z.string(),
-	x: z.number(),
-	y: z.number(),
 	text: z.string(),
 	style: labelStyleSchema.optional(),
 }).passthrough();
@@ -644,10 +643,10 @@ function parseImage(value: z.infer<typeof imageSchema>): DiagramImage {
 function parseLabel(value: z.infer<typeof labelSchema>): DiagramLabel {
 	return new DiagramLabel(
 		value.id,
-		new Point(value.x, value.y),
+		new Bounds(value.x, value.y, value.width, value.height),
 		value.text,
 		value.style ? parseLabelStyle(value.style) : undefined,
-		getExtraFields(value, ['id', 'x', 'y', 'text', 'style']),
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'text', 'style']),
 	);
 }
 

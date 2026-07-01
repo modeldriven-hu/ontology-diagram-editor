@@ -340,6 +340,8 @@ Each label shall contain:
 | `id` | identifier | Yes | Unique label identifier. |
 | `x` | number | Yes | Left position. |
 | `y` | number | Yes | Top position. |
+| `width` | number | Yes | Label width. |
+| `height` | number | Yes | Label height. |
 | `text` | string | Yes | Label text. |
 | `style` | map | No | Label style override limited to `text_color` and `font` in version 1. |
 
@@ -437,5 +439,7 @@ labels:
   - id: "label_1"
     x: 80
     y: 40
+    width: 220
+    height: 40
     text: "Core model"
 ```

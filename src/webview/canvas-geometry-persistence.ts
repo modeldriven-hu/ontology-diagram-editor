@@ -1,6 +1,6 @@
 import { Graph, InternalEvent, Rectangle, type Cell, type EventObject } from '@maxgraph/core';
 
-import { minimumImageHeight, minimumImageWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
 import type { WebviewMessage } from '../shared/ontology-diagram-events';
 
 interface CanvasGeometryPersistenceOptions {
@@ -13,7 +13,9 @@ export class CanvasGeometryPersistence {
 	private readonly persistedNodeBounds = new Map<string, NodeBoundsUpdate>();
 	private readonly persistedNoteBounds = new Map<string, NoteBoundsUpdate>();
 	private readonly persistedImageBounds = new Map<string, ImageBoundsUpdate>();
+	private readonly persistedLabelBounds = new Map<string, LabelBoundsUpdate>();
 	private readonly persistedNoteText = new Map<string, string>();
+	private readonly persistedLabelText = new Map<string, string>();
 	private suppressGeometryPersistence = false;
 
 	public constructor(private readonly options: CanvasGeometryPersistenceOptions) {}
@@ -40,8 +42,17 @@ export class CanvasGeometryPersistence {
 		this.persistedImageBounds.set(update.id, update);
 	}
 
+	public trackLabel(update: LabelBoundsUpdate, text: string): void {
+		this.persistedLabelBounds.set(update.id, update);
+		this.persistedLabelText.set(update.id, text);
+	}
+
 	public hasImage(id: string): boolean {
 		return this.persistedImageBounds.has(id);
+	}
+
+	public hasLabel(id: string): boolean {
+		return this.persistedLabelBounds.has(id);
 	}
 
 	public hasNote(id: string): boolean {
@@ -56,6 +67,14 @@ export class CanvasGeometryPersistence {
 		this.persistedNoteText.set(id, text);
 	}
 
+	public getLabelText(id: string): string | undefined {
+		return this.persistedLabelText.get(id);
+	}
+
+	public setLabelText(id: string, text: string): void {
+		this.persistedLabelText.set(id, text);
+	}
+
 	private persistChangedElementBounds(cells: unknown): void {
 		if (this.suppressGeometryPersistence || !Array.isArray(cells)) {
 			return;
@@ -64,6 +83,7 @@ export class CanvasGeometryPersistence {
 		const nodeUpdates: NodeBoundsUpdate[] = [];
 		const noteUpdates: NoteBoundsUpdate[] = [];
 		const imageUpdates: ImageBoundsUpdate[] = [];
+		const labelUpdates: LabelBoundsUpdate[] = [];
 		for (const cell of cells) {
 			const nodeUpdate = this.boundsUpdate(cell, this.persistedNodeBounds);
 			if (nodeUpdate !== undefined) {
@@ -80,6 +100,12 @@ export class CanvasGeometryPersistence {
 			const imageUpdate = this.boundsUpdate(cell, this.persistedImageBounds);
 			if (imageUpdate !== undefined) {
 				imageUpdates.push(imageUpdate);
+				continue;
+			}
+
+			const labelUpdate = this.boundsUpdate(cell, this.persistedLabelBounds);
+			if (labelUpdate !== undefined) {
+				labelUpdates.push(labelUpdate);
 			}
 		}
 
@@ -101,14 +127,21 @@ export class CanvasGeometryPersistence {
 			this.options.showStatus(`Images must be at least ${minimumImageWidth} x ${minimumImageHeight}.`);
 			return;
 		}
+		const invalidLabelUpdate = labelUpdates.find((update) => update.width < minimumLabelWidth || update.height < minimumLabelHeight);
+		if (invalidLabelUpdate !== undefined) {
+			this.restorePersistedBounds(labelUpdates, this.persistedLabelBounds);
+			this.options.showStatus(`Labels must be at least ${minimumLabelWidth} x ${minimumLabelHeight}.`);
+			return;
+		}
 
-		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates);
+		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates);
 	}
 
 	private persistUpdates(
 		nodeUpdates: readonly NodeBoundsUpdate[],
 		noteUpdates: readonly NoteBoundsUpdate[],
 		imageUpdates: readonly ImageBoundsUpdate[],
+		labelUpdates: readonly LabelBoundsUpdate[],
 	): void {
 		for (const update of nodeUpdates) {
 			this.persistedNodeBounds.set(update.id, update);
@@ -118,6 +151,9 @@ export class CanvasGeometryPersistence {
 		}
 		for (const update of imageUpdates) {
 			this.persistedImageBounds.set(update.id, update);
+		}
+		for (const update of labelUpdates) {
+			this.persistedLabelBounds.set(update.id, update);
 		}
 		if (nodeUpdates.length > 0) {
 			this.options.postMessage({
@@ -135,6 +171,12 @@ export class CanvasGeometryPersistence {
 			this.options.postMessage({
 				type: 'updateImageBounds',
 				updates: imageUpdates,
+			});
+		}
+		if (labelUpdates.length > 0) {
+			this.options.postMessage({
+				type: 'updateLabelBounds',
+				updates: labelUpdates,
 			});
 		}
 	}

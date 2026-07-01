@@ -1,10 +1,14 @@
 export { CreateImageUseCase } from './create-image-use-case';
+export { CreateLabelUseCase } from './create-label-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';
 export { CreateNoteUseCase } from './create-note-use-case';
 export { DeleteImageUseCase } from './delete-image-use-case';
+export { DeleteLabelUseCase } from './delete-label-use-case';
 export { DeleteNoteUseCase } from './delete-note-use-case';
 export type { DiagramMutationResult } from './diagram-mutation-result';
 export { UpdateImageBoundsUseCase } from './update-image-bounds-use-case';
+export { UpdateLabelBoundsUseCase } from './update-label-bounds-use-case';
+export { UpdateLabelTextUseCase } from './update-label-text-use-case';
 export { UpdateNodeBoundsUseCase } from './update-node-bounds-use-case';
 export { UpdateNoteBoundsUseCase } from './update-note-bounds-use-case';
 export { UpdateNoteTextUseCase } from './update-note-text-use-case';
