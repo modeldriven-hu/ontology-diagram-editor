@@ -9,13 +9,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:ontology-diagram-editor.createOntologyDiagram",
-    "onCommand:ontology-diagram-editor.modelTree.refresh",
-    "onCommand:ontology-diagram-editor.modelTree.addOntology",
-    "onCommand:ontology-diagram-editor.modelTree.removeOntology",
-    "onCustomEditor:ontology-diagram-editor.diagramEditor"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [

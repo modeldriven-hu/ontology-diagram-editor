@@ -32,6 +32,9 @@ export class CanvasMessageBus {
 	}
 
 	private publish(event: CanvasMessage): void {
+		
+		console.debug('CanvasMessageBus.publish', event);
+
 		for (const listener of this.listeners) {
 			listener(event);
 		}
