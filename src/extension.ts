@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
-import { OntologyDiagramEditorProvider, ontologyDiagramEditorViewType } from './editors/ontology-diagram-editor-provider';
-import { ModelTree } from './model-tree/model-tree';
-import { CreateOntologyDiagramCommand } from './commands/create-ontology-diagram';
+import { OntologyDiagramEditorProvider, ontologyDiagramEditorViewType } from './diagram-editor/ontology-diagram-editor-provider';
+import { ModelTree } from './ui/model-tree/model-tree';
+import { CreateOntologyDiagramCommand } from './diagram-editor/create-diagram-command';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "ontology-diagram-editor" is now active!');

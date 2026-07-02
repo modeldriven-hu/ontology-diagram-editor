@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
-import { CommonStyle, FontStyle, LabelStyle } from '../odiagram';
+import { CommonStyle, FontStyle, LabelStyle } from '../documents/odiagram';
 import {
 	defaultOntologyDiagramTheme,
 	OntologyDiagramTheme,
@@ -14,7 +14,7 @@ import {
 	resolveNodeStyle,
 	stringifyOntologyDiagramThemeYaml,
 	writeOntologyDiagramThemeFile,
-} from '../otheme';
+} from '../documents/otheme';
 
 suite('OntologyDiagram theme', () => {
 	const validThemeYaml = `

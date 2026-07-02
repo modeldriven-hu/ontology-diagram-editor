@@ -52,7 +52,7 @@ async function main() {
 	});
 	const webviewContext = await esbuild.context({
 		entryPoints: [
-			'src/webview/engine/ontology-diagram-canvas.ts'
+			'src/ui/webview/engine/ontology-diagram-canvas.ts'
 		],
 		bundle: true,
 		format: 'iife',

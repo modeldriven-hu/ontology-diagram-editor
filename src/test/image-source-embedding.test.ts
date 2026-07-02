@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
-import { embeddedImageSourceFromFile, imageMimeType } from '../editors/image-source-embedding';
+import { embeddedImageSourceFromFile, imageMimeType } from '../diagram-editor/image-source-embedding';
 
 suite('Image source embedding', () => {
 	test('embeds selected image files as data URIs', async () => {
