@@ -1,11 +1,7 @@
-import type { CellStyle } from '@maxgraph/core';
 import { StickyNotePlus, createElement as createIconElement } from 'lucide';
 
 import type { NoteBoundsUpdate } from '../shared/canvas-geometry';
-import { escapeHtml } from '../shared/html';
 import type { DiagramNote } from './ontology-diagram-types';
-import type { DiagramVertex } from './ontology-diagram-nodes';
-import type { WebviewTheme } from './webview-theme';
 
 export interface NoteEditorControllerOptions {
 	readonly addNoteButton: HTMLButtonElement;
@@ -197,56 +193,4 @@ export function noteBounds(note: DiagramNote): NoteBoundsUpdate {
 		width: note.width,
 		height: note.height,
 	};
-}
-
-export function noteVertex(note: DiagramNote, theme: WebviewTheme): DiagramVertex {
-	return {
-		id: note.id,
-		value: noteLabelHtml(note),
-		position: [note.x, note.y],
-		size: [note.width, note.height],
-		style: noteStyle(note, theme),
-	};
-}
-
-function noteStyle(note: DiagramNote, theme: WebviewTheme): CellStyle {
-	const borderType = note.style?.border?.type;
-	const borderWeight = note.style?.border?.weight;
-	const style: CellStyle = {
-		align: 'left',
-		verticalAlign: 'top',
-		whiteSpace: 'wrap',
-		overflow: 'hidden',
-		rounded: true,
-		absoluteArcSize: true,
-		arcSize: 6,
-		spacing: 12,
-		shadow: true,
-		fillColor: note.style?.bg_color ?? '#fff4b8',
-		fontColor: note.style?.text_color ?? '#3b2f00',
-		fontFamily: note.style?.font?.family ?? theme.fontFamily,
-		fontSize: note.style?.font?.size ?? theme.fontSize,
-		strokeColor: note.style?.border?.color ?? '#d7b85d',
-		strokeWidth: borderWeight ?? 1,
-	};
-
-	if (note.style?.font?.bold === true || note.style?.font?.italic === true) {
-		style.fontStyle = (note.style.font.bold === true ? 1 : 0) + (note.style.font.italic === true ? 2 : 0);
-	}
-	if (borderType === 'dashed' || borderType === 'dotted') {
-		style.dashed = true;
-		style.dashPattern = borderType === 'dotted' ? '1 4' : '3 3';
-	}
-	if (borderType === 'none' || borderWeight === 0) {
-		style.strokeColor = 'none';
-		style.strokeWidth = 0;
-	}
-
-	return style;
-}
-
-function noteLabelHtml(note: DiagramNote): string {
-	const text = escapeHtml(note.text).replaceAll('\n', '<br>');
-
-	return `<div style="width:100%;height:100%;overflow:hidden;overflow-wrap:anywhere;white-space:normal;">${text}</div>`;
 }

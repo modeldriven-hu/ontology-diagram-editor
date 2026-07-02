@@ -137,7 +137,6 @@
   },
   "dependencies": {
     "@antv/x6": "^3.1.7",
-    "@maxgraph/core": "^0.23.0",
     "@rdfjs/types": "^2.0.1",
     "color-string": "^2.1.4",
     "lucide": "^1.22.0",
