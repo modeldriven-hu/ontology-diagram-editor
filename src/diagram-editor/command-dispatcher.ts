@@ -27,7 +27,7 @@ import {
 import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview-commands';
-import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
+import { DiagramDocumentRepository } from './document-repository';
 
 interface DiagramEditorUseCases {
 	readonly createNode: CreateNodeUseCase;
@@ -52,11 +52,11 @@ interface DiagramEditorUseCases {
 	readonly saveDiagramExport: SaveDiagramExportUseCase;
 }
 
-export class OntologyDiagramCommandDispatcher {
+export class DiagramCommandDispatcher {
 	private readonly useCases: DiagramEditorUseCases;
 
 	public constructor(
-		private readonly repository: OntologyDiagramDocumentRepository,
+		private readonly repository: DiagramDocumentRepository,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 		useCases: DiagramEditorUseCases = createDefaultUseCases(),
 	) {

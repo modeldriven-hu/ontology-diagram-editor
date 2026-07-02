@@ -5,7 +5,7 @@ import { parseOntologyDiagramTextDocument } from '../documents/odiagram';
 import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import { escapeHtml } from '../shared/html';
 
-export function buildOntologyDiagramWebviewHtml(
+export function buildDiagramWebviewHtml(
 	document: vscode.TextDocument,
 	webview: vscode.Webview,
 ): string {

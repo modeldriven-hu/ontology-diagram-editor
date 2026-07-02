@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { parseOntologyDiagramTextDocument, stringifyOntologyDiagramYaml } from '../documents/odiagram';
 import type { OntologyDiagramDocument } from '../documents/odiagram';
 
-export class OntologyDiagramDocumentRepository {
+export class DiagramDocumentRepository {
 	public constructor(private readonly document: vscode.TextDocument) {}
 
 	public get uri(): vscode.Uri {

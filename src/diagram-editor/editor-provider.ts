@@ -3,13 +3,13 @@ import * as vscode from 'vscode';
 
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
-import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
-import { OntologyDiagramCommandDispatcher } from './ontology-diagram-command-dispatcher';
-import { buildOntologyDiagramWebviewHtml } from './ontology-diagram-webview-html';
+import { DiagramDocumentRepository } from './document-repository';
+import { DiagramCommandDispatcher } from './command-dispatcher';
+import { buildDiagramWebviewHtml } from './webview-html';
 
-export const ontologyDiagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
+export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
-export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorProvider {
+export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 	public constructor(
 		private readonly onDidOpenDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
@@ -31,7 +31,7 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 		};
 
 		const updateWebview = (): void => {
-			webviewPanel.webview.html = buildOntologyDiagramWebviewHtml(document, webviewPanel.webview);
+			webviewPanel.webview.html = buildDiagramWebviewHtml(document, webviewPanel.webview);
 		};
 
 		let nextSuppressedRefreshId = 0;
@@ -46,8 +46,8 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 				updateWebview();
 			}
 		});
-		const repository = new OntologyDiagramDocumentRepository(document);
-		const dispatcher = new OntologyDiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem);
+		const repository = new DiagramDocumentRepository(document);
+		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem);
 		let dispatchQueue = Promise.resolve();
 		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
 			const suppressedRefreshId = isInPlaceBoundsUpdate(command)

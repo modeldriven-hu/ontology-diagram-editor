@@ -1,16 +1,16 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { ontologyDiagramEditorViewType } from './ontology-diagram-editor-provider';
+import { diagramEditorViewType } from './editor-provider';
 import { OntologyDiagramDocument, ontologyDiagramFileExtension, stringifyOntologyDiagramYaml } from '../documents/odiagram';
 
 const defaultDiagramFileName = `new-diagram${ontologyDiagramFileExtension}`;
 
-export class CreateOntologyDiagramCommand {
+export class CreateDiagramCommand {
 	public static readonly id = 'ontology-diagram-editor.createOntologyDiagram';
 
 	public register(context: vscode.ExtensionContext): void {
-		context.subscriptions.push(vscode.commands.registerCommand(CreateOntologyDiagramCommand.id, async (resource?: vscode.Uri) => {
+		context.subscriptions.push(vscode.commands.registerCommand(CreateDiagramCommand.id, async (resource?: vscode.Uri) => {
 			await this.execute(resource);
 		}));
 	}
@@ -43,7 +43,7 @@ export class CreateOntologyDiagramCommand {
 		const content = stringifyOntologyDiagramYaml(document);
 
 		await vscode.workspace.fs.writeFile(targetFile, new TextEncoder().encode(content));
-		await vscode.commands.executeCommand('vscode.openWith', targetFile, ontologyDiagramEditorViewType);
+		await vscode.commands.executeCommand('vscode.openWith', targetFile, diagramEditorViewType);
 	}
 }
 
