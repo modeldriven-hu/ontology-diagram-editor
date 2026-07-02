@@ -78,7 +78,7 @@ export interface ModelTreeItemDraggedEvent {
 
 export const modelTreeDragMimeType = 'application/vnd.code.tree.ontology-diagram-editor.model-tree';
 
-export class ModelTreeController implements vscode.TreeDataProvider<ModelTreeNode>, vscode.TreeDragAndDropController<ModelTreeNode>, vscode.Disposable {
+export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode.TreeDragAndDropController<ModelTreeNode>, vscode.Disposable {
 	public readonly dragMimeTypes = [modelTreeDragMimeType, 'text/plain'];
 	public readonly dropMimeTypes: string[] = [];
 

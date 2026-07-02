@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../odiagram';
-import { modelTreeDragMimeType } from '../model-tree/model-tree-controller';
+import { modelTreeDragMimeType } from '../model-tree/model-tree';
 import { escapeHtml } from '../shared/html';
 
 export function buildOntologyDiagramWebviewHtml(
