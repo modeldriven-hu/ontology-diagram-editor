@@ -1,5 +1,5 @@
 import { Bounds, DiagramLabel, type OntologyDiagramDocument } from '../../odiagram';
-import type { CanvasPoint } from '../../shared/ontology-diagram-commands';
+import type { CanvasPoint } from '../../shared/canvas-geometry';
 import { cloneDiagram } from './diagram-document-copy';
 import { defaultLabelHeight, defaultLabelWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';

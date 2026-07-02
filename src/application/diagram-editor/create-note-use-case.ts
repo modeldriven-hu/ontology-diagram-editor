@@ -1,5 +1,5 @@
 import { Bounds, DiagramNote, type OntologyDiagramDocument } from '../../odiagram';
-import type { CanvasPoint } from '../../shared/ontology-diagram-commands';
+import type { CanvasPoint } from '../../shared/canvas-geometry';
 import { cloneDiagram } from './diagram-document-copy';
 import { defaultNoteHeight, defaultNoteWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';

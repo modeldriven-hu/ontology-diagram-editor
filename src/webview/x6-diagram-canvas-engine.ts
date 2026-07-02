@@ -1,4 +1,4 @@
-import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
+import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementRegistry } from './canvas-element-registry';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
@@ -130,7 +130,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
-	public edgeRoute(_edgeId: string, _label: CanvasRoutePoint): EdgeRouteUpdate | undefined {
+	public edgeRoute(_edgeId: string, _label: CanvasPoint): EdgeRouteUpdate | undefined {
 		return undefined;
 	}
 

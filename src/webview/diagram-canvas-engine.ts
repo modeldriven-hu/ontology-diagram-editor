@@ -1,4 +1,4 @@
-import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
+import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { DiagramPayload } from './ontology-diagram-types';
 import type { WebviewTheme } from './webview-theme';
 
@@ -26,7 +26,7 @@ export interface DiagramCanvasEngine {
 	zoom(): number;
 	restoreBounds(bounds: readonly BoundsUpdate[]): void;
 	updateElementContent(update: CanvasElementContentUpdate): void;
-	edgeRoute(edgeId: string, label: CanvasRoutePoint): EdgeRouteUpdate | undefined;
+	edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined;
 	onSelectionChanged(listener: CanvasSelectionListener): void;
 	onElementDoubleClicked(listener: CanvasDoubleClickListener): void;
 	onElementBoundsChanged(listener: CanvasBoundsChangeListener): void;

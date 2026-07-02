@@ -1,7 +1,4 @@
-export interface CanvasPoint {
-	readonly x: number;
-	readonly y: number;
-}
+import type { CanvasPoint } from '../shared/canvas-geometry';
 
 export interface DiagramPayload {
 	readonly file?: {

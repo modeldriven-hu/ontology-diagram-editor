@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
-import type { WebviewCommand } from '../shared/ontology-diagram-commands';
+import type { WebviewCommand } from '../shared/commands/webview-commands';
 import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
 import { OntologyDiagramCommandDispatcher } from './ontology-diagram-command-dispatcher';
 import { buildOntologyDiagramWebviewHtml } from './ontology-diagram-webview-html';

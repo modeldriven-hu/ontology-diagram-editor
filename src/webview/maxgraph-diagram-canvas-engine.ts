@@ -1,6 +1,6 @@
 import { Graph, HandleConfig, InternalEvent, Point, Rectangle, StyleDefaultsConfig, VertexHandlerConfig, type Cell, type CellState, type EventObject, type SelectionHandler } from '@maxgraph/core';
 
-import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
+import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementRegistry } from './canvas-element-registry';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import { insertEdge } from './ontology-diagram-edges';
@@ -130,7 +130,7 @@ export class MaxGraphDiagramCanvasEngine implements DiagramCanvasEngine {
 	public updateElementContent(_update: CanvasElementContentUpdate): void {
 	}
 
-	public edgeRoute(edgeId: string, label: CanvasRoutePoint): EdgeRouteUpdate | undefined {
+	public edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined {
 		const cell = this.graph.getDataModel().getCell(edgeId);
 		if (cell === null) {
 			return undefined;

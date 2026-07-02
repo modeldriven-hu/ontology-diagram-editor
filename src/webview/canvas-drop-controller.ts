@@ -1,4 +1,5 @@
-import { CreateNodeCommand, type CanvasPoint, type ModelTreeItemDropPayload } from '../shared/commands/webview-commands';
+import type { CanvasPoint } from '../shared/canvas-geometry';
+import { CreateNodeCommand, type ModelTreeItemDropPayload } from '../shared/commands/webview-commands';
 import type { CanvasMessageBus } from './canvas-message-bus';
 
 interface CanvasDropControllerOptions {

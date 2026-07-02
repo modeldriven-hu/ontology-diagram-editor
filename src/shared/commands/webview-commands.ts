@@ -1,9 +1,4 @@
-import type { EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from '../canvas-geometry';
-
-export interface CanvasPoint {
-	readonly x: number;
-	readonly y: number;
-}
+import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from '../canvas-geometry';
 
 export interface ModelTreeItemDropPayload {
 	readonly sourceOntologyFilePath?: string;
