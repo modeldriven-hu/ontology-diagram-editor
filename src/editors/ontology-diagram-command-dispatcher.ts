@@ -25,7 +25,7 @@ import {
 } from '../application/diagram-editor';
 import type { DiagramExportSavePort, DiagramMutationResult } from '../application/diagram-editor';
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree';
-import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/commands/webview-commands';
+import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview-commands';
 import { embeddedImageSourceFromFile } from './image-source-embedding';
 import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
 

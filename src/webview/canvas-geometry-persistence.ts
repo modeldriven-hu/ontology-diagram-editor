@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
-import { CanvasDragCompletedEvent } from '../shared/events/canvas-editor-events';
-import { UpdateEdgeRouteCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../shared/commands/webview-commands';
+import { CanvasDragCompletedEvent } from '../shared/canvas-editor-events';
+import { UpdateEdgeRouteCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../shared/webview-commands';
 import type { CanvasMessageBus } from './canvas-message-bus';
 import type { BoundsDragKind, DiagramCanvasEngine } from './diagram-canvas-engine';
 

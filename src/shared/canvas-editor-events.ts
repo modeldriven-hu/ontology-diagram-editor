@@ -1,4 +1,4 @@
-import type { BoundsUpdate } from '../canvas-geometry';
+import type { BoundsUpdate } from './canvas-geometry';
 
 export type CanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label';
 

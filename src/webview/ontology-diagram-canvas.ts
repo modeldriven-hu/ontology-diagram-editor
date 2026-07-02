@@ -1,6 +1,6 @@
-import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../shared/events/canvas-editor-events';
+import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../shared/canvas-editor-events';
 import type { CanvasPoint } from '../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../shared/commands/webview-commands';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../shared/webview-commands';
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasElementRegistry } from './canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';

@@ -1,5 +1,5 @@
 import type { BoundsUpdate } from '../shared/canvas-geometry';
-import type { CanvasElementType } from '../shared/events/canvas-editor-events';
+import type { CanvasElementType } from '../shared/canvas-editor-events';
 import type { CanvasElementContentUpdate } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 

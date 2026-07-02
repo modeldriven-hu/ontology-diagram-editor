@@ -1,6 +1,6 @@
 import { FileCode, ImageDown, createElement as createIconElement } from 'lucide';
 
-import { SaveDiagramExportCommand } from '../shared/commands/webview-commands';
+import { SaveDiagramExportCommand } from '../shared/webview-commands';
 import { escapeHtml } from '../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
