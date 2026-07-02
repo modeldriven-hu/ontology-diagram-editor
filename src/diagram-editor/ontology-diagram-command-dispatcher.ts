@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { readFile } from 'fs/promises';
 
 import {
 	CreateEdgeUseCase,
@@ -26,7 +27,6 @@ import {
 import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview-commands';
-import { embeddedImageSourceFromFile } from './image-source-embedding';
 import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
 
 interface DiagramEditorUseCases {
@@ -403,4 +403,30 @@ async function pickImageFile(openLabel: string, title: string): Promise<vscode.U
 	});
 
 	return selectedImage?.[0];
+}
+
+async function embeddedImageSourceFromFile(filePath: string): Promise<string> {
+	const content = await readFile(filePath);
+
+	return `data:${imageMimeType(filePath)};base64,${content.toString('base64')}`;
+}
+
+function imageMimeType(filePath: string): string {
+	switch (path.extname(filePath).toLowerCase()) {
+		case '.png':
+			return 'image/png';
+		case '.jpg':
+		case '.jpeg':
+			return 'image/jpeg';
+		case '.gif':
+			return 'image/gif';
+		case '.webp':
+			return 'image/webp';
+		case '.bmp':
+			return 'image/bmp';
+		case '.svg':
+			return 'image/svg+xml';
+		default:
+			return 'application/octet-stream';
+	}
 }
