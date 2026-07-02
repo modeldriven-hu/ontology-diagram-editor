@@ -1,5 +1,5 @@
-import type { CanvasEditorEvent } from '../shared/canvas-editor-events';
-import type { WebviewCommand } from '../shared/webview-commands';
+import type { CanvasEditorEvent } from '../../shared/canvas-editor-events';
+import type { WebviewCommand } from '../../shared/webview-commands';
 
 export type CanvasMessage = PublishedEvent | PublishedCommand;
 export type CanvasMessageListener = (message: CanvasMessage) => void;

@@ -1,7 +1,7 @@
 import { LetterText, createElement as createIconElement } from 'lucide';
 
-import type { LabelBoundsUpdate } from '../shared/canvas-geometry';
-import type { DiagramLabel } from './ontology-diagram-types';
+import type { LabelBoundsUpdate } from '../../shared/canvas-geometry';
+import type { DiagramLabel } from '../ontology-diagram-types';
 
 export function renderLabelToolbarIcon(addLabelButton: HTMLButtonElement): void {
 	addLabelButton.replaceChildren(createIconElement(LetterText, {

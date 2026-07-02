@@ -1,10 +1,10 @@
 import { FileCode, ImageDown, createElement as createIconElement } from 'lucide';
 
-import { SaveDiagramExportCommand } from '../shared/webview-commands';
-import { escapeHtml } from '../shared/html';
-import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
+import { SaveDiagramExportCommand } from '../../shared/webview-commands';
+import { escapeHtml } from '../../shared/html';
+import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import type { WebviewTheme } from './webview-theme';
+import type { WebviewTheme } from '../webview-theme';
 
 type ExportFormat = 'svg' | 'png';
 type ImageHrefMode = 'source' | 'webview';

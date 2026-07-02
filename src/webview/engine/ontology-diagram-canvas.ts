@@ -1,17 +1,17 @@
-import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../shared/canvas-editor-events';
-import type { CanvasPoint } from '../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../shared/webview-commands';
-import { CanvasDropController } from './canvas-drop-controller';
-import { CanvasElementRegistry } from './canvas-element-registry';
+import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../shared/canvas-editor-events';
+import type { CanvasPoint } from '../../shared/canvas-geometry';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../../shared/webview-commands';
+import { CanvasDropController } from '../components/canvas-drop-controller';
+import { CanvasElementRegistry } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
-import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from './canvas-export';
-import { CanvasGeometryPersistence } from './canvas-geometry-persistence';
-import { CanvasPropertyPanel } from './canvas-property-panel';
-import { renderImageToolbarIcon } from './ontology-diagram-images';
-import { renderLabelToolbarIcon } from './ontology-diagram-labels';
-import { NoteEditorController, renderNoteToolbarIcon } from './ontology-diagram-notes';
-import type { DiagramPayload } from './ontology-diagram-types';
-import { readTheme } from './webview-theme';
+import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
+import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
+import { CanvasPropertyPanel } from '../components/canvas-property-panel';
+import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
+import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
+import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
+import type { DiagramPayload } from '../ontology-diagram-types';
+import { readTheme } from '../webview-theme';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
 declare const acquireVsCodeApi: () => {

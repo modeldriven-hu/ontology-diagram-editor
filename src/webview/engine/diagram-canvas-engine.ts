@@ -1,6 +1,6 @@
-import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
-import type { DiagramPayload } from './ontology-diagram-types';
-import type { WebviewTheme } from './webview-theme';
+import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../shared/canvas-geometry';
+import type { DiagramPayload } from '../ontology-diagram-types';
+import type { WebviewTheme } from '../webview-theme';
 
 export type BoundsDragKind = 'move' | 'resize';
 

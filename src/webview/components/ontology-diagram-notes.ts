@@ -1,7 +1,7 @@
 import { StickyNotePlus, createElement as createIconElement } from 'lucide';
 
-import type { NoteBoundsUpdate } from '../shared/canvas-geometry';
-import type { DiagramNote } from './ontology-diagram-types';
+import type { NoteBoundsUpdate } from '../../shared/canvas-geometry';
+import type { DiagramNote } from '../ontology-diagram-types';
 
 export interface NoteEditorControllerOptions {
 	readonly addNoteButton: HTMLButtonElement;

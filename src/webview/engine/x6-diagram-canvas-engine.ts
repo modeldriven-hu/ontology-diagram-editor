@@ -1,8 +1,8 @@
-import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
-import type { CanvasElementRegistry } from './canvas-element-registry';
+import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../shared/canvas-geometry';
+import type { CanvasElementRegistry } from '../components/canvas-element-registry';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
-import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
-import type { WebviewTheme } from './webview-theme';
+import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { WebviewTheme } from '../webview-theme';
 import type { X6Graph, X6Node } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
