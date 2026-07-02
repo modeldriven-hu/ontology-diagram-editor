@@ -1,6 +1,6 @@
 import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementRegistry } from './canvas-element-registry';
-import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
+import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import type { WebviewTheme } from './webview-theme';
 import type { X6Graph, X6Node } from './x6-browser';
@@ -15,6 +15,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly edgeRouteChangeListeners = new Set<CanvasEdgeRouteChangeListener>();
 	private selectedId: string | undefined;
 	private suppressBoundsEvents = false;
+	private suppressBlankSelectionClear = false;
 
 	public constructor(
 		container: HTMLElement,
@@ -50,13 +51,6 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				vertexMovable: false,
 			},
 		});
-		this.graph.use(new x6.Selection({
-			enabled: true,
-			multiple: false,
-			rubberband: false,
-			movable: false,
-			showNodeSelectionBox: true,
-		}));
 		this.graph.use(new x6.Transform({
 			resizing: {
 				enabled: true,
@@ -91,10 +85,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 	public selectElement(id: string): void {
 		const cell = this.graph.getCellById(id);
-		if (cell !== undefined && this.elementRegistry.element(id) !== undefined) {
-			this.selectedId = id;
-			this.graph.resetSelection(cell);
-			this.publishSelectionChanged();
+		if (isX6Node(cell) && this.elementRegistry.element(id) !== undefined) {
+			this.graph.createTransformWidget(cell);
+			this.setSelectedId(id);
 		}
 	}
 
@@ -108,12 +101,32 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			for (const update of bounds) {
 				const cell = this.graph.getCellById(update.id);
 				if (isX6Node(cell)) {
+					this.elementRegistry.updateBounds(update);
 					cell.position(update.x, update.y);
 					cell.resize(update.width, update.height);
 				}
 			}
 		} finally {
 			this.suppressBoundsEvents = false;
+		}
+	}
+
+	public updateElementContent(update: CanvasElementContentUpdate): void {
+		const cell = this.graph.getCellById(update.id);
+		if (!isX6Node(cell)) {
+			return;
+		}
+
+		if (update.kind === 'noteText' && this.elementRegistry.element(update.id)?.kind === 'note') {
+			cell.attr('label/text', plainText(update.text));
+		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
+			cell.attr('label/text', update.text);
+		} else if (update.kind === 'imageSource' && this.elementRegistry.element(update.id)?.kind === 'image') {
+			cell.attr('image/xlink:href', update.source);
+		} else if (update.kind === 'nodeImage' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			cell.attr('nodeImage/xlink:href', update.image ?? '');
+			cell.attr('nodeImage/opacity', update.image === undefined ? 0 : 1);
+			cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
 		}
 	}
 
@@ -144,14 +157,14 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				return;
 			}
 
-			this.selectedId = node.id;
-			this.graph.resetSelection(node);
-			this.publishSelectionChanged();
+			this.setSelectedId(node.id);
 		});
 		this.graph.on('blank:click', () => {
-			this.selectedId = undefined;
-			this.graph.cleanSelection();
-			this.publishSelectionChanged();
+			if (this.suppressBlankSelectionClear) {
+				return;
+			}
+
+			this.setSelectedId(undefined);
 		});
 		this.graph.on('node:dblclick', (event) => {
 			const node = eventNode(event);
@@ -174,13 +187,21 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 			this.publishNodeBounds(node, 'move');
 		});
+		this.graph.on('node:resize', () => {
+			this.suppressBlankSelectionClear = true;
+		});
 		this.graph.on('node:resized', (event) => {
 			const node = eventNode(event);
+			const clearBlankSelectionSuppression = (): void => {
+				this.suppressBlankSelectionClear = false;
+			};
 			if (node === undefined) {
+				window.setTimeout(clearBlankSelectionSuppression, 0);
 				return;
 			}
 
 			this.publishNodeBounds(node, 'resize');
+			window.setTimeout(clearBlankSelectionSuppression, 0);
 		});
 	}
 
@@ -190,12 +211,25 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
+	private setSelectedId(id: string | undefined): void {
+		if (this.selectedId === id) {
+			return;
+		}
+
+		this.selectedId = id;
+		this.publishSelectionChanged();
+	}
+
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
 		if (this.suppressBoundsEvents) {
 			return;
 		}
 
 		const update = boundsUpdate(node);
+		this.elementRegistry.updateBounds(update);
+		if (this.selectedId === node.id) {
+			this.publishSelectionChanged();
+		}
 		for (const listener of this.boundsChangeListeners) {
 			listener({
 				dragKind,
@@ -300,6 +334,8 @@ function installX6Styles(theme: WebviewTheme): void {
 }
 
 function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, unknown> {
+	const hasImage = node.image !== undefined && node.image.trim() !== '';
+
 	return {
 		id: node.id,
 		x: node.x,
@@ -308,6 +344,7 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 		height: node.height,
 		markup: [
 			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'image', selector: 'nodeImage' },
 			{ tagName: 'text', selector: 'label' },
 		],
 		attrs: {
@@ -320,6 +357,17 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 				...borderAttrs(node.style?.border, theme.nodeBorder, 1),
 				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
 			},
+			nodeImage: {
+				width: 28,
+				height: 28,
+				refX: '50%',
+				refX2: -14,
+				refY: 10,
+				'xlink:href': node.image ?? '',
+				preserveAspectRatio: 'xMidYMid meet',
+				pointerEvents: 'none',
+				opacity: hasImage ? 1 : 0,
+			},
 			label: {
 				text: nodeDisplayName(node.ontology_ref),
 				fill: node.style?.text_color ?? theme.editorForeground,
@@ -330,7 +378,7 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 				textAnchor: 'middle',
 				textVerticalAnchor: 'middle',
 				refX: '50%',
-				refY: '50%',
+				refY: hasImage ? '68%' : '50%',
 			},
 		},
 	};

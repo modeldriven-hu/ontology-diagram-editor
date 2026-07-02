@@ -2,7 +2,7 @@ import { Graph, HandleConfig, InternalEvent, Point, Rectangle, StyleDefaultsConf
 
 import type { BoundsUpdate, CanvasRoutePoint, EdgeRouteUpdate } from '../shared/canvas-geometry';
 import type { CanvasElementRegistry } from './canvas-element-registry';
-import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
+import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import { insertEdge } from './ontology-diagram-edges';
 import { imageVertex } from './ontology-diagram-images';
 import { labelVertex } from './ontology-diagram-labels';
@@ -125,6 +125,9 @@ export class MaxGraphDiagramCanvasEngine implements DiagramCanvasEngine {
 		} finally {
 			this.suppressBoundsEvents = false;
 		}
+	}
+
+	public updateElementContent(_update: CanvasElementContentUpdate): void {
 	}
 
 	public edgeRoute(edgeId: string, label: CanvasRoutePoint): EdgeRouteUpdate | undefined {

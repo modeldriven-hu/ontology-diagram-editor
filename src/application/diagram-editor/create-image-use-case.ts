@@ -1,5 +1,5 @@
 import { Bounds, DiagramImage, type OntologyDiagramDocument } from '../../odiagram';
-import type { CanvasPoint } from '../../shared/ontology-diagram-events';
+import type { CanvasPoint } from '../../shared/ontology-diagram-commands';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { nextElementId } from './element-id';

@@ -1,13 +1,13 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../shared/canvas-geometry';
-import type { WebviewMessage } from '../shared/ontology-diagram-events';
-import type { CanvasEventPublisher } from './canvas-event-bus';
+import { CanvasDragCompletedEvent } from '../shared/events/canvas-editor-events';
+import { UpdateEdgeRouteCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../shared/commands/webview-commands';
+import type { CanvasMessageBus } from './canvas-message-bus';
 import type { BoundsDragKind, DiagramCanvasEngine } from './diagram-canvas-engine';
 
 interface CanvasGeometryPersistenceOptions {
 	readonly canvas: DiagramCanvasEngine;
-	readonly postMessage: (message: WebviewMessage) => void;
 	readonly showStatus: (message: string) => void;
-	readonly events: CanvasEventPublisher;
+	readonly messageBus: CanvasMessageBus;
 	readonly diagramFilePath?: string;
 }
 
@@ -164,10 +164,7 @@ export class CanvasGeometryPersistence {
 			this.persistedEdgeRoutes.set(update.id, update);
 		}
 		if (updates.length > 0) {
-			this.options.postMessage({
-				type: 'updateEdgeRoute',
-				updates,
-			});
+			this.options.messageBus.publishCommand(new UpdateEdgeRouteCommand(updates));
 		}
 	}
 
@@ -203,28 +200,16 @@ export class CanvasGeometryPersistence {
 			this.publishDragCompleted('label', update, dragKind);
 		}
 		if (nodeUpdates.length > 0) {
-			this.options.postMessage({
-				type: 'updateNodeBounds',
-				updates: nodeUpdates,
-			});
+			this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand(nodeUpdates));
 		}
 		if (noteUpdates.length > 0) {
-			this.options.postMessage({
-				type: 'updateNoteBounds',
-				updates: noteUpdates,
-			});
+			this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand(noteUpdates));
 		}
 		if (imageUpdates.length > 0) {
-			this.options.postMessage({
-				type: 'updateImageBounds',
-				updates: imageUpdates,
-			});
+			this.options.messageBus.publishCommand(new UpdateImageBoundsCommand(imageUpdates));
 		}
 		if (labelUpdates.length > 0) {
-			this.options.postMessage({
-				type: 'updateLabelBounds',
-				updates: labelUpdates,
-			});
+			this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand(labelUpdates));
 		}
 	}
 
@@ -233,14 +218,13 @@ export class CanvasGeometryPersistence {
 		changedBounds: BoundsUpdate,
 		dragKind: BoundsDragKind,
 	): void {
-		this.options.events.publish({
-			type: 'canvasDragCompleted',
+		this.options.messageBus.publishEvent(new CanvasDragCompletedEvent({
 			diagramFilePath: this.options.diagramFilePath,
 			elementIdentifier: changedBounds.id,
 			elementType,
 			dragKind,
 			changedBounds,
-		});
+		}));
 	}
 
 	private restorePersistedBounds(updates: readonly BoundsUpdate[], persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): void {

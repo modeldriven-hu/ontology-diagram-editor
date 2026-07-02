@@ -1,4 +1,6 @@
-import type { CanvasElementType } from '../shared/canvas-editor-events';
+import type { BoundsUpdate } from '../shared/canvas-geometry';
+import type { CanvasElementType } from '../shared/events/canvas-editor-events';
+import type { CanvasElementContentUpdate } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 
 export type CanvasPropertyElement =
@@ -70,5 +72,61 @@ export class CanvasElementRegistry {
 
 	public elementType(id: string): CanvasElementType | undefined {
 		return this.element(id)?.kind;
+	}
+
+	public updateBounds(update: BoundsUpdate): void {
+		const node = this.nodes.get(update.id);
+		if (node !== undefined) {
+			this.nodes.set(update.id, { ...node, ...update });
+			return;
+		}
+
+		const note = this.notes.get(update.id);
+		if (note !== undefined) {
+			this.notes.set(update.id, { ...note, ...update });
+			return;
+		}
+
+		const label = this.labels.get(update.id);
+		if (label !== undefined) {
+			this.labels.set(update.id, { ...label, ...update });
+			return;
+		}
+
+		const image = this.images.get(update.id);
+		if (image !== undefined) {
+			this.images.set(update.id, { ...image, ...update });
+		}
+	}
+
+	public updateContent(update: CanvasElementContentUpdate): void {
+		if (update.kind === 'noteText') {
+			const note = this.notes.get(update.id);
+			if (note !== undefined) {
+				this.notes.set(update.id, { ...note, text: update.text });
+			}
+			return;
+		}
+
+		if (update.kind === 'labelText') {
+			const label = this.labels.get(update.id);
+			if (label !== undefined) {
+				this.labels.set(update.id, { ...label, text: update.text });
+			}
+			return;
+		}
+
+		if (update.kind === 'imageSource') {
+			const image = this.images.get(update.id);
+			if (image !== undefined) {
+				this.images.set(update.id, { ...image, source: update.source, webview_src: update.source });
+			}
+			return;
+		}
+
+		const node = this.nodes.get(update.id);
+		if (node !== undefined) {
+			this.nodes.set(update.id, { ...node, image: update.image });
+		}
 	}
 }

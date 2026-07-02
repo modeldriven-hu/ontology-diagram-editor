@@ -25,7 +25,7 @@ import {
 } from '../application/diagram-editor';
 import type { DiagramExportSavePort, DiagramMutationResult } from '../application/diagram-editor';
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
-import type { ModelTreeItemDropPayload, WebviewMessage } from '../shared/ontology-diagram-events';
+import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/ontology-diagram-commands';
 import { embeddedImageSourceFromFile } from './image-source-embedding';
 import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
 
@@ -52,7 +52,7 @@ interface DiagramEditorUseCases {
 	readonly saveDiagramExport: SaveDiagramExportUseCase;
 }
 
-export class OntologyDiagramMessageDispatcher {
+export class OntologyDiagramCommandDispatcher {
 	private readonly useCases: DiagramEditorUseCases;
 
 	public constructor(
@@ -63,115 +63,115 @@ export class OntologyDiagramMessageDispatcher {
 		this.useCases = useCases;
 	}
 
-	public async dispatch(message: WebviewMessage): Promise<void> {
-		switch (message.type) {
+	public async dispatch(command: WebviewCommand): Promise<void> {
+		switch (command.type) {
 			case 'createNode':
-				await this.createNode(message);
+				await this.createNode(command);
 				return;
 			case 'updateNodeBounds':
 				await this.handleResult(this.useCases.updateNodeBounds.execute(
 					this.repository.load(),
-					message.updates,
+					command.updates,
 				));
 				return;
 			case 'updateEdgeRoute':
 				await this.handleResult(this.useCases.updateEdgeRoute.execute(
 					this.repository.load(),
-					message.updates,
+					command.updates,
 				));
 				return;
 			case 'updateNodeImage':
 				await this.handleResult(this.useCases.updateNodeImage.execute(
 					this.repository.load(),
-					message.id,
-					message.image,
+					command.id,
+					command.image,
 				));
 				return;
 			case 'createNote':
 				await this.handleResult(this.useCases.createNote.execute(
 					this.repository.load(),
-					message.text,
-					message.position,
+					command.text,
+					command.position,
 				));
 				return;
 			case 'createImage':
-				await this.createImage(message);
+				await this.createImage(command);
 				return;
 			case 'createLabel':
 				await this.handleResult(this.useCases.createLabel.execute(
 					this.repository.load(),
-					message.text,
-					message.position,
+					command.text,
+					command.position,
 				));
 				return;
 			case 'saveDiagramExport':
-				await this.saveDiagramExport(message);
+				await this.saveDiagramExport(command);
 				return;
 			case 'deleteNode':
-				await this.deleteNode(message);
+				await this.deleteNode(command);
 				return;
 			case 'deleteEdge':
-				await this.deleteEdge(message);
+				await this.deleteEdge(command);
 				return;
 			case 'deleteNote':
-				await this.deleteNote(message);
+				await this.deleteNote(command);
 				return;
 			case 'deleteImage':
-				await this.deleteImage(message);
+				await this.deleteImage(command);
 				return;
 			case 'deleteLabel':
-				await this.deleteLabel(message);
+				await this.deleteLabel(command);
 				return;
 			case 'updateNoteBounds':
 				await this.handleResult(this.useCases.updateNoteBounds.execute(
 					this.repository.load(),
-					message.updates,
+					command.updates,
 				));
 				return;
 			case 'updateImageBounds':
 				await this.handleResult(this.useCases.updateImageBounds.execute(
 					this.repository.load(),
-					message.updates,
+					command.updates,
 				));
 				return;
 			case 'updateImageSource':
 				await this.handleResult(this.useCases.updateImageSource.execute(
 					this.repository.load(),
-					message.id,
-					message.source,
+					command.id,
+					command.source,
 				));
 				return;
 			case 'pickNodeImage':
-				await this.pickNodeImage(message.id);
+				await this.pickNodeImage(command.id);
 				return;
 			case 'pickImageSource':
-				await this.pickImageSource(message.id);
+				await this.pickImageSource(command.id);
 				return;
 			case 'updateLabelBounds':
 				await this.handleResult(this.useCases.updateLabelBounds.execute(
 					this.repository.load(),
-					message.updates,
+					command.updates,
 				));
 				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
 					this.repository.load(),
-					message.id,
-					message.text,
+					command.id,
+					command.text,
 				));
 				return;
 			case 'updateLabelText':
 				await this.handleResult(this.useCases.updateLabelText.execute(
 					this.repository.load(),
-					message.id,
-					message.text,
+					command.id,
+					command.text,
 				));
 				return;
 		}
 	}
 
-	private async createNode(message: Extract<WebviewMessage, { readonly type: 'createNode' }>): Promise<void> {
-		const resolvedPayload = message.payload ?? this.getLastDraggedModelTreeItem();
+	private async createNode(command: Extract<WebviewCommand, { readonly type: 'createNode' }>): Promise<void> {
+		const resolvedPayload = command.payload ?? this.getLastDraggedModelTreeItem();
 		if (resolvedPayload === undefined) {
 			await vscode.window.showInformationMessage('Drag a model-tree item onto the canvas while holding Shift.');
 			return;
@@ -181,7 +181,7 @@ export class OntologyDiagramMessageDispatcher {
 			await this.handleResult(this.useCases.createEdge.execute(
 				this.repository.load(),
 				resolvedPayload,
-				message.position,
+				command.position,
 			));
 			return;
 		}
@@ -189,11 +189,11 @@ export class OntologyDiagramMessageDispatcher {
 		await this.handleResult(this.useCases.createNode.execute(
 			this.repository.load(),
 			resolvedPayload,
-			message.position,
+			command.position,
 		));
 	}
 
-	private async deleteImage(message: Extract<WebviewMessage, { readonly type: 'deleteImage' }>): Promise<void> {
+	private async deleteImage(command: Extract<WebviewCommand, { readonly type: 'deleteImage' }>): Promise<void> {
 		const confirmed = await vscode.window.showWarningMessage(
 			'Delete this image from the diagram?',
 			{ modal: true },
@@ -205,13 +205,13 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteImage.execute(
 			this.repository.load(),
-			message.id,
+			command.id,
 		));
 	}
 
-	private async deleteNode(message: Extract<WebviewMessage, { readonly type: 'deleteNode' }>): Promise<void> {
+	private async deleteNode(command: Extract<WebviewCommand, { readonly type: 'deleteNode' }>): Promise<void> {
 		const diagram = this.repository.load();
-		const connectedEdgeCount = diagram.edges.filter((edge) => edge.source.value === message.id || edge.target.value === message.id).length;
+		const connectedEdgeCount = diagram.edges.filter((edge) => edge.source.value === command.id || edge.target.value === command.id).length;
 		const confirmed = await vscode.window.showWarningMessage(
 			connectedEdgeCount > 0
 				? `Delete this node and ${connectedEdgeCount} connected edge${connectedEdgeCount === 1 ? '' : 's'} from the diagram?`
@@ -225,11 +225,11 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteNode.execute(
 			diagram,
-			message.id,
+			command.id,
 		));
 	}
 
-	private async deleteEdge(message: Extract<WebviewMessage, { readonly type: 'deleteEdge' }>): Promise<void> {
+	private async deleteEdge(command: Extract<WebviewCommand, { readonly type: 'deleteEdge' }>): Promise<void> {
 		const confirmed = await vscode.window.showWarningMessage(
 			'Delete this edge from the diagram?',
 			{ modal: true },
@@ -241,11 +241,11 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteEdge.execute(
 			this.repository.load(),
-			message.id,
+			command.id,
 		));
 	}
 
-	private async deleteNote(message: Extract<WebviewMessage, { readonly type: 'deleteNote' }>): Promise<void> {
+	private async deleteNote(command: Extract<WebviewCommand, { readonly type: 'deleteNote' }>): Promise<void> {
 		const confirmed = await vscode.window.showWarningMessage(
 			'Delete this note from the diagram?',
 			{ modal: true },
@@ -257,11 +257,11 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteNote.execute(
 			this.repository.load(),
-			message.id,
+			command.id,
 		));
 	}
 
-	private async deleteLabel(message: Extract<WebviewMessage, { readonly type: 'deleteLabel' }>): Promise<void> {
+	private async deleteLabel(command: Extract<WebviewCommand, { readonly type: 'deleteLabel' }>): Promise<void> {
 		const confirmed = await vscode.window.showWarningMessage(
 			'Delete this label from the diagram?',
 			{ modal: true },
@@ -273,11 +273,11 @@ export class OntologyDiagramMessageDispatcher {
 
 		await this.handleResult(this.useCases.deleteLabel.execute(
 			this.repository.load(),
-			message.id,
+			command.id,
 		));
 	}
 
-	private async createImage(message: Extract<WebviewMessage, { readonly type: 'createImage' }>): Promise<void> {
+	private async createImage(command: Extract<WebviewCommand, { readonly type: 'createImage' }>): Promise<void> {
 		const imageUri = await pickImageFile('Add Image', 'Add image to ontology diagram');
 		if (imageUri === undefined) {
 			return;
@@ -286,7 +286,7 @@ export class OntologyDiagramMessageDispatcher {
 		await this.handleResult(this.useCases.createImage.execute(
 			this.repository.load(),
 			await embeddedImageSourceFromFile(imageUri.fsPath),
-			message.position,
+			command.position,
 		));
 	}
 
@@ -316,13 +316,13 @@ export class OntologyDiagramMessageDispatcher {
 		));
 	}
 
-	private async saveDiagramExport(message: Extract<WebviewMessage, { readonly type: 'saveDiagramExport' }>): Promise<void> {
+	private async saveDiagramExport(command: Extract<WebviewCommand, { readonly type: 'saveDiagramExport' }>): Promise<void> {
 		const result = await this.useCases.saveDiagramExport.execute({
-			format: message.format,
+			format: command.format,
 			defaultDirectory: path.dirname(this.repository.uri.fsPath),
-			defaultFileName: message.defaultFileName,
-			content: message.content,
-			encoding: message.encoding,
+			defaultFileName: command.defaultFileName,
+			content: command.content,
+			encoding: command.encoding,
 		});
 		if (result.notification !== undefined) {
 			await vscode.window.showInformationMessage(result.notification);

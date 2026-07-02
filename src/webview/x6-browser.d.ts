@@ -17,8 +17,8 @@ export interface X6Graph {
 	addNode(metadata: Record<string, unknown>): X6Node;
 	clearCells(): void;
 	getCellById(id: string): X6Cell | undefined;
-	resetSelection(cell: X6Cell): void;
-	cleanSelection(): void;
+	createTransformWidget(node: X6Node): void;
+	clearTransformWidgets(): void;
 	use(plugin: unknown): void;
 	zoom(): number;
 	on(eventName: string, listener: (event: Record<string, unknown>) => void): void;
@@ -33,4 +33,6 @@ export interface X6Node extends X6Cell {
 	position(x: number, y: number): void;
 	size(): { readonly width: number; readonly height: number };
 	resize(width: number, height: number): void;
+	attr(path: string, value: unknown): void;
+	attr(attrs: Record<string, unknown>): void;
 }

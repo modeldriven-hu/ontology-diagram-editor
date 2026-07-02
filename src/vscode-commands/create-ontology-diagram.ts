@@ -4,39 +4,47 @@ import * as vscode from 'vscode';
 import { ontologyDiagramEditorViewType } from '../editors/ontology-diagram-editor-provider';
 import { OntologyDiagramDocument, ontologyDiagramFileExtension, stringifyOntologyDiagramYaml } from '../odiagram';
 
-export const createOntologyDiagramCommand = 'ontology-diagram-editor.createOntologyDiagram';
-
 const defaultDiagramFileName = `new-diagram${ontologyDiagramFileExtension}`;
 
-export async function createOntologyDiagram(resource?: vscode.Uri): Promise<void> {
-	const targetFolder = await resolveTargetFolder(resource);
-	if (targetFolder === undefined) {
-		return;
+export class CreateOntologyDiagramCommand {
+	public static readonly id = 'ontology-diagram-editor.createOntologyDiagram';
+
+	public register(context: vscode.ExtensionContext): void {
+		context.subscriptions.push(vscode.commands.registerCommand(CreateOntologyDiagramCommand.id, async (resource?: vscode.Uri) => {
+			await this.execute(resource);
+		}));
 	}
 
-	const fileName = await vscode.window.showInputBox({
-		title: 'New Ontology Diagram',
-		prompt: 'Enter a name for the new ontology diagram file.',
-		value: defaultDiagramFileName,
-		validateInput: validateDiagramFileName,
-	});
+	public async execute(resource?: vscode.Uri): Promise<void> {
+		const targetFolder = await resolveTargetFolder(resource);
+		if (targetFolder === undefined) {
+			return;
+		}
 
-	if (fileName === undefined) {
-		return;
+		const fileName = await vscode.window.showInputBox({
+			title: 'New Ontology Diagram',
+			prompt: 'Enter a name for the new ontology diagram file.',
+			value: defaultDiagramFileName,
+			validateInput: validateDiagramFileName,
+		});
+
+		if (fileName === undefined) {
+			return;
+		}
+
+		const targetFile = vscode.Uri.joinPath(targetFolder, ensureOntologyDiagramExtension(fileName.trim()));
+		if (await fileExists(targetFile)) {
+			vscode.window.showErrorMessage(`A file named "${path.basename(targetFile.fsPath)}" already exists.`);
+			return;
+		}
+
+		const title = titleFromFileName(targetFile);
+		const document = OntologyDiagramDocument.createEmpty(title);
+		const content = stringifyOntologyDiagramYaml(document);
+
+		await vscode.workspace.fs.writeFile(targetFile, new TextEncoder().encode(content));
+		await vscode.commands.executeCommand('vscode.openWith', targetFile, ontologyDiagramEditorViewType);
 	}
-
-	const targetFile = vscode.Uri.joinPath(targetFolder, ensureOntologyDiagramExtension(fileName.trim()));
-	if (await fileExists(targetFile)) {
-		vscode.window.showErrorMessage(`A file named "${path.basename(targetFile.fsPath)}" already exists.`);
-		return;
-	}
-
-	const title = titleFromFileName(targetFile);
-	const document = OntologyDiagramDocument.createEmpty(title);
-	const content = stringifyOntologyDiagramYaml(document);
-
-	await vscode.workspace.fs.writeFile(targetFile, new TextEncoder().encode(content));
-	await vscode.commands.executeCommand('vscode.openWith', targetFile, ontologyDiagramEditorViewType);
 }
 
 async function resolveTargetFolder(resource?: vscode.Uri): Promise<vscode.Uri | undefined> {

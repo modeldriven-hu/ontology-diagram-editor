@@ -2,9 +2,9 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree-controller';
-import type { WebviewMessage } from '../shared/ontology-diagram-events';
+import type { WebviewCommand } from '../shared/ontology-diagram-commands';
 import { OntologyDiagramDocumentRepository } from './ontology-diagram-document-repository';
-import { OntologyDiagramMessageDispatcher } from './ontology-diagram-message-dispatcher';
+import { OntologyDiagramCommandDispatcher } from './ontology-diagram-command-dispatcher';
 import { buildOntologyDiagramWebviewHtml } from './ontology-diagram-webview-html';
 
 export const ontologyDiagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
@@ -34,22 +34,53 @@ export class OntologyDiagramEditorProvider implements vscode.CustomTextEditorPro
 			webviewPanel.webview.html = buildOntologyDiagramWebviewHtml(document, webviewPanel.webview);
 		};
 
+		let nextSuppressedRefreshId = 0;
+		const suppressedLocalDocumentRefreshes = new Set<number>();
 		const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.uri.toString() === document.uri.toString()) {
+				const suppressedRefreshId = suppressedLocalDocumentRefreshes.values().next().value;
+				if (suppressedRefreshId !== undefined) {
+					suppressedLocalDocumentRefreshes.delete(suppressedRefreshId);
+					return;
+				}
 				updateWebview();
 			}
 		});
 		const repository = new OntologyDiagramDocumentRepository(document);
-		const dispatcher = new OntologyDiagramMessageDispatcher(repository, this.getLastDraggedModelTreeItem);
-		const messageDisposable = webviewPanel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
-			await dispatcher.dispatch(message);
+		const dispatcher = new OntologyDiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem);
+		let dispatchQueue = Promise.resolve();
+		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
+			const suppressedRefreshId = isInPlaceBoundsUpdate(command)
+				? nextSuppressedRefreshId++
+				: undefined;
+			if (suppressedRefreshId !== undefined) {
+				suppressedLocalDocumentRefreshes.add(suppressedRefreshId);
+			}
+			dispatchQueue = dispatchQueue.then(
+				() => dispatcher.dispatch(command),
+				() => dispatcher.dispatch(command),
+			).finally(() => {
+				if (suppressedRefreshId !== undefined) {
+					setTimeout(() => {
+						suppressedLocalDocumentRefreshes.delete(suppressedRefreshId);
+					}, 2000);
+				}
+			});
+			await dispatchQueue;
 		});
 
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
-			messageDisposable.dispose();
+			commandDisposable.dispose();
 		});
 
 		updateWebview();
 	}
+}
+
+function isInPlaceBoundsUpdate(command: WebviewCommand): boolean {
+	return command.type === 'updateNodeBounds'
+		|| command.type === 'updateNoteBounds'
+		|| command.type === 'updateImageBounds'
+		|| command.type === 'updateLabelBounds';
 }

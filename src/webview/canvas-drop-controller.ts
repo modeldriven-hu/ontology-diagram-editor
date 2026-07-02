@@ -1,10 +1,11 @@
-import type { CanvasPoint, ModelTreeItemDropPayload, WebviewMessage } from '../shared/ontology-diagram-events';
+import { CreateNodeCommand, type CanvasPoint, type ModelTreeItemDropPayload } from '../shared/commands/webview-commands';
+import type { CanvasMessageBus } from './canvas-message-bus';
 
 interface CanvasDropControllerOptions {
 	readonly scrollElement: HTMLElement;
 	readonly contentElement: HTMLElement;
 	readonly modelTreeDragMimeType: string;
-	readonly postMessage: (message: WebviewMessage) => void;
+	readonly messageBus: CanvasMessageBus;
 	readonly showStatus: (message: string) => void;
 }
 
@@ -34,11 +35,10 @@ export class CanvasDropController {
 			this.options.scrollElement.classList.remove('drop-active', 'drop-rejected');
 
 			const dragPayload = this.readDragPayload(event.dataTransfer);
-			this.options.postMessage({
-				type: 'createNode',
+			this.options.messageBus.publishCommand(new CreateNodeCommand({
 				payload: dragPayload,
 				position: this.dropPosition(event),
-			});
+			}));
 		});
 	}
 

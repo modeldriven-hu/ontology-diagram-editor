@@ -1,5 +1,5 @@
 import { Bounds, DiagramNode, type JsonObject, type OntologyDiagramDocument } from '../../odiagram';
-import type { CanvasPoint, ModelTreeItemDropPayload } from '../../shared/ontology-diagram-events';
+import type { CanvasPoint, ModelTreeItemDropPayload } from '../../shared/ontology-diagram-commands';
 import { cloneDiagram } from './diagram-document-copy';
 import { defaultNodeHeight, defaultNodeWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';

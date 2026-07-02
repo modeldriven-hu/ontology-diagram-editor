@@ -1,22 +1,22 @@
 import type { BoundsUpdate } from '../shared/canvas-geometry';
-import type { CanvasElementType } from '../shared/canvas-editor-events';
-import type { WebviewMessage } from '../shared/ontology-diagram-events';
+import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../shared/events/canvas-editor-events';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteTextCommand } from '../shared/commands/webview-commands';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
-import type { CanvasEventPublisher } from './canvas-event-bus';
+import type { CanvasMessageBus } from './canvas-message-bus';
+import { actionButton, imageField, numberField, readonlyField, sectionElement, textAreaField } from './canvas-property-fields';
 import type { DiagramCanvasEngine } from './diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 
 interface CanvasPropertyPanelOptions {
-	readonly canvas: Pick<DiagramCanvasEngine, 'selectedElementId' | 'onSelectionChanged'>;
+	readonly canvas: Pick<DiagramCanvasEngine, 'restoreBounds' | 'updateElementContent'>;
 	readonly payload: DiagramPayload;
 	readonly registry: CanvasElementRegistry;
-	readonly events: CanvasEventPublisher;
+	readonly messageBus: CanvasMessageBus;
 	readonly panel: HTMLElement;
 	readonly title: HTMLElement;
 	readonly toggleButton: HTMLButtonElement;
 	readonly body: HTMLElement;
-	readonly postMessage: (message: WebviewMessage) => void;
 	readonly showStatus: (message: string) => void;
 	readonly focusAfterEscape: () => void;
 	readonly initialCollapsed?: boolean;
@@ -25,6 +25,7 @@ interface CanvasPropertyPanelOptions {
 
 export class CanvasPropertyPanel {
 	private collapsed = false;
+	private selectedElement: CanvasPropertyElement | undefined;
 
 	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
 
@@ -41,8 +42,18 @@ export class CanvasPropertyPanel {
 				this.options.focusAfterEscape();
 			}
 		});
-		this.options.canvas.onSelectionChanged(() => {
-			this.renderSelection();
+		this.options.messageBus.subscribe((message) => {
+			if (message.kind !== 'event') {
+				return;
+			}
+
+			const event = message.payload;
+			if (event.type === 'canvasSelectionChanged') {
+				this.selectedElement = event.selectedElementIdentifier === undefined
+					? undefined
+					: this.options.registry.element(event.selectedElementIdentifier);
+				this.renderSelection();
+			}
 		});
 		this.renderSelection();
 	}
@@ -51,13 +62,12 @@ export class CanvasPropertyPanel {
 		this.collapsed = collapsed;
 		this.options.panel.classList.toggle('collapsed', collapsed);
 		this.options.toggleButton.setAttribute('aria-expanded', String(!collapsed));
-		this.options.events.publish({
-			type: 'canvasPropertyPanelVisibilityChanged',
+		this.options.messageBus.publishEvent(new CanvasPropertyPanelVisibilityChangedEvent({
 			diagramFilePath: this.options.payload.file?.fsPath,
 			visible: true,
 			collapsed,
 			panelHeight: this.options.panel.getBoundingClientRect().height,
-		});
+		}));
 		if (notify) {
 			this.options.onCollapsedChange?.(collapsed);
 		}
@@ -65,16 +75,14 @@ export class CanvasPropertyPanel {
 
 	private renderSelection(): void {
 		this.options.body.textContent = '';
-		const selectedElementId = this.options.canvas.selectedElementId();
-		const selectedElement = selectedElementId === undefined ? undefined : this.options.registry.element(selectedElementId);
-		if (selectedElement === undefined) {
+		if (this.selectedElement === undefined) {
 			this.options.title.textContent = 'Diagram Properties';
 			this.renderDiagramContext();
 			return;
 		}
 
-		this.options.title.textContent = `${capitalize(selectedElement.kind)} Properties`;
-		this.renderElement(selectedElement);
+		this.options.title.textContent = `${capitalize(this.selectedElement.kind)} Properties`;
+		this.renderElement(this.selectedElement);
 	}
 
 	private renderDiagramContext(): void {
@@ -113,14 +121,16 @@ export class CanvasPropertyPanel {
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(node, (update) => {
 			this.propertyEdited('node', node.id, ['x', 'y', 'width', 'height']);
-			this.options.postMessage({ type: 'updateNodeBounds', updates: [update] });
+			this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
 		})));
 		this.options.body.appendChild(sectionElement('Image', [
 			imageField('Image', node.image ?? '', (value) => {
+				const image = value.trim() === '' ? undefined : value;
+				this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
 				this.propertyEdited('node', node.id, ['image']);
-				this.options.postMessage({ type: 'updateNodeImage', id: node.id, image: value.trim() === '' ? undefined : value });
+				this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
 			}, () => {
-				this.options.postMessage({ type: 'pickNodeImage', id: node.id });
+				this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
 			}),
 		]));
 	}
@@ -136,7 +146,7 @@ export class CanvasPropertyPanel {
 		]));
 		this.options.body.appendChild(sectionElement('Actions', [
 			actionButton('Delete Edge', 'danger', () => {
-				this.options.postMessage({ type: 'deleteEdge', id: edge.id });
+				this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
 			}),
 		]));
 	}
@@ -144,41 +154,44 @@ export class CanvasPropertyPanel {
 	private renderNote(note: DiagramNote): void {
 		this.options.body.appendChild(sectionElement('Text', [
 			textAreaField('Text', note.text, (value) => {
+				this.updateElementContent({ kind: 'noteText', id: note.id, text: value });
 				this.propertyEdited('note', note.id, ['text']);
-				this.options.postMessage({ type: 'updateNoteText', id: note.id, text: value });
+				this.options.messageBus.publishCommand(new UpdateNoteTextCommand(note.id, value));
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(note, (update) => {
 			this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
-			this.options.postMessage({ type: 'updateNoteBounds', updates: [update] });
+			this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand([update]));
 		})));
 	}
 
 	private renderLabel(label: DiagramLabel): void {
 		this.options.body.appendChild(sectionElement('Text', [
 			textAreaField('Text', label.text, (value) => {
+				this.updateElementContent({ kind: 'labelText', id: label.id, text: value });
 				this.propertyEdited('label', label.id, ['text']);
-				this.options.postMessage({ type: 'updateLabelText', id: label.id, text: value });
+				this.options.messageBus.publishCommand(new UpdateLabelTextCommand(label.id, value));
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(label, (update) => {
 			this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
-			this.options.postMessage({ type: 'updateLabelBounds', updates: [update] });
+			this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand([update]));
 		})));
 	}
 
 	private renderImage(image: DiagramImage): void {
 		this.options.body.appendChild(sectionElement('Image', [
 			imageField('Source', image.source, (value) => {
+				this.updateElementContent({ kind: 'imageSource', id: image.id, source: value });
 				this.propertyEdited('image', image.id, ['source']);
-				this.options.postMessage({ type: 'updateImageSource', id: image.id, source: value });
+				this.options.messageBus.publishCommand(new UpdateImageSourceCommand(image.id, value));
 			}, () => {
-				this.options.postMessage({ type: 'pickImageSource', id: image.id });
+				this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
 			}),
 		]));
 		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(image, (update) => {
 			this.propertyEdited('image', image.id, ['x', 'y', 'width', 'height']);
-			this.options.postMessage({ type: 'updateImageBounds', updates: [update] });
+			this.options.messageBus.publishCommand(new UpdateImageBoundsCommand([update]));
 		})));
 	}
 
@@ -191,7 +204,10 @@ export class CanvasPropertyPanel {
 		let width = element.width;
 		let height = element.height;
 		const send = (): void => {
-			commit({ id: element.id, x, y, width, height });
+			const update = { id: element.id, x, y, width, height };
+			this.options.registry.updateBounds(update);
+			this.options.canvas.restoreBounds([update]);
+			commit(update);
 		};
 
 		return [
@@ -215,134 +231,18 @@ export class CanvasPropertyPanel {
 	}
 
 	private propertyEdited(elementType: CanvasElementType, elementIdentifier: string, changedFields: readonly string[]): void {
-		this.options.events.publish({
-			type: 'canvasPropertyEdited',
+		this.options.messageBus.publishEvent(new CanvasPropertyEditedEvent({
 			diagramFilePath: this.options.payload.file?.fsPath,
 			elementIdentifier,
 			elementType,
 			changedFields,
-		});
+		}));
 	}
-}
 
-function readonlyField(label: string, value: string): HTMLElement {
-	const field = fieldElement(label);
-	const valueElement = document.createElement('span');
-	valueElement.className = 'property-value';
-	valueElement.textContent = value;
-	field.appendChild(valueElement);
-
-	return field;
-}
-
-function numberField(label: string, value: number, commit: (value: number) => void): HTMLElement {
-	const input = document.createElement('input');
-	input.className = 'property-input';
-	input.type = 'number';
-	input.value = String(value);
-	registerCommit(input, () => {
-		const nextValue = Number(input.value);
-		if (Number.isFinite(nextValue)) {
-			commit(nextValue);
-		}
-	});
-
-	return editableField(label, input);
-}
-
-function textAreaField(label: string, value: string, commit: (value: string) => void): HTMLElement {
-	const input = document.createElement('textarea');
-	input.className = 'property-textarea';
-	input.value = value;
-	registerCommit(input, () => {
-		commit(input.value);
-	});
-
-	return editableField(label, input);
-}
-
-function imageField(label: string, value: string, commit: (value: string) => void, pick: () => void): HTMLElement {
-	const wrapper = document.createElement('span');
-	wrapper.className = 'property-inline';
-	const input = document.createElement('input');
-	input.className = 'property-input';
-	input.type = 'text';
-	input.value = value;
-	registerCommit(input, () => {
-		commit(input.value);
-	});
-	const button = document.createElement('button');
-	button.className = 'property-button';
-	button.type = 'button';
-	button.textContent = 'Pick';
-	button.addEventListener('click', pick);
-	wrapper.append(input, button);
-
-	return editableField(label, wrapper);
-}
-
-function actionButton(label: string, kind: 'danger', action: () => void): HTMLElement {
-	const button = document.createElement('button');
-	button.className = `property-button property-button-${kind}`;
-	button.type = 'button';
-	button.textContent = label;
-	button.addEventListener('click', action);
-
-	return button;
-}
-
-function editableField(label: string, input: HTMLElement): HTMLElement {
-	const field = fieldElement(label);
-	field.appendChild(input);
-
-	return field;
-}
-
-function fieldElement(label: string): HTMLElement {
-	const field = document.createElement('label');
-	field.className = 'property-field';
-	const labelElement = document.createElement('span');
-	labelElement.className = 'property-label';
-	labelElement.textContent = label;
-	field.appendChild(labelElement);
-
-	return field;
-}
-
-function sectionElement(title: string, fields: readonly HTMLElement[]): HTMLElement {
-	const section = document.createElement('section');
-	section.className = 'property-section';
-	const heading = document.createElement('h2');
-	heading.className = 'property-section-title';
-	heading.textContent = title;
-	section.appendChild(heading);
-	section.append(...fields);
-
-	return section;
-}
-
-function registerCommit(element: HTMLInputElement | HTMLTextAreaElement, commit: () => void): void {
-	const initialValue = element.value;
-	let lastCommittedValue = initialValue;
-	element.addEventListener('change', () => {
-		if (element.value !== lastCommittedValue) {
-			lastCommittedValue = element.value;
-			commit();
-		}
-	});
-	element.addEventListener('keydown', (event) => {
-		const keyboardEvent = event as KeyboardEvent;
-		keyboardEvent.stopPropagation();
-		if (keyboardEvent.key === 'Enter' && !(element instanceof HTMLTextAreaElement && keyboardEvent.shiftKey)) {
-			keyboardEvent.preventDefault();
-			element.blur();
-		}
-		if (keyboardEvent.key === 'Escape') {
-			keyboardEvent.preventDefault();
-			element.value = lastCommittedValue;
-			element.blur();
-		}
-	});
+	private updateElementContent(update: Parameters<DiagramCanvasEngine['updateElementContent']>[0]): void {
+		this.options.registry.updateContent(update);
+		this.options.canvas.updateElementContent(update);
+	}
 }
 
 function capitalize(value: string): string {

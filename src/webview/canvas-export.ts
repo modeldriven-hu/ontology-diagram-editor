@@ -1,7 +1,7 @@
 import { FileCode, ImageDown, createElement as createIconElement } from 'lucide';
 
+import { SaveDiagramExportCommand } from '../shared/commands/webview-commands';
 import { escapeHtml } from '../shared/html';
-import type { SaveDiagramExportMessage } from '../shared/ontology-diagram-events';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from './ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import type { WebviewTheme } from './webview-theme';
@@ -48,22 +48,21 @@ export function renderDiagramExportToolbarIcons(exportSvgButton: HTMLButtonEleme
 	}));
 }
 
-export function createSvgExportMessage(payload: DiagramPayload, theme: WebviewTheme): SaveDiagramExportMessage | undefined {
+export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTheme): SaveDiagramExportCommand | undefined {
 	const diagramExport = createSvgExport(payload, theme, 'source');
 	if (diagramExport === undefined) {
 		return undefined;
 	}
 
-	return {
-		type: 'saveDiagramExport',
+	return new SaveDiagramExportCommand({
 		format: 'svg',
 		defaultFileName: diagramExport.defaultFileName,
 		content: diagramExport.svg,
 		encoding: 'utf8',
-	};
+	});
 }
 
-export async function createPngExportMessage(payload: DiagramPayload, theme: WebviewTheme): Promise<SaveDiagramExportMessage | undefined> {
+export async function createPngExportCommand(payload: DiagramPayload, theme: WebviewTheme): Promise<SaveDiagramExportCommand | undefined> {
 	const diagramExport = createSvgExport(payload, theme, 'webview');
 	if (diagramExport === undefined) {
 		return undefined;
@@ -71,13 +70,12 @@ export async function createPngExportMessage(payload: DiagramPayload, theme: Web
 
 	const content = await svgToPngBase64(diagramExport.svg, diagramExport.width, diagramExport.height);
 
-	return {
-		type: 'saveDiagramExport',
+	return new SaveDiagramExportCommand({
 		format: 'png',
 		defaultFileName: diagramExport.defaultFileName.replace(/\.svg$/u, '.png'),
 		content,
 		encoding: 'base64',
-	};
+	});
 }
 
 function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHrefMode: ImageHrefMode): DiagramExport | undefined {

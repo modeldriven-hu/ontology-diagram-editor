@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
-import { createOntologyDiagram, createOntologyDiagramCommand } from './commands/create-ontology-diagram-command';
 import { OntologyDiagramEditorProvider, ontologyDiagramEditorViewType } from './editors/ontology-diagram-editor-provider';
 import { ModelTreeController } from './model-tree/model-tree-controller';
+import { CreateOntologyDiagramCommand } from './vscode-commands/create-ontology-diagram';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "ontology-diagram-editor" is now active!');
@@ -10,9 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const modelTreeController = new ModelTreeController();
 	modelTreeController.register(context);
 
-	const createDiagramDisposable = vscode.commands.registerCommand(createOntologyDiagramCommand, async (resource?: vscode.Uri) => {
-		await createOntologyDiagram(resource);
-	});
+	new CreateOntologyDiagramCommand().register(context);
 	const ontologyDiagramEditorDisposable = vscode.window.registerCustomEditorProvider(
 		ontologyDiagramEditorViewType,
 		new OntologyDiagramEditorProvider(async (document) => {
@@ -28,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	context.subscriptions.push(createDiagramDisposable, ontologyDiagramEditorDisposable, activeEditorDisposable);
+	context.subscriptions.push(ontologyDiagramEditorDisposable, activeEditorDisposable);
 }
 
 export function deactivate() {}

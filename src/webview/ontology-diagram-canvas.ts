@@ -1,8 +1,9 @@
-import type { CanvasPoint, WebviewMessage } from '../shared/ontology-diagram-events';
+import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../shared/events/canvas-editor-events';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type CanvasPoint, type WebviewCommand } from '../shared/commands/webview-commands';
 import { CanvasDropController } from './canvas-drop-controller';
 import { CanvasElementRegistry } from './canvas-element-registry';
-import { CanvasEventBus } from './canvas-event-bus';
-import { createPngExportMessage, createSvgExportMessage, renderDiagramExportToolbarIcons } from './canvas-export';
+import { CanvasMessageBus } from './canvas-message-bus';
+import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from './canvas-export';
 import { CanvasGeometryPersistence } from './canvas-geometry-persistence';
 import { CanvasPropertyPanel } from './canvas-property-panel';
 import { renderImageToolbarIcon } from './ontology-diagram-images';
@@ -13,7 +14,7 @@ import { readTheme } from './webview-theme';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
 declare const acquireVsCodeApi: () => {
-	postMessage(message: WebviewMessage): void;
+	postMessage(message: WebviewCommand): void;
 	getState(): WebviewState | undefined;
 	setState(state: WebviewState): void;
 };
@@ -61,14 +62,13 @@ const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
 const theme = readTheme();
-const canvasEvents = new CanvasEventBus();
+const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
 const geometryPersistence = new CanvasGeometryPersistence({
 	canvas,
-	postMessage: (message) => vscode.postMessage(message),
+	messageBus,
 	showStatus,
-	events: canvasEvents,
 	diagramFilePath: webviewConfig.payload.file?.fsPath,
 });
 const noteEditorController = new NoteEditorController({
@@ -81,34 +81,22 @@ const noteEditorController = new NoteEditorController({
 	getNoteText: (noteId) => geometryPersistence.getNoteText(noteId),
 	getLabelText: (labelId) => geometryPersistence.getLabelText(labelId),
 	createNote: (text) => {
-		vscode.postMessage({
-			type: 'createNote',
-			text,
-			position: insertionPosition(),
-		});
+		messageBus.publishCommand(new CreateNoteCommand(text, insertionPosition()));
 	},
 	createLabel: (text) => {
-		vscode.postMessage({
-			type: 'createLabel',
-			text,
-			position: insertionPosition(),
-		});
+		messageBus.publishCommand(new CreateLabelCommand(text, insertionPosition()));
 	},
 	updateNoteText: (noteId, text) => {
 		geometryPersistence.setNoteText(noteId, text);
-		vscode.postMessage({
-			type: 'updateNoteText',
-			id: noteId,
-			text,
-		});
+		elementRegistry.updateContent({ kind: 'noteText', id: noteId, text });
+		canvas.updateElementContent({ kind: 'noteText', id: noteId, text });
+		messageBus.publishCommand(new UpdateNoteTextCommand(noteId, text));
 	},
 	updateLabelText: (labelId, text) => {
 		geometryPersistence.setLabelText(labelId, text);
-		vscode.postMessage({
-			type: 'updateLabelText',
-			id: labelId,
-			text,
-		});
+		elementRegistry.updateContent({ kind: 'labelText', id: labelId, text });
+		canvas.updateElementContent({ kind: 'labelText', id: labelId, text });
+		messageBus.publishCommand(new UpdateLabelTextCommand(labelId, text));
 	},
 	showStatus,
 	focusAfterClose: () => {
@@ -120,27 +108,26 @@ renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
+registerExtensionMessageForwarding();
 registerCanvasStateSubscriptions();
 render();
 registerSelectionEventPublishing();
 registerViewportEventPublishing();
+registerPropertyPanel();
 restoreSelection();
 restoreViewport();
 noteEditorController.register();
 addImageButton.addEventListener('click', () => {
-	vscode.postMessage({
-		type: 'createImage',
-		position: insertionPosition(),
-	});
+	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
 });
 exportSvgButton.addEventListener('click', () => {
-	const message = createSvgExportMessage(webviewConfig.payload, theme);
-	if (message === undefined) {
+	const command = createSvgExportCommand(webviewConfig.payload, theme);
+	if (command === undefined) {
 		showStatus('There is no diagram content to export.');
 		return;
 	}
 
-	vscode.postMessage(message);
+	messageBus.publishCommand(command);
 });
 exportPngButton.addEventListener('click', () => {
 	void exportPng();
@@ -149,39 +136,48 @@ new CanvasDropController({
 	scrollElement: canvasScroll,
 	contentElement: canvasContent,
 	modelTreeDragMimeType: webviewConfig.modelTreeDragMimeType,
-	postMessage: (message) => vscode.postMessage(message),
+	messageBus,
 	showStatus,
 }).register();
 geometryPersistence.register();
-new CanvasPropertyPanel({
-	canvas,
-	payload: webviewConfig.payload,
-	registry: elementRegistry,
-	events: canvasEvents,
-	panel: propertyPanel,
-	title: propertyPanelTitle,
-	toggleButton: propertyPanelToggle,
-	body: propertyPanelBody,
-	postMessage: (message) => vscode.postMessage(message),
-	showStatus,
-	focusAfterEscape: () => {
-		canvasScroll.focus();
-	},
-	initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
-}).register();
 registerNoteEditHandlers();
 registerDeleteHandlers();
+
+function registerPropertyPanel(): void {
+	new CanvasPropertyPanel({
+		canvas,
+		payload: webviewConfig.payload,
+		registry: elementRegistry,
+		messageBus,
+		panel: propertyPanel,
+		title: propertyPanelTitle,
+		toggleButton: propertyPanelToggle,
+		body: propertyPanelBody,
+		showStatus,
+		focusAfterEscape: () => {
+			canvasScroll.focus();
+		},
+		initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
+	}).register();
+}
+
+function registerExtensionMessageForwarding(): void {
+	messageBus.subscribe((message) => {
+		if (message.kind === 'command') {
+			vscode.postMessage(message.payload);
+		}
+	});
+}
 
 function render(): void {
 	if (webviewConfig.payload.error !== undefined) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement('error-state', webviewConfig.payload.error));
-		canvasEvents.publish({
-			type: 'canvasRendered',
+		messageBus.publishEvent(new CanvasRenderedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
 			renderedElementIdentifiers: [],
 			warnings: [webviewConfig.payload.error],
-		});
+		}));
 		return;
 	}
 
@@ -196,27 +192,30 @@ function render(): void {
 			'empty-state',
 			'Drag a class, individual, or datatype from the model tree, or add a note, label, or image from the canvas toolbar.',
 		));
-		canvasEvents.publish({
-			type: 'canvasRendered',
+		messageBus.publishEvent(new CanvasRenderedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
 			renderedElementIdentifiers: [],
 			warnings: [],
-		});
+		}));
 		return;
 	}
 
 	trackRenderedGeometry(webviewConfig.payload);
 	canvas.renderDiagram(webviewConfig.payload, theme);
-	canvasEvents.publish({
-		type: 'canvasRendered',
+	messageBus.publishEvent(new CanvasRenderedEvent({
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
 		renderedElementIdentifiers: elementRegistry.renderedElementIdentifiers(),
 		warnings: [],
-	});
+	}));
 }
 
 function registerCanvasStateSubscriptions(): void {
-	canvasEvents.subscribe((event) => {
+	messageBus.subscribe((message) => {
+		if (message.kind !== 'event') {
+			return;
+		}
+
+		const event = message.payload;
 		if (event.type === 'canvasSelectionChanged') {
 			updateWebviewState({ selectedElementId: event.selectedElementIdentifier });
 		}
@@ -235,12 +234,11 @@ function registerCanvasStateSubscriptions(): void {
 function registerSelectionEventPublishing(): void {
 	canvas.onSelectionChanged(() => {
 		const selectedElementId = canvas.selectedElementId();
-		canvasEvents.publish({
-			type: 'canvasSelectionChanged',
+		messageBus.publishEvent(new CanvasSelectionChangedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
 			selectedElementIdentifier: selectedElementId,
 			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
-		});
+		}));
 	});
 }
 
@@ -277,25 +275,24 @@ function restoreViewport(): void {
 }
 
 function publishViewportChanged(changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom'): void {
-	canvasEvents.publish({
-		type: 'canvasViewportChanged',
+	messageBus.publishEvent(new CanvasViewportChangedEvent({
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
 		panX: canvasScroll.scrollLeft,
 		panY: canvasScroll.scrollTop,
 		zoom: canvas.zoom(),
 		changeSource,
-	});
+	}));
 }
 
 async function exportPng(): Promise<void> {
 	try {
-		const message = await createPngExportMessage(webviewConfig.payload, theme);
-		if (message === undefined) {
+		const command = await createPngExportCommand(webviewConfig.payload, theme);
+		if (command === undefined) {
 			showStatus('There is no diagram content to export.');
 			return;
 		}
 
-		vscode.postMessage(message);
+		messageBus.publishCommand(command);
 	} catch (error) {
 		showStatus(error instanceof Error ? error.message : String(error));
 	}
@@ -382,46 +379,31 @@ function isKeyboardInputTarget(target: EventTarget | null): boolean {
 
 function deleteElement(id: string): boolean {
 	if (elementRegistry.element(id)?.kind === 'node') {
-		vscode.postMessage({
-			type: 'deleteNode',
-			id,
-		});
+		messageBus.publishCommand(new DeleteNodeCommand(id));
 
 		return true;
 	}
 
 	if (geometryPersistence.hasEdge(id)) {
-		vscode.postMessage({
-			type: 'deleteEdge',
-			id,
-		});
+		messageBus.publishCommand(new DeleteEdgeCommand(id));
 
 		return true;
 	}
 
 	if (geometryPersistence.hasNote(id)) {
-		vscode.postMessage({
-			type: 'deleteNote',
-			id,
-		});
+		messageBus.publishCommand(new DeleteNoteCommand(id));
 
 		return true;
 	}
 
 	if (geometryPersistence.hasImage(id)) {
-		vscode.postMessage({
-			type: 'deleteImage',
-			id,
-		});
+		messageBus.publishCommand(new DeleteImageCommand(id));
 
 		return true;
 	}
 
 	if (geometryPersistence.hasLabel(id)) {
-		vscode.postMessage({
-			type: 'deleteLabel',
-			id,
-		});
+		messageBus.publishCommand(new DeleteLabelCommand(id));
 
 		return true;
 	}
