@@ -1,5 +1,3 @@
-import { FileCode, ImageDown, createElement as createIconElement } from 'lucide';
-
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -38,14 +36,17 @@ interface TextBlockOptions {
 }
 
 export function renderDiagramExportToolbarIcons(exportSvgButton: HTMLButtonElement, exportPngButton: HTMLButtonElement): void {
-	exportSvgButton.replaceChildren(createIconElement(FileCode, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
-	exportPngButton.replaceChildren(createIconElement(ImageDown, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
+	exportSvgButton.replaceChildren(exportTextIcon('SVG'));
+	exportPngButton.replaceChildren(exportTextIcon('PNG'));
+}
+
+function exportTextIcon(label: string): HTMLSpanElement {
+	const icon = document.createElement('span');
+	icon.className = 'canvas-action-text-icon';
+	icon.setAttribute('aria-hidden', 'true');
+	icon.textContent = label;
+
+	return icon;
 }
 
 export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTheme): SaveDiagramExportCommand | undefined {

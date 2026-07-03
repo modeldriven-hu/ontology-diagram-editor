@@ -1,5 +1,3 @@
-import { StickyNotePlus, createElement as createIconElement } from 'lucide';
-
 import type { NoteBoundsUpdate } from '../../../shared/canvas-geometry';
 import type { DiagramNote } from '../ontology-diagram-types';
 
@@ -179,10 +177,50 @@ interface TextEditingElement {
 }
 
 export function renderNoteToolbarIcon(addNoteButton: HTMLButtonElement): void {
-	addNoteButton.replaceChildren(createIconElement(StickyNotePlus, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
+	addNoteButton.replaceChildren(noteIcon());
+}
+
+function noteIcon(): SVGSVGElement {
+	const svg = svgElement('svg');
+	svg.setAttribute('aria-hidden', 'true');
+	svg.setAttribute('class', 'canvas-action-icon');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.append(
+		svgElement('path', {
+			d: 'M5 4h10l4 4v12H5z',
+			fill: 'none',
+			stroke: 'currentColor',
+			'stroke-width': '2',
+			'stroke-linejoin': 'round',
+		}),
+		svgElement('path', {
+			d: 'M15 4v5h5',
+			fill: 'none',
+			stroke: 'currentColor',
+			'stroke-width': '2',
+			'stroke-linejoin': 'round',
+		}),
+		svgElement('path', {
+			d: 'M8 12h8M8 15h6',
+			fill: 'none',
+			stroke: 'currentColor',
+			'stroke-width': '2',
+			'stroke-linecap': 'round',
+		}),
+	);
+
+	return svg;
+}
+
+function svgElement(tagName: 'svg'): SVGSVGElement;
+function svgElement(tagName: string, attributes: Record<string, string>): SVGElement;
+function svgElement(tagName: string, attributes?: Record<string, string>): SVGElement {
+	const element = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+	for (const [name, value] of Object.entries(attributes ?? {})) {
+		element.setAttribute(name, value);
+	}
+
+	return element;
 }
 
 export function noteBounds(note: DiagramNote): NoteBoundsUpdate {

@@ -28,10 +28,17 @@ interface CanvasPropertyPanelOptions {
 	readonly onWidthChange?: (width: number) => void;
 }
 
+interface PropertyTab {
+	readonly id: string;
+	readonly label: string;
+	readonly sections: readonly HTMLElement[];
+}
+
 export class CanvasPropertyPanel {
 	private collapsed = false;
 	private panelWidth?: number;
 	private selectedElement: CanvasPropertyElement | undefined;
+	private readonly selectedTabByContext = new Map<string, string>();
 
 	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
 
@@ -193,118 +200,299 @@ export class CanvasPropertyPanel {
 	private renderDiagramContext(): void {
 		const file = this.options.payload.file;
 		const diagram = this.options.payload.diagram;
-		this.options.body.appendChild(sectionElement('Diagram', [
-			readonlyField('File', file?.fsPath ?? ''),
-			readonlyField('Title', diagram?.metadata?.title ?? ''),
-			readonlyField('Theme', diagram?.metadata?.theme_file ?? ''),
-			readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
-		]));
+		this.renderTabs('diagram', [
+			{
+				id: 'summary',
+				label: 'Summary',
+				sections: [
+					sectionElement('Diagram', [
+						readonlyField('File', file?.fsPath ?? ''),
+						readonlyField('Title', diagram?.metadata?.title ?? ''),
+						readonlyField('Theme', diagram?.metadata?.theme_file ?? ''),
+						readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
+					]),
+				],
+			},
+		]);
 	}
 
 	private renderElement(element: CanvasPropertyElement): void {
-		this.options.body.appendChild(sectionElement('Identity', [
+		const identitySection = sectionElement('Identity', [
 			readonlyField('Type', capitalize(element.kind)),
 			readonlyField('ID', element.value.id),
-		]));
+		]);
 
 		if (element.kind === 'node') {
-			this.renderNode(element.value);
+			this.renderTabs(element.value.id, this.nodeTabs(element.value, identitySection));
 		} else if (element.kind === 'edge') {
-			this.renderEdge(element.value);
+			this.renderTabs(element.value.id, this.edgeTabs(element.value, identitySection));
 		} else if (element.kind === 'note') {
-			this.renderNote(element.value);
+			this.renderTabs(element.value.id, this.noteTabs(element.value, identitySection));
 		} else if (element.kind === 'label') {
-			this.renderLabel(element.value);
+			this.renderTabs(element.value.id, this.labelTabs(element.value, identitySection));
 		} else {
-			this.renderImage(element.value);
+			this.renderTabs(element.value.id, this.imageTabs(element.value, identitySection));
 		}
 	}
 
-	private renderNode(node: DiagramNode): void {
-		this.options.body.appendChild(sectionElement('Ontology', [
-			readonlyField('Ref', node.ontology_ref),
-		]));
-		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(node, (update) => {
-			this.propertyEdited('node', node.id, ['x', 'y', 'width', 'height']);
-			this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
-		})));
-		this.options.body.appendChild(sectionElement('Image', [
-			imageField('Image', node.image ?? '', (value) => {
-				const image = value.trim() === '' ? undefined : value;
-				this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
-				this.propertyEdited('node', node.id, ['image']);
-				this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
-			}, () => {
-				this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
-			}),
-		]));
-		this.options.body.appendChild(this.commonStyleSection('node', node.id, node.style));
+	private nodeTabs(node: DiagramNode, identitySection: HTMLElement): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					identitySection,
+					sectionElement('Ontology', [
+						readonlyField('Ref', node.ontology_ref),
+					]),
+					sectionElement('Image', [
+						imageField('Image', node.image ?? '', (value) => {
+							const image = value.trim() === '' ? undefined : value;
+							this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
+							this.propertyEdited('node', node.id, ['image']);
+							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
+						}, () => {
+							this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
+						}),
+					]),
+				],
+			},
+			{
+				id: 'geometry',
+				label: 'Geometry',
+				sections: [
+					sectionElement('Geometry', this.geometryFields(node, (update) => {
+						this.propertyEdited('node', node.id, ['x', 'y', 'width', 'height']);
+						this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
+					})),
+				],
+			},
+			{
+				id: 'style',
+				label: 'Style',
+				sections: [
+					this.commonStyleSection('node', node.id, node.style),
+				],
+			},
+		];
 	}
 
-	private renderEdge(edge: DiagramEdge): void {
-		this.options.body.appendChild(sectionElement('Ontology', [
-			readonlyField('Ref', edge.ontology_ref),
-			readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
-		]));
-		this.options.body.appendChild(sectionElement('Connection', [
-			readonlyField('Source', edge.source),
-			readonlyField('Target', edge.target),
-		]));
-		this.options.body.appendChild(this.edgeStyleSection(edge.id, edge.style));
-		this.options.body.appendChild(sectionElement('Actions', [
-			actionButton('Reset Label Position', 'secondary', () => {
-				this.options.resetEdgeLabel(edge.id);
-			}),
-			actionButton('Delete Edge', 'danger', () => {
-				this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
-			}),
-		]));
+	private edgeTabs(edge: DiagramEdge, identitySection: HTMLElement): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					identitySection,
+					sectionElement('Ontology', [
+						readonlyField('Ref', edge.ontology_ref),
+						readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
+					]),
+					sectionElement('Connection', [
+						readonlyField('Source', edge.source),
+						readonlyField('Target', edge.target),
+					]),
+				],
+			},
+			{
+				id: 'style',
+				label: 'Style',
+				sections: [
+					this.edgeStyleSection(edge.id, edge.style),
+				],
+			},
+			{
+				id: 'actions',
+				label: 'Actions',
+				sections: [
+					sectionElement('Actions', [
+						actionButton('Reset Label Position', 'secondary', () => {
+							this.options.resetEdgeLabel(edge.id);
+						}),
+						actionButton('Delete Edge', 'danger', () => {
+							this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
+						}),
+					]),
+				],
+			},
+		];
 	}
 
-	private renderNote(note: DiagramNote): void {
-		this.options.body.appendChild(sectionElement('Text', [
-			textAreaField('Text', note.text, (value) => {
-				this.updateElementContent({ kind: 'noteText', id: note.id, text: value });
-				this.propertyEdited('note', note.id, ['text']);
-				this.options.messageBus.publishCommand(new UpdateNoteTextCommand(note.id, value));
-			}),
-		]));
-		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(note, (update) => {
-			this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
-			this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand([update]));
-		})));
-		this.options.body.appendChild(this.commonStyleSection('note', note.id, note.style));
+	private noteTabs(note: DiagramNote, identitySection: HTMLElement): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					identitySection,
+					sectionElement('Text', [
+						textAreaField('Text', note.text, (value) => {
+							this.updateElementContent({ kind: 'noteText', id: note.id, text: value });
+							this.propertyEdited('note', note.id, ['text']);
+							this.options.messageBus.publishCommand(new UpdateNoteTextCommand(note.id, value));
+						}),
+					]),
+				],
+			},
+			{
+				id: 'geometry',
+				label: 'Geometry',
+				sections: [
+					sectionElement('Geometry', this.geometryFields(note, (update) => {
+						this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
+						this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand([update]));
+					})),
+				],
+			},
+			{
+				id: 'style',
+				label: 'Style',
+				sections: [
+					this.commonStyleSection('note', note.id, note.style),
+				],
+			},
+		];
 	}
 
-	private renderLabel(label: DiagramLabel): void {
-		this.options.body.appendChild(sectionElement('Text', [
-			textAreaField('Text', label.text, (value) => {
-				this.updateElementContent({ kind: 'labelText', id: label.id, text: value });
-				this.propertyEdited('label', label.id, ['text']);
-				this.options.messageBus.publishCommand(new UpdateLabelTextCommand(label.id, value));
-			}),
-		]));
-		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(label, (update) => {
-			this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
-			this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand([update]));
-		})));
-		this.options.body.appendChild(this.labelStyleSection(label.id, label.style));
+	private labelTabs(label: DiagramLabel, identitySection: HTMLElement): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					identitySection,
+					sectionElement('Text', [
+						textAreaField('Text', label.text, (value) => {
+							this.updateElementContent({ kind: 'labelText', id: label.id, text: value });
+							this.propertyEdited('label', label.id, ['text']);
+							this.options.messageBus.publishCommand(new UpdateLabelTextCommand(label.id, value));
+						}),
+					]),
+				],
+			},
+			{
+				id: 'geometry',
+				label: 'Geometry',
+				sections: [
+					sectionElement('Geometry', this.geometryFields(label, (update) => {
+						this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
+						this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand([update]));
+					})),
+				],
+			},
+			{
+				id: 'style',
+				label: 'Style',
+				sections: [
+					this.labelStyleSection(label.id, label.style),
+				],
+			},
+		];
 	}
 
-	private renderImage(image: DiagramImage): void {
-		this.options.body.appendChild(sectionElement('Image', [
-			imageField('Source', image.source, (value) => {
-				this.updateElementContent({ kind: 'imageSource', id: image.id, source: value });
-				this.propertyEdited('image', image.id, ['source']);
-				this.options.messageBus.publishCommand(new UpdateImageSourceCommand(image.id, value));
-			}, () => {
-				this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
-			}),
-		]));
-		this.options.body.appendChild(sectionElement('Geometry', this.geometryFields(image, (update) => {
-			this.propertyEdited('image', image.id, ['x', 'y', 'width', 'height']);
-			this.options.messageBus.publishCommand(new UpdateImageBoundsCommand([update]));
-		})));
+	private imageTabs(image: DiagramImage, identitySection: HTMLElement): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					identitySection,
+					sectionElement('Image', [
+						imageField('Source', image.source, (value) => {
+							this.updateElementContent({ kind: 'imageSource', id: image.id, source: value });
+							this.propertyEdited('image', image.id, ['source']);
+							this.options.messageBus.publishCommand(new UpdateImageSourceCommand(image.id, value));
+						}, () => {
+							this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
+						}),
+					]),
+				],
+			},
+			{
+				id: 'geometry',
+				label: 'Geometry',
+				sections: [
+					sectionElement('Geometry', this.geometryFields(image, (update) => {
+						this.propertyEdited('image', image.id, ['x', 'y', 'width', 'height']);
+						this.options.messageBus.publishCommand(new UpdateImageBoundsCommand([update]));
+					})),
+				],
+			},
+		];
+	}
+
+	private renderTabs(contextId: string, tabs: readonly PropertyTab[]): void {
+		const selectedTabId = this.selectedTabByContext.get(contextId);
+		const activeTab = tabs.find((tab) => tab.id === selectedTabId) ?? tabs[0];
+		if (activeTab === undefined) {
+			return;
+		}
+
+		const wrapper = document.createElement('div');
+		wrapper.className = 'property-tabs';
+		const tabList = document.createElement('div');
+		tabList.className = 'property-tab-list';
+		tabList.setAttribute('role', 'tablist');
+		const panes = document.createElement('div');
+		panes.className = 'property-tab-panes';
+
+		const tabButtons = new Map<string, HTMLButtonElement>();
+		const tabPanes = new Map<string, HTMLElement>();
+		const activateTab = (tabId: string): void => {
+			this.selectedTabByContext.set(contextId, tabId);
+			for (const [id, button] of tabButtons) {
+				const selected = id === tabId;
+				button.setAttribute('aria-selected', String(selected));
+				button.tabIndex = selected ? 0 : -1;
+			}
+			for (const [id, pane] of tabPanes) {
+				pane.hidden = id !== tabId;
+			}
+		};
+
+		tabs.forEach((tab, index) => {
+			const tabIdentifier = `property-tab-${contextId}-${tab.id}`.replace(/[^A-Za-z0-9_-]/g, '-');
+			const paneIdentifier = `${tabIdentifier}-pane`;
+			const button = document.createElement('button');
+			button.className = 'property-tab';
+			button.type = 'button';
+			button.id = tabIdentifier;
+			button.textContent = tab.label;
+			button.setAttribute('role', 'tab');
+			button.setAttribute('aria-controls', paneIdentifier);
+			button.addEventListener('click', () => {
+				activateTab(tab.id);
+			});
+			button.addEventListener('keydown', (event) => {
+				if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+					return;
+				}
+
+				event.preventDefault();
+				const direction = event.key === 'ArrowRight' ? 1 : -1;
+				const nextIndex = (index + direction + tabs.length) % tabs.length;
+				const nextTab = tabs[nextIndex];
+				if (nextTab !== undefined) {
+					activateTab(nextTab.id);
+					tabButtons.get(nextTab.id)?.focus();
+				}
+			});
+			tabList.appendChild(button);
+			tabButtons.set(tab.id, button);
+
+			const pane = document.createElement('div');
+			pane.className = 'property-tab-pane';
+			pane.id = paneIdentifier;
+			pane.setAttribute('role', 'tabpanel');
+			pane.setAttribute('aria-labelledby', tabIdentifier);
+			pane.append(...tab.sections);
+			panes.appendChild(pane);
+			tabPanes.set(tab.id, pane);
+		});
+
+		wrapper.append(tabList, panes);
+		this.options.body.appendChild(wrapper);
+		activateTab(activeTab.id);
 	}
 
 	private geometryFields(

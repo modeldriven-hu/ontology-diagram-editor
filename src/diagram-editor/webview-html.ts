@@ -65,6 +65,8 @@ function webviewBody(
 				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
 				<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="minimizeElementButton" type="button" title="Resize selected element to minimum size" aria-label="Resize selected element to minimum size"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
 			</div>
 			<div class="canvas-scroll" id="canvasScroll" tabindex="0">
@@ -235,11 +237,26 @@ function webviewStyles(): string {
 		stroke-width: 1.9;
 	}
 
+	.canvas-action-text-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 18px;
+		border: 1.6px solid currentColor;
+		border-radius: 3px;
+		font-size: 8px;
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: 0;
+	}
+
 	.canvas-action-separator {
-		width: 1px;
-		height: 22px;
-		margin: 0 2px;
-		background: color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+		width: 2px;
+		height: 24px;
+		margin: 0 4px;
+		border-radius: 1px;
+		background: color-mix(in srgb, var(--vscode-panel-border) 92%, var(--vscode-editor-foreground));
 	}
 
 	.note-editor {
@@ -540,6 +557,74 @@ function webviewStyles(): string {
 		grid-template-columns: minmax(0, 1fr);
 		gap: 12px;
 		padding: 10px 12px 12px;
+	}
+
+	.property-tabs {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		min-width: 0;
+		gap: 10px;
+	}
+
+	.property-tab-list {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		min-width: 0;
+		border-bottom: 1px solid var(--vscode-panel-border);
+		overflow-x: auto;
+	}
+
+	.property-tab {
+		position: relative;
+		flex: 0 0 auto;
+		min-width: 0;
+		padding: 5px 9px 6px;
+		border: 0;
+		border-radius: 4px 4px 0 0;
+		background: transparent;
+		color: var(--vscode-descriptionForeground);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+	}
+
+	.property-tab:hover,
+	.property-tab:focus-visible {
+		background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
+		color: var(--vscode-foreground);
+		outline: none;
+	}
+
+	.property-tab[aria-selected="true"] {
+		color: var(--vscode-foreground);
+		background: color-mix(in srgb, var(--vscode-sideBar-background) 88%, var(--vscode-editor-background));
+	}
+
+	.property-tab[aria-selected="true"]::after {
+		content: "";
+		position: absolute;
+		right: 6px;
+		bottom: -1px;
+		left: 6px;
+		height: 2px;
+		border-radius: 1px;
+		background: var(--vscode-focusBorder);
+	}
+
+	.property-tab-panes,
+	.property-tab-pane {
+		min-width: 0;
+	}
+
+	.property-tab-pane {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px;
+	}
+
+	.property-tab-pane[hidden] {
+		display: none;
 	}
 
 	.property-section {

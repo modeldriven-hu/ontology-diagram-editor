@@ -27,7 +27,9 @@ export interface DiagramCanvasEngine {
 	setZoom(zoom: number): void;
 	resize(width: number, height: number): void;
 	restoreBounds(bounds: readonly BoundsUpdate[]): void;
+	resizeElement(id: string, width: number, height: number): boolean;
 	updateElementContent(update: CanvasElementContentUpdate): void;
+	nudgeElement(id: string, delta: CanvasPoint): boolean;
 	edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined;
 	nudgeEdgeLabel(edgeId: string, delta: CanvasPoint): boolean;
 	resetEdgeLabel(edgeId: string): void;

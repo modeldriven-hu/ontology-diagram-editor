@@ -27,6 +27,7 @@ Version 1 toolbar actions are:
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
 | Fit diagram to view | Fits all rendered content in the visible viewport. |
 | Reset viewport | Resets zoom and pan to the implementation-defined default. |
+| Resize to minimum | Resizes the selected node, note, image, or standalone label to its defined minimum size. |
 | Toggle light/dark mode | Switches the canvas rendering palette between light and dark mode without changing persisted diagram geometry. |
 
 Toolbar buttons shall be disabled or shall show a concise user-visible problem when the

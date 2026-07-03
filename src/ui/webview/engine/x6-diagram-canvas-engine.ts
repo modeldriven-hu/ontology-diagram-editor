@@ -155,6 +155,40 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
+	public resizeElement(id: string, width: number, height: number): boolean {
+		const cell = this.graph.getCellById(id);
+		if (!isX6Node(cell) || this.elementRegistry.element(id) === undefined) {
+			return false;
+		}
+
+		const position = cell.position();
+		const size = cell.size();
+		const update = {
+			id,
+			x: Math.max(0, Math.round(position.x)),
+			y: Math.max(0, Math.round(position.y)),
+			width: Math.round(width),
+			height: Math.round(height),
+		};
+		if (update.width === Math.round(size.width) && update.height === Math.round(size.height)) {
+			return false;
+		}
+
+		this.elementRegistry.updateBounds(update);
+		cell.resize(update.width, update.height);
+		if (this.selectedId === id) {
+			this.publishSelectionChanged();
+		}
+		for (const listener of this.boundsChangeListeners) {
+			listener({
+				dragKind: 'resize',
+				bounds: [update],
+			});
+		}
+
+		return true;
+	}
+
 	public updateElementContent(update: CanvasElementContentUpdate): void {
 		const cell = this.graph.getCellById(update.id);
 		if (!isX6Node(cell)) {
@@ -172,6 +206,40 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			cell.attr('nodeImage/opacity', update.image === undefined ? 0 : 1);
 			cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
 		}
+	}
+
+	public nudgeElement(id: string, delta: CanvasPoint): boolean {
+		const cell = this.graph.getCellById(id);
+		if (!isX6Node(cell) || this.elementRegistry.element(id) === undefined) {
+			return false;
+		}
+
+		const position = cell.position();
+		const size = cell.size();
+		const update = {
+			id,
+			x: Math.max(0, Math.round(position.x + delta.x)),
+			y: Math.max(0, Math.round(position.y + delta.y)),
+			width: Math.round(size.width),
+			height: Math.round(size.height),
+		};
+		if (update.x === Math.round(position.x) && update.y === Math.round(position.y)) {
+			return false;
+		}
+
+		this.elementRegistry.updateBounds(update);
+		cell.position(update.x, update.y);
+		if (this.selectedId === id) {
+			this.publishSelectionChanged();
+		}
+		for (const listener of this.boundsChangeListeners) {
+			listener({
+				dragKind: 'move',
+				bounds: [update],
+			});
+		}
+
+		return true;
 	}
 
 	public edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined {
@@ -916,6 +984,11 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 			},
 			label: {
 				text: plainText(note.text),
+				textWrap: {
+					width: -24,
+					height: -24,
+					ellipsis: true,
+				},
 				fill: note.style?.text_color ?? theme.noteForeground,
 				fontFamily: note.style?.font?.family ?? theme.fontFamily,
 				fontSize: note.style?.font?.size ?? theme.fontSize,

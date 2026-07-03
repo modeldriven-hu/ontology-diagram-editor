@@ -1,7 +1,7 @@
-import { Maximize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { Maximize2, Minimize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
-import type { CanvasPoint } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry } from '../components/canvas-element-registry';
@@ -68,6 +68,7 @@ const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
 const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
+const minimizeElementButton = requiredElement('minimizeElementButton') as HTMLButtonElement;
 const themeModeButton = requiredElement('themeModeButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
@@ -164,6 +165,9 @@ fitDiagramButton.addEventListener('click', () => {
 resetViewportButton.addEventListener('click', () => {
 	resetViewport();
 });
+minimizeElementButton.addEventListener('click', () => {
+	resizeSelectedElementToMinimum();
+});
 themeModeButton.addEventListener('click', () => {
 	toggleThemeMode();
 });
@@ -177,7 +181,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 registerNoteEditHandlers();
-registerEdgeLabelKeyboardHandlers();
+registerKeyboardNudgeHandlers();
 registerDeleteHandlers();
 
 function registerPropertyPanel(): void {
@@ -327,7 +331,47 @@ function renderViewportToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	minimizeElementButton.replaceChildren(createIconElement(Minimize2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
 	renderThemeModeButton();
+}
+
+function resizeSelectedElementToMinimum(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElementKind = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId)?.kind;
+	const minimumSize = minimumSizeForElement(selectedElementKind);
+	if (selectedElementId === undefined || minimumSize === undefined) {
+		showStatus('Select a node, note, image, or label to resize.');
+		return;
+	}
+
+	if (canvas.resizeElement(selectedElementId, minimumSize.width, minimumSize.height)) {
+		showStatus('Resized selected element to minimum size.');
+		return;
+	}
+
+	showStatus('Selected element is already at its minimum size.');
+}
+
+function minimumSizeForElement(kind: string | undefined): { readonly width: number; readonly height: number } | undefined {
+	if (kind === 'node') {
+		return { width: minimumNodeWidth, height: minimumNodeHeight };
+	}
+	if (kind === 'note') {
+		return { width: minimumNoteWidth, height: minimumNoteHeight };
+	}
+	if (kind === 'image') {
+		return { width: minimumImageWidth, height: minimumImageHeight };
+	}
+	if (kind === 'label') {
+		return { width: minimumLabelWidth, height: minimumLabelHeight };
+	}
+
+	return undefined;
 }
 
 function renderThemeModeButton(): void {
@@ -629,7 +673,7 @@ function editLabel(id: string): boolean {
 	return true;
 }
 
-function registerEdgeLabelKeyboardHandlers(): void {
+function registerKeyboardNudgeHandlers(): void {
 	document.addEventListener('keydown', (event) => {
 		if (noteEditorController.isOpen() || isKeyboardInputTarget(event.target)) {
 			return;
@@ -638,22 +682,28 @@ function registerEdgeLabelKeyboardHandlers(): void {
 			return;
 		}
 
-		const delta = edgeLabelNudgeDelta(event);
+		const delta = keyboardNudgeDelta(event);
 		if (delta === undefined) {
 			return;
 		}
 
 		const selectedElementId = canvas.selectedElementId();
-		if (selectedElementId === undefined || !geometryPersistence.hasEdge(selectedElementId)) {
+		if (selectedElementId === undefined) {
 			return;
 		}
-		if (canvas.nudgeEdgeLabel(selectedElementId, delta)) {
+		if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeLabel(selectedElementId, delta)) {
+			event.preventDefault();
+			return;
+		}
+
+		const selectedElementKind = elementRegistry.element(selectedElementId)?.kind;
+		if (isKeyboardNudgeableElement(selectedElementKind) && canvas.nudgeElement(selectedElementId, delta)) {
 			event.preventDefault();
 		}
 	});
 }
 
-function edgeLabelNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
+function keyboardNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
 	const step = event.shiftKey ? 10 : 1;
 	if (event.key === 'ArrowLeft') {
 		return { x: -step, y: 0 };
@@ -669,6 +719,10 @@ function edgeLabelNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
 	}
 
 	return undefined;
+}
+
+function isKeyboardNudgeableElement(kind: string | undefined): boolean {
+	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label';
 }
 
 function registerDeleteHandlers(): void {
