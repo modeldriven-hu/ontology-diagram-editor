@@ -63,7 +63,7 @@ function updateNodeStyle(
 		}
 
 		changed = true;
-		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra);
+		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra, node.showDataProperties);
 	});
 
 	return changed ? { diagram: cloneDiagram(diagram, { nodes: nextNodes }) } : {};

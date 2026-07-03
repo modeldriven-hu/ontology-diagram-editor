@@ -2,6 +2,7 @@ import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
+import { nodeDataPropertyAttributes, nodeDataPropertyLayout, ontologyDisplayName, truncateText } from './node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -124,7 +125,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme, imageHrefMode)),
 		...edges.map((edge) => renderEdge(edge, theme)),
-		...nodes.map((node) => renderNode(node, theme)),
+		...nodes.map((node) => renderNode(node, payload, theme)),
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
 		'</svg>',
@@ -208,17 +209,34 @@ function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow
 	return `${marker}_${safeIdentifier(edge.id)}`;
 }
 
-function renderNode(node: DiagramNode, theme: WebviewTheme): string {
+function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
 	const border = borderStyle(node.style, theme.nodeBorder, 1);
 	const fontSize = node.style?.font?.size ?? theme.fontSize;
 	const bounds = elementBounds(node);
+	const attributes = nodeDataPropertyAttributes(node, payload);
+	const hasAttributes = attributes.length > 0;
+	const layout = nodeDataPropertyLayout({
+		nodeHeight: bounds.height,
+		fontSize,
+		attributeCount: attributes.length,
+	});
+	const displayAttributeTexts = [
+		...attributes.slice(0, layout.visibleAttributeCount).map((attribute) => truncateText({
+			text: attribute.text,
+			width: bounds.width - 20,
+			fontSize: layout.attributeFontSize,
+			fontFamily: node.style?.font?.family ?? theme.fontFamily,
+			italic: node.style?.font?.italic,
+		})),
+		...(layout.showOverflowIndicator ? ['...'] : []),
+	];
 
-	return [
+	const parts = [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		renderTextBlock({
-			id: node.id,
-			text: displayName(node.ontology_ref),
-			bounds,
+			id: hasAttributes ? `${node.id}_title` : node.id,
+			text: ontologyDisplayName(node.ontology_ref),
+			bounds: hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds,
 			color: node.style?.text_color ?? theme.editorForeground,
 			fontFamily: node.style?.font?.family ?? theme.fontFamily,
 			fontSize,
@@ -228,7 +246,33 @@ function renderNode(node: DiagramNode, theme: WebviewTheme): string {
 			verticalAlign: 'middle',
 			padding: 10,
 		}),
-	].join('\n');
+	];
+
+	if (hasAttributes) {
+		parts.push(
+			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y + layout.headerHeight)}" width="${numberValue(bounds.width)}" height="1" fill="${escapeAttribute(border.color)}"/>`,
+			renderTextBlock({
+				id: `${node.id}_attributes`,
+				text: displayAttributeTexts.join('\n'),
+				bounds: {
+					x: bounds.x,
+					y: bounds.y + layout.headerHeight + 1,
+					width: bounds.width,
+					height: Math.max(1, bounds.height - layout.headerHeight - 1),
+				},
+				color: node.style?.text_color ?? theme.editorForeground,
+				fontFamily: node.style?.font?.family ?? theme.fontFamily,
+				fontSize: layout.attributeFontSize,
+				bold: false,
+				italic: node.style?.font?.italic,
+				align: 'left',
+				verticalAlign: 'top',
+				padding: 10,
+			}),
+		);
+	}
+
+	return parts.join('\n');
 }
 
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {
@@ -484,16 +528,6 @@ function plainText(value: string): string {
 	const element = document.createElement('div');
 	element.innerHTML = value;
 	return element.textContent ?? value;
-}
-
-function displayName(ontologyRef: string): string {
-	const hashIndex = ontologyRef.lastIndexOf('#');
-	const slashIndex = ontologyRef.lastIndexOf('/');
-	const compactIriIndex = ontologyRef.includes('://') ? -1 : ontologyRef.lastIndexOf(':');
-	const separatorIndex = Math.max(hashIndex, slashIndex, compactIriIndex);
-	const name = separatorIndex >= 0 ? ontologyRef.slice(separatorIndex + 1) : ontologyRef;
-
-	return name.length > 0 ? name : ontologyRef;
 }
 
 function diagramBaseName(payload: DiagramPayload): string {

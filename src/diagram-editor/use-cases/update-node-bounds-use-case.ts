@@ -42,6 +42,7 @@ export class UpdateNodeBoundsUseCase {
 				node.style,
 				node.image,
 				node.extra,
+				node.showDataProperties,
 			);
 		});
 		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByNodeId));

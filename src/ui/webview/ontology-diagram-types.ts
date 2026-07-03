@@ -20,6 +20,9 @@ export interface DiagramPayload {
 		readonly images?: readonly DiagramImage[];
 		readonly labels?: readonly DiagramLabel[];
 	};
+	readonly ontology?: {
+		readonly data_properties?: readonly DiagramDataProperty[];
+	};
 	readonly error?: string;
 }
 
@@ -32,7 +35,15 @@ export interface DiagramNode {
 	readonly height: number;
 	readonly ontology_item_type?: string;
 	readonly image?: string;
+	readonly show_data_properties?: boolean;
 	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramDataProperty {
+	readonly reference: string;
+	readonly displayLabel: string;
+	readonly domainReferences: readonly string[];
+	readonly rangeReferences: readonly string[];
 }
 
 export interface DiagramEdge {

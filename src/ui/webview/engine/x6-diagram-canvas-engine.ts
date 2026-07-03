@@ -1,5 +1,6 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry } from '../components/canvas-element-registry';
+import { nodeDataPropertyAttributes, nodeDataPropertyLayout, truncateText } from '../components/node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
@@ -24,6 +25,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private suppressBlankSelectionClear = false;
 	private edgeRoutePublishTimer: number | undefined;
 	private labelDragHighlight: { readonly edgeId: string; readonly lineAttrs: unknown } | undefined;
+	private currentPayload?: DiagramPayload;
 
 	public constructor(
 		container: HTMLElement,
@@ -73,6 +75,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 	public renderDiagram(payload: DiagramPayload, theme: WebviewTheme): void {
 		this.theme = theme;
+		this.currentPayload = payload;
 		installX6Styles(theme);
 		this.suppressEdgeRouteEvents = true;
 		try {
@@ -82,7 +85,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				this.graph.addNode(x6Image(image, theme));
 			}
 			for (const node of payload.diagram?.nodes ?? []) {
-				this.graph.addNode(x6OntologyNode(node, theme));
+				this.graph.addNode(x6OntologyNode(node, payload, theme));
 			}
 			const nodeById = new Map((payload.diagram?.nodes ?? []).map((node) => [node.id, node]));
 			for (const edge of payload.diagram?.edges ?? []) {
@@ -149,6 +152,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 					this.elementRegistry.updateBounds(update);
 					cell.position(update.x, update.y);
 					cell.resize(update.width, update.height);
+					this.updateOntologyNodePresentation(update.id);
 				}
 			}
 		} finally {
@@ -177,6 +181,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		this.elementRegistry.updateBounds(update);
 		cell.resize(update.width, update.height);
+		this.updateOntologyNodePresentation(id);
 		if (this.selectedId === id) {
 			this.publishSelectionChanged();
 		}
@@ -203,9 +208,12 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		} else if (update.kind === 'imageSource' && this.elementRegistry.element(update.id)?.kind === 'image') {
 			cell.attr('image/xlink:href', update.source);
 		} else if (update.kind === 'nodeImage' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			const hasAttributeSection = cell.attr('separator/refY') !== undefined;
 			cell.attr('nodeImage/xlink:href', update.image ?? '');
 			cell.attr('nodeImage/opacity', update.image === undefined ? 0 : 1);
-			cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
+			if (!hasAttributeSection) {
+				cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
+			}
 		}
 	}
 
@@ -479,6 +487,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		const update = boundsUpdate(node);
 		this.elementRegistry.updateBounds(update);
+		if (dragKind === 'resize') {
+			this.updateOntologyNodePresentation(node.id);
+		}
 		if (this.selectedId === node.id) {
 			this.publishSelectionChanged();
 		}
@@ -502,6 +513,17 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		this.edgeRoutePublishTimer = window.setTimeout(() => {
 			this.flushEdgeRouteChanges();
 		}, 150);
+	}
+
+	private updateOntologyNodePresentation(id: string): void {
+		const payload = this.currentPayload;
+		const element = this.elementRegistry.element(id);
+		const cell = this.graph.getCellById(id);
+		if (payload === undefined || element?.kind !== 'node' || !isX6Node(cell)) {
+			return;
+		}
+
+		cell.attr(x6OntologyNodePresentation(element.value, payload, this.theme).attrs);
 	}
 
 	private flushEdgeRouteChanges(): void {
@@ -659,9 +681,32 @@ function installX6Styles(theme: WebviewTheme): void {
 	}
 }
 
-function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, unknown> {
+function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
 	const hasImage = node.image !== undefined && node.image.trim() !== '';
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
+	const presentation = x6OntologyNodePresentation(node, payload, theme);
+	const imageAttrs = presentation.hasAttributes
+		? {
+			width: 18,
+			height: 18,
+			refX: 8,
+			refY: 6,
+			'xlink:href': node.image ?? '',
+			preserveAspectRatio: 'xMidYMid meet',
+			pointerEvents: 'none',
+			opacity: hasImage ? 1 : 0,
+		}
+		: {
+			width: 28,
+			height: 28,
+			refX: '50%',
+			refX2: -14,
+			refY: 10,
+			'xlink:href': node.image ?? '',
+			preserveAspectRatio: 'xMidYMid meet',
+			pointerEvents: 'none',
+			opacity: hasImage ? 1 : 0,
+		};
 
 	return {
 		id: node.id,
@@ -673,6 +718,7 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 			{ tagName: 'rect', selector: 'body' },
 			{ tagName: 'image', selector: 'nodeImage' },
 			{ tagName: 'text', selector: 'label' },
+			...presentation.markup,
 		],
 		attrs: {
 			body: {
@@ -684,17 +730,61 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 				...borderAttrs(node.style?.border, theme.nodeBorder, 1),
 				filter: shadowFilter(node.style, theme.elementShadow, theme),
 			},
-			nodeImage: {
-				width: 28,
-				height: 28,
-				refX: '50%',
-				refX2: -14,
-				refY: 10,
-				'xlink:href': node.image ?? '',
-				preserveAspectRatio: 'xMidYMid meet',
-				pointerEvents: 'none',
-				opacity: hasImage ? 1 : 0,
-			},
+			nodeImage: imageAttrs,
+			...presentation.attrs,
+		},
+		zIndex: 20,
+	};
+}
+
+function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): {
+	readonly hasAttributes: boolean;
+	readonly markup: readonly Record<string, string>[];
+	readonly attrs: Record<string, unknown>;
+} {
+	const hasImage = node.image !== undefined && node.image.trim() !== '';
+	const attributes = nodeDataPropertyAttributes(node, payload);
+	const hasAttributes = attributes.length > 0;
+	const layout = nodeDataPropertyLayout({
+		nodeHeight: node.height,
+		fontSize: node.style?.font?.size ?? theme.fontSize,
+		attributeCount: attributes.length,
+	});
+	const displayAttributeTexts = [
+		...attributes.slice(0, layout.visibleAttributeCount).map((attribute) => attribute.text),
+		...(layout.showOverflowIndicator ? ['...'] : []),
+	];
+	const attributeLineCount = hasAttributes ? attributes.length + 1 : 0;
+	const attributeAttrs = Object.fromEntries([...Array(attributeLineCount).keys()].map((index) => [
+		`attribute${index}`,
+		{
+			text: displayAttributeTexts[index] === undefined ? '' : truncateText({
+				text: displayAttributeTexts[index],
+				width: node.width - 20,
+				fontSize: layout.attributeFontSize,
+				fontFamily: node.style?.font?.family ?? theme.fontFamily,
+				italic: node.style?.font?.italic,
+			}),
+			opacity: displayAttributeTexts[index] === undefined ? 0 : 1,
+			fill: node.style?.text_color ?? theme.editorForeground,
+			fontFamily: node.style?.font?.family ?? theme.fontFamily,
+			fontSize: layout.attributeFontSize,
+			fontWeight: 400,
+			fontStyle: node.style?.font?.italic === true ? 'italic' : 'normal',
+			textAnchor: 'start',
+			textVerticalAnchor: 'middle',
+			refX: 10,
+			refY: layout.headerHeight + 12 + (index * layout.attributeLineHeight),
+		},
+	]));
+
+	return {
+		hasAttributes,
+		markup: [
+			...(hasAttributes ? [{ tagName: 'rect', selector: 'separator' }] : []),
+			...[...Array(attributeLineCount).keys()].map((index) => ({ tagName: 'text', selector: `attribute${index}` })),
+		],
+		attrs: {
 			label: {
 				text: nodeDisplayName(node.ontology_ref),
 				fill: node.style?.text_color ?? theme.editorForeground,
@@ -705,10 +795,19 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 				textAnchor: 'middle',
 				textVerticalAnchor: 'middle',
 				refX: '50%',
-				refY: hasImage ? '68%' : '50%',
+				refY: hasAttributes ? layout.headerHeight / 2 : hasImage ? '68%' : '50%',
 			},
+			...(hasAttributes ? {
+				separator: {
+					refWidth: '100%',
+					height: 1,
+					refY: layout.headerHeight,
+					fill: node.style?.border?.color ?? theme.nodeBorder,
+					pointerEvents: 'none',
+				},
+			} : {}),
+			...attributeAttrs,
 		},
-		zIndex: 20,
 	};
 }
 

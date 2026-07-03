@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -431,6 +431,22 @@ suite('Diagram editor use cases', () => {
 		const removed = new UpdateNodeImageUseCase().execute(updated.diagram, 'node_person', '');
 		assert.ok(removed.diagram);
 		assert.strictEqual(removed.diagram.nodes[0].image, undefined);
+	});
+
+	test('updates node data property visibility', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 100, 50)),
+		]);
+
+		const enabled = new UpdateNodeDataPropertiesVisibilityUseCase().execute(diagram, 'node_person', true);
+		assert.ok(enabled.diagram);
+		assert.strictEqual(enabled.diagram.nodes[0].showDataProperties, true);
+		assert.deepStrictEqual(enabled.diagram.nodes[0].toPersistenceObject().show_data_properties, true);
+
+		const disabled = new UpdateNodeDataPropertiesVisibilityUseCase().execute(enabled.diagram, 'node_person', false);
+		assert.ok(disabled.diagram);
+		assert.strictEqual(disabled.diagram.nodes[0].showDataProperties, undefined);
+		assert.strictEqual(disabled.diagram.nodes[0].toPersistenceObject().show_data_properties, undefined);
 	});
 
 	test('creates a diagram image with persisted source and default bounds', () => {

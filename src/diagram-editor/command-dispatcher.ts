@@ -21,6 +21,7 @@ import {
 	UpdateLabelBoundsUseCase,
 	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
+	UpdateNodeDataPropertiesVisibilityUseCase,
 	UpdateNodeImageUseCase,
 	UpdateNoteBoundsUseCase,
 	UpdateNoteTextUseCase,
@@ -45,6 +46,7 @@ interface DiagramEditorUseCases {
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
 	readonly updateElementStyle: UpdateElementStyleUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
+	readonly updateNodeDataPropertiesVisibility: UpdateNodeDataPropertiesVisibilityUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
@@ -90,6 +92,13 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.id,
 					command.image,
+				));
+				return;
+			case 'updateNodeDataPropertiesVisibility':
+				await this.handleResult(this.useCases.updateNodeDataPropertiesVisibility.execute(
+					this.repository.load(),
+					command.id,
+					command.showDataProperties,
 				));
 				return;
 			case 'createNote':
@@ -382,6 +391,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
 		updateElementStyle: new UpdateElementStyleUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
+		updateNodeDataPropertiesVisibility: new UpdateNodeDataPropertiesVisibilityUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),
 		updateImageBounds: new UpdateImageBoundsUseCase(),

@@ -3,13 +3,14 @@ import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../documents/odiagram';
 import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
+import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
 
-export function buildDiagramWebviewHtml(
+export async function buildDiagramWebviewHtml(
 	document: vscode.TextDocument,
 	webview: vscode.Webview,
-): string {
-	const payload = getDiagramPayload(document, webview);
+): Promise<string> {
+	const payload = await getDiagramPayload(document, webview);
 	const nonce = createNonce();
 	const scriptUri = webview.asWebviewUri(
 		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'ontology-diagram-canvas.js'),
@@ -751,10 +752,11 @@ function webviewStyles(): string {
 	}`;
 }
 
-function getDiagramPayload(document: vscode.TextDocument, webview: vscode.Webview): JsonPayload {
+async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.Webview): Promise<JsonPayload> {
 	try {
 		const diagram = parseOntologyDiagramTextDocument(document);
 		const persistenceObject = diagram.toPersistenceObject();
+		const loadedOntologies = await loadReferencedOntologies(document.uri.fsPath, diagram);
 
 		return {
 			file: {
@@ -768,6 +770,18 @@ function getDiagramPayload(document: vscode.TextDocument, webview: vscode.Webvie
 					...image.toPersistenceObject(),
 					webview_src: imageWebviewSource(document, webview, image.source),
 				})),
+			},
+			ontology: {
+				data_properties: loadedOntologies.flatMap((ontology) =>
+					ontology.items
+						.filter((item) => item.type === 'dataProperty')
+						.map((item) => ({
+							reference: item.reference,
+							displayLabel: item.displayLabel,
+							domainReferences: item.metadata.domainReferences ?? [],
+							rangeReferences: item.metadata.rangeReferences ?? [],
+						})),
+				),
 			},
 		};
 	} catch (error) {
@@ -799,6 +813,7 @@ interface JsonPayload {
 		readonly directory: string;
 	};
 	readonly diagram?: unknown;
+	readonly ontology?: unknown;
 	readonly error?: string;
 }
 

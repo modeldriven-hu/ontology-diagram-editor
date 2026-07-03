@@ -9,6 +9,7 @@ import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { CanvasPropertyPanel } from '../components/canvas-property-panel';
+import { nodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
@@ -199,6 +200,7 @@ function registerPropertyPanel(): void {
 		title: propertyPanelTitle,
 		toggleButton: propertyPanelToggle,
 		body: propertyPanelBody,
+		getTheme: () => theme,
 		showStatus,
 		resetEdgeLabel: (edgeId) => {
 			canvas.resetEdgeLabel(edgeId);
@@ -348,10 +350,10 @@ function renderViewportToolbarIcons(): void {
 
 function resizeSelectedElementToMinimum(): void {
 	const selectedElementId = canvas.selectedElementId();
-	const selectedElementKind = selectedElementId === undefined
+	const selectedElement = selectedElementId === undefined
 		? undefined
-		: elementRegistry.element(selectedElementId)?.kind;
-	const minimumSize = minimumSizeForElement(selectedElementKind);
+		: elementRegistry.element(selectedElementId);
+	const minimumSize = minimumSizeForElement(selectedElement);
 	if (selectedElementId === undefined || minimumSize === undefined) {
 		showStatus('Select a node, note, image, or label to resize.');
 		return;
@@ -365,17 +367,38 @@ function resizeSelectedElementToMinimum(): void {
 	showStatus('Selected element is already at its minimum size.');
 }
 
-function minimumSizeForElement(kind: string | undefined): { readonly width: number; readonly height: number } | undefined {
-	if (kind === 'node') {
-		return { width: minimumNodeWidth, height: minimumNodeHeight };
+function minimumSizeForElement(element: ReturnType<CanvasElementRegistry['element']>): { readonly width: number; readonly height: number } | undefined {
+	if (element?.kind === 'node') {
+		const attributes = nodeDataPropertyAttributes(element.value, webviewConfig.payload);
+		if (attributes.length === 0) {
+			return { width: minimumNodeWidth, height: minimumNodeHeight };
+		}
+
+		const fontSize = element.value.style?.font?.size ?? theme.fontSize;
+		return {
+			width: requiredNodeWidthForDataProperties({
+				title: ontologyDisplayName(element.value.ontology_ref),
+				attributes,
+				fontSize,
+				fontFamily: element.value.style?.font?.family ?? theme.fontFamily,
+				titleBold: element.value.style?.font?.bold,
+				attributeItalic: element.value.style?.font?.italic,
+				minimumWidth: minimumNodeWidth,
+			}),
+			height: requiredNodeHeightForDataProperties({
+				attributeCount: attributes.length,
+				fontSize,
+				minimumHeight: minimumNodeHeight,
+			}),
+		};
 	}
-	if (kind === 'note') {
+	if (element?.kind === 'note') {
 		return { width: minimumNoteWidth, height: minimumNoteHeight };
 	}
-	if (kind === 'image') {
+	if (element?.kind === 'image') {
 		return { width: minimumImageWidth, height: minimumImageHeight };
 	}
-	if (kind === 'label') {
+	if (element?.kind === 'label') {
 		return { width: minimumLabelWidth, height: minimumLabelHeight };
 	}
 

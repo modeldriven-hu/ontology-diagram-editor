@@ -69,6 +69,31 @@ edges: []
 		assert.strictEqual(document.nodes[0].ontologyRef.value, 'ex:Person');
 	});
 
+	test('parses and serializes node data property visibility', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Example"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - id: "node_person"
+    ontology_ref: "ex:Person"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    show_data_properties: true
+edges: []
+`);
+
+		assert.strictEqual(document.nodes[0].showDataProperties, true);
+		assert.match(stringifyOntologyDiagramYaml(document), /show_data_properties: true/);
+	});
+
 	test('parses and serializes persisted theme mode metadata', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:

@@ -32,8 +32,8 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			],
 		};
 
-		const updateWebview = (): void => {
-			webviewPanel.webview.html = buildDiagramWebviewHtml(document, webviewPanel.webview);
+		const updateWebview = async (): Promise<void> => {
+			webviewPanel.webview.html = await buildDiagramWebviewHtml(document, webviewPanel.webview);
 		};
 
 		let nextSuppressedRefreshId = 0;
@@ -45,7 +45,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 					suppressedLocalDocumentRefreshes.delete(suppressedRefreshId);
 					return;
 				}
-				updateWebview();
+				void updateWebview();
 			}
 		});
 		const repository = new DiagramDocumentRepository(document);
@@ -79,7 +79,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			void this.onDidCloseDiagram(document);
 		});
 
-		updateWebview();
+		void updateWebview();
 	}
 }
 
