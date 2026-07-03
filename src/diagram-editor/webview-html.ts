@@ -319,6 +319,71 @@ function webviewStyles(): string {
 		outline-offset: -8px;
 	}
 
+	.edge-drop-preview {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.edge-drop-preview-route {
+		fill: none;
+		stroke: var(--vscode-focusBorder);
+		stroke-width: 2;
+		stroke-dasharray: 7 5;
+	}
+
+	.edge-drop-preview-node {
+		fill: color-mix(in srgb, var(--vscode-focusBorder) 12%, var(--vscode-editor-background));
+		stroke: var(--vscode-focusBorder);
+		stroke-width: 1.5;
+		stroke-dasharray: 6 4;
+		filter: drop-shadow(0 2px 3px rgb(0 0 0 / 20%));
+	}
+
+	.edge-drop-preview-node-label,
+	.edge-drop-preview-label,
+	.edge-drop-preview-status {
+		fill: var(--vscode-editor-foreground);
+		font-family: var(--vscode-font-family);
+		font-size: 12px;
+		text-anchor: middle;
+		user-select: none;
+	}
+
+	.edge-drop-preview-label {
+		paint-order: stroke;
+		stroke: var(--vscode-editor-background);
+		stroke-width: 4px;
+	}
+
+	.edge-drop-preview-status {
+		fill: var(--vscode-errorForeground);
+		text-anchor: start;
+		paint-order: stroke;
+		stroke: var(--vscode-editor-background);
+		stroke-width: 4px;
+	}
+
+	.edge-drop-preview-marker-arrow {
+		fill: none;
+		stroke: var(--vscode-focusBorder);
+		stroke-width: 1.8;
+	}
+
+	.edge-drop-preview-marker-triangle {
+		fill: var(--vscode-editor-background);
+		stroke: var(--vscode-focusBorder);
+		stroke-width: 1.5;
+	}
+
+	.edge-drop-preview-invalid-marker {
+		fill: color-mix(in srgb, var(--vscode-errorForeground) 16%, transparent);
+		stroke: var(--vscode-errorForeground);
+		stroke-width: 2;
+	}
+
 	.status {
 		position: absolute;
 		right: 16px;

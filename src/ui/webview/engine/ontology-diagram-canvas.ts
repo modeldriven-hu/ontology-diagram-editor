@@ -136,6 +136,7 @@ exportPngButton.addEventListener('click', () => {
 new CanvasDropController({
 	scrollElement: canvasScroll,
 	contentElement: canvasContent,
+	payload: webviewConfig.payload,
 	modelTreeDragMimeType: webviewConfig.modelTreeDragMimeType,
 	messageBus,
 	showStatus,
@@ -235,6 +236,10 @@ function registerCanvasStateSubscriptions(): void {
 function registerSelectionEventPublishing(): void {
 	canvas.onSelectionChanged(() => {
 		const selectedElementId = canvas.selectedElementId();
+		console.log('[ontology-diagram-editor] publish canvas selection', {
+			selectedElementId,
+			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
+		});
 		messageBus.publishEvent(new CanvasSelectionChangedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
 			selectedElementIdentifier: selectedElementId,

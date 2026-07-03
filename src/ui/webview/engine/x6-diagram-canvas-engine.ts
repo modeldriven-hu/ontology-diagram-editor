@@ -1,11 +1,13 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry } from '../components/canvas-element-registry';
+import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
-import type { DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
-import type { X6Graph, X6Node } from './x6-browser';
+import type { X6Edge, X6Graph, X6Node } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
+type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
 
 export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly graph: X6Graph;
@@ -13,9 +15,12 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly doubleClickListeners = new Set<CanvasDoubleClickListener>();
 	private readonly boundsChangeListeners = new Set<CanvasBoundsChangeListener>();
 	private readonly edgeRouteChangeListeners = new Set<CanvasEdgeRouteChangeListener>();
+	private readonly pendingEdgeRouteChanges = new Set<string>();
 	private selectedId: string | undefined;
 	private suppressBoundsEvents = false;
+	private suppressEdgeRouteEvents = false;
 	private suppressBlankSelectionClear = false;
+	private edgeRoutePublishTimer: number | undefined;
 
 	public constructor(
 		container: HTMLElement,
@@ -48,7 +53,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				edgeMovable: false,
 				edgeLabelMovable: false,
 				arrowheadMovable: false,
-				vertexMovable: false,
+				vertexMovable: true,
 			},
 		});
 		this.graph.use(new x6.Transform({
@@ -64,18 +69,28 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	}
 
 	public renderDiagram(payload: DiagramPayload, theme: WebviewTheme): void {
-		this.graph.clearCells();
-		for (const image of payload.diagram?.images ?? []) {
-			this.graph.addNode(x6Image(image, theme));
-		}
-		for (const node of payload.diagram?.nodes ?? []) {
-			this.graph.addNode(x6OntologyNode(node, theme));
-		}
-		for (const note of payload.diagram?.notes ?? []) {
-			this.graph.addNode(x6Note(note, theme));
-		}
-		for (const label of payload.diagram?.labels ?? []) {
-			this.graph.addNode(x6Label(label, theme));
+		this.suppressEdgeRouteEvents = true;
+		try {
+			this.clearPendingEdgeRouteChanges();
+			this.graph.clearCells();
+			for (const image of payload.diagram?.images ?? []) {
+				this.graph.addNode(x6Image(image, theme));
+			}
+			for (const node of payload.diagram?.nodes ?? []) {
+				this.graph.addNode(x6OntologyNode(node, theme));
+			}
+			const nodeById = new Map((payload.diagram?.nodes ?? []).map((node) => [node.id, node]));
+			for (const edge of payload.diagram?.edges ?? []) {
+				this.graph.addEdge(x6Edge(edge, nodeById, theme));
+			}
+			for (const note of payload.diagram?.notes ?? []) {
+				this.graph.addNode(x6Note(note, theme));
+			}
+			for (const label of payload.diagram?.labels ?? []) {
+				this.graph.addNode(x6Label(label, theme));
+			}
+		} finally {
+			this.suppressEdgeRouteEvents = false;
 		}
 	}
 
@@ -84,10 +99,21 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	}
 
 	public selectElement(id: string): void {
+		console.log('[ontology-diagram-editor] canvas selectElement requested', { id });
 		const cell = this.graph.getCellById(id);
 		if (isX6Node(cell) && this.elementRegistry.element(id) !== undefined) {
-			this.graph.createTransformWidget(cell);
+			console.log('[ontology-diagram-editor] canvas selectElement resolved node', { id });
+			createTransformWidget(this.graph, cell);
 			this.setSelectedId(id);
+		}
+		if (isX6Edge(cell) && this.elementRegistry.element(id) !== undefined) {
+			console.log('[ontology-diagram-editor] canvas selectElement resolved edge', { id });
+			clearTransformWidgets(this.graph);
+			cell.setTools(edgeEditTools());
+			this.setSelectedId(id);
+		}
+		if (cell === undefined) {
+			console.warn('[ontology-diagram-editor] canvas selectElement missing cell', { id });
 		}
 	}
 
@@ -130,8 +156,22 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
-	public edgeRoute(_edgeId: string, _label: CanvasPoint): EdgeRouteUpdate | undefined {
-		return undefined;
+	public edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined {
+		const cell = this.graph.getCellById(edgeId);
+		if (!isX6Edge(cell)) {
+			return undefined;
+		}
+
+		const points = normalizedRoutePoints(cell);
+		if (points.length < 2) {
+			return undefined;
+		}
+
+		return {
+			id: edgeId,
+			points,
+			label,
+		};
 	}
 
 	public onSelectionChanged(listener: CanvasSelectionListener): void {
@@ -153,13 +193,51 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private registerGraphEvents(): void {
 		this.graph.on('node:click', (event) => {
 			const node = eventNode(event);
+			console.log('[ontology-diagram-editor] x6 node:click', {
+				eventKeys: Object.keys(event),
+				nodeId: node?.id,
+			});
 			if (node === undefined) {
 				return;
 			}
 
 			this.setSelectedId(node.id);
 		});
+		this.graph.on('edge:click', (event) => {
+			const edge = eventEdge(event);
+			console.log('[ontology-diagram-editor] x6 edge:click', {
+				eventKeys: Object.keys(event),
+				edgeId: edge?.id,
+				hasEventEdge: event.edge !== undefined,
+				hasEventCell: event.cell !== undefined,
+				rawEdgeKeys: objectKeys(event.edge),
+				rawCellKeys: objectKeys(event.cell),
+			});
+			if (edge === undefined) {
+				console.warn('[ontology-diagram-editor] x6 edge:click did not resolve an edge cell', event);
+				return;
+			}
+
+			stopEvent(event.e);
+			clearTransformWidgets(this.graph);
+			edge.setTools(edgeEditTools());
+			this.setSelectedId(edge.id);
+		});
+		this.graph.on('edge:change:source', (event) => {
+			this.markEdgeRouteChanged(eventEdge(event));
+		});
+		this.graph.on('edge:change:target', (event) => {
+			this.markEdgeRouteChanged(eventEdge(event));
+		});
+		this.graph.on('edge:change:vertices', (event) => {
+			this.markEdgeRouteChanged(eventEdge(event));
+		});
+		this.graph.on('edge:mouseup', (event) => {
+			this.markEdgeRouteChanged(eventEdge(event));
+			this.flushEdgeRouteChanges();
+		});
 		this.graph.on('blank:click', () => {
+			console.log('[ontology-diagram-editor] x6 blank:click');
 			if (this.suppressBlankSelectionClear) {
 				return;
 			}
@@ -213,11 +291,29 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 	private setSelectedId(id: string | undefined): void {
 		if (this.selectedId === id) {
+			console.log('[ontology-diagram-editor] canvas selection unchanged', { id });
 			return;
 		}
 
+		console.log('[ontology-diagram-editor] canvas selection changed', {
+			from: this.selectedId,
+			to: id,
+			elementType: id === undefined ? undefined : this.elementRegistry.elementType(id),
+		});
+		this.removeEdgeTools(this.selectedId);
 		this.selectedId = id;
 		this.publishSelectionChanged();
+	}
+
+	private removeEdgeTools(id: string | undefined): void {
+		if (id === undefined) {
+			return;
+		}
+
+		const cell = this.graph.getCellById(id);
+		if (isX6Edge(cell)) {
+			cell.removeTools();
+		}
 	}
 
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
@@ -236,6 +332,44 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				bounds: [update],
 			});
 		}
+	}
+
+	private markEdgeRouteChanged(edge: X6Edge | undefined): void {
+		if (this.suppressEdgeRouteEvents || edge === undefined || this.elementRegistry.element(edge.id)?.kind !== 'edge') {
+			return;
+		}
+
+		this.pendingEdgeRouteChanges.add(edge.id);
+		if (this.edgeRoutePublishTimer !== undefined) {
+			window.clearTimeout(this.edgeRoutePublishTimer);
+		}
+		this.edgeRoutePublishTimer = window.setTimeout(() => {
+			this.flushEdgeRouteChanges();
+		}, 150);
+	}
+
+	private flushEdgeRouteChanges(): void {
+		if (this.edgeRoutePublishTimer !== undefined) {
+			window.clearTimeout(this.edgeRoutePublishTimer);
+			this.edgeRoutePublishTimer = undefined;
+		}
+		if (this.pendingEdgeRouteChanges.size === 0) {
+			return;
+		}
+
+		const edgeIds = [...this.pendingEdgeRouteChanges];
+		this.pendingEdgeRouteChanges.clear();
+		for (const listener of this.edgeRouteChangeListeners) {
+			listener(edgeIds);
+		}
+	}
+
+	private clearPendingEdgeRouteChanges(): void {
+		if (this.edgeRoutePublishTimer !== undefined) {
+			window.clearTimeout(this.edgeRoutePublishTimer);
+			this.edgeRoutePublishTimer = undefined;
+		}
+		this.pendingEdgeRouteChanges.clear();
 	}
 }
 
@@ -259,8 +393,16 @@ function installX6Styles(theme: WebviewTheme): void {
 		'  position: absolute;',
 		'  inset: 0;',
 		'}',
-		'.x6-node {',
-		'  cursor: move;',
+		'.x6-node { cursor: move; }',
+		'.x6-edge { cursor: pointer; }',
+		'.x6-edge .connection { stroke-linejoin: round; }',
+		'.x6-edge .tools { opacity: 1; }',
+		'.x6-edge-tool-source-anchor circle,',
+		'.x6-edge-tool-target-anchor circle,',
+		'.x6-edge-tool-segment rect {',
+		`  fill: ${theme.editorForeground};`,
+		`  stroke: ${theme.editorBackground};`,
+		'  stroke-width: 2;',
 		'}',
 		'.x6-widget-selection {',
 		'  position: absolute;',
@@ -381,6 +523,183 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 				refY: hasImage ? '68%' : '50%',
 			},
 		},
+		zIndex: 20,
+	};
+}
+
+function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, theme: WebviewTheme): Record<string, unknown> {
+	const persistedPoints = edge.points.length >= 2 ? edge.points : [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+	const points = orthogonalDisplayPoints(persistedPoints);
+	const sourcePoint = points[0];
+	const targetPoint = points[points.length - 1];
+	const sourceNode = nodeById.get(edge.source);
+	const targetNode = nodeById.get(edge.target);
+	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
+	const lineStyle = edge.style?.line_style;
+	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
+	const label = edgeDisplayName(edge.ontology_ref);
+
+	return {
+		id: edge.id,
+		shape: 'edge',
+		source: sourceNode === undefined ? sourcePoint : {
+			cell: edge.source,
+			anchor: anchorFromPoint(sourcePoint, sourceNode),
+		},
+		target: targetNode === undefined ? targetPoint : {
+			cell: edge.target,
+			anchor: anchorFromPoint(targetPoint, targetNode),
+		},
+		vertices: points.slice(1, -1),
+		attrs: {
+			line: {
+				stroke,
+				strokeWidth,
+				strokeDasharray: edgeDashArray(lineStyle, strokeWidth),
+				targetMarker: edgeTargetMarker(edge, stroke, strokeWidth, theme),
+			},
+		},
+		labels: [{
+			position: 0.5,
+			attrs: {
+				rect: {
+					fill: theme.editorBackground,
+					stroke: 'none',
+					fillOpacity: 0.85,
+					rx: 3,
+					ry: 3,
+				},
+				text: {
+					text: label,
+					fill: edge.style?.text_color ?? theme.edgeTextColor,
+					fontFamily: edge.style?.font?.family ?? theme.fontFamily,
+					fontSize: edge.style?.font?.size ?? Math.max(10, theme.fontSize - 1),
+					fontWeight: edge.style?.font?.bold === true ? 700 : 400,
+					fontStyle: edge.style?.font?.italic === true ? 'italic' : 'normal',
+				},
+			},
+		}],
+		zIndex: 30,
+	};
+}
+
+function edgeEditTools(): Record<string, unknown> {
+	return {
+		items: [
+			{
+				name: 'segments',
+				args: {
+					snapRadius: 20,
+					attrs: {
+						fill: '#444',
+						stroke: '#fff',
+						'stroke-width': 2,
+					},
+				},
+			},
+			{
+				name: 'source-anchor',
+				args: anchorToolArgs(),
+			},
+			{
+				name: 'target-anchor',
+				args: anchorToolArgs(),
+			},
+		],
+	};
+}
+
+function anchorToolArgs(): Record<string, unknown> {
+	return {
+		restrictArea: true,
+		snapRadius: 20,
+		areaPadding: 6,
+		defaultAnchorAttrs: {
+			fill: '#444',
+			stroke: '#fff',
+			'stroke-width': 2,
+			r: 6,
+		},
+		customAnchorAttrs: {
+			fill: '#444',
+			stroke: '#fff',
+			'stroke-width': 2,
+			r: 6,
+		},
+	};
+}
+
+function anchorFromPoint(point: CanvasPoint, node: DiagramNode): Record<string, unknown> {
+	return {
+		name: 'topLeft',
+		args: {
+			dx: percentage(point.x - node.x, node.width),
+			dy: percentage(point.y - node.y, node.height),
+			rotate: true,
+		},
+	};
+}
+
+function percentage(value: number, size: number): string {
+	if (size === 0) {
+		return '0%';
+	}
+
+	return `${Math.round((value / size) * 100)}%`;
+}
+
+function orthogonalDisplayPoints(points: readonly CanvasPoint[]): readonly CanvasPoint[] {
+	if (points.length < 2) {
+		return points;
+	}
+
+	const result: CanvasPoint[] = [points[0]];
+	for (let index = 1; index < points.length; index += 1) {
+		const previous = result[result.length - 1];
+		const next = points[index];
+		if (previous.x !== next.x && previous.y !== next.y) {
+			result.push({ x: next.x, y: previous.y });
+		}
+		result.push(next);
+	}
+
+	return withoutRedundantPoints(result);
+}
+
+function edgeDashArray(lineStyle: EdgeLineStyle | undefined, strokeWidth: number): string | undefined {
+	return lineStyle === 'dotted'
+		? `${strokeWidth} ${strokeWidth * 3}`
+		: lineStyle === 'dashed'
+			? `${strokeWidth * 4} ${strokeWidth * 3}`
+			: undefined;
+}
+
+function edgeTargetMarker(
+	edge: DiagramEdge,
+	stroke: string,
+	strokeWidth: number,
+	theme: WebviewTheme,
+): Record<string, unknown> | undefined {
+	if (stroke === 'none') {
+		return undefined;
+	}
+
+	if (edge.ontology_item_type === 'subclassRelationship') {
+		return {
+			tagName: 'path',
+			d: 'M 12 -6 0 0 12 6 Z',
+			fill: theme.editorBackground,
+			stroke,
+			strokeWidth,
+		};
+	}
+
+	return {
+		tagName: 'path',
+		d: 'M 10 -5 0 0 10 5',
+		fill: 'none',
+		stroke,
+		strokeWidth,
 	};
 }
 
@@ -418,6 +737,7 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 				refY: 12,
 			},
 		},
+		zIndex: 40,
 	};
 }
 
@@ -453,6 +773,7 @@ function x6Label(label: DiagramLabel, theme: WebviewTheme): Record<string, unkno
 				refY: '50%',
 			},
 		},
+		zIndex: 50,
 	};
 }
 
@@ -483,6 +804,7 @@ function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string, unkno
 				preserveAspectRatio: 'xMidYMid meet',
 			},
 		},
+		zIndex: 10,
 	};
 }
 
@@ -507,6 +829,54 @@ function borderAttrs(
 	};
 }
 
+function normalizedRoutePoints(edge: X6Edge): readonly CanvasPoint[] {
+	const polylinePoints = edge.getPolyline().points.map(canvasPoint);
+	const routePoints = polylinePoints.length >= 2
+		? polylinePoints
+		: [
+			canvasPoint(edge.getSourcePoint()),
+			...edge.getVertices().flatMap((point) => isPointLike(point) ? [canvasPoint(point)] : []),
+			canvasPoint(edge.getTargetPoint()),
+		];
+
+	return withoutRedundantPoints(routePoints);
+}
+
+function canvasPoint(point: { readonly x: number; readonly y: number }): CanvasPoint {
+	return {
+		x: Math.max(0, Math.round(point.x)),
+		y: Math.max(0, Math.round(point.y)),
+	};
+}
+
+function isPointLike(value: unknown): value is { readonly x: number; readonly y: number } {
+	return typeof value === 'object'
+		&& value !== null
+		&& 'x' in value
+		&& 'y' in value
+		&& typeof value.x === 'number'
+		&& typeof value.y === 'number';
+}
+
+function withoutRedundantPoints(points: readonly CanvasPoint[]): readonly CanvasPoint[] {
+	const unique = points.filter((point, index) => {
+		const previous = points[index - 1];
+		return previous === undefined || previous.x !== point.x || previous.y !== point.y;
+	});
+	if (unique.length < 3) {
+		return unique;
+	}
+
+	return unique.filter((point, index) => {
+		const previous = unique[index - 1];
+		const next = unique[index + 1];
+		return previous === undefined
+			|| next === undefined
+			|| !(previous.x === point.x && point.x === next.x)
+				&& !(previous.y === point.y && point.y === next.y);
+	});
+}
+
 function boundsUpdate(node: X6Node): BoundsUpdate {
 	const position = node.position();
 	const size = node.size();
@@ -524,6 +894,14 @@ function eventNode(event: Record<string, unknown>): X6Node | undefined {
 	return isX6Node(event.node) ? event.node : undefined;
 }
 
+function eventEdge(event: Record<string, unknown>): X6Edge | undefined {
+	if (isX6Edge(event.edge)) {
+		return event.edge;
+	}
+
+	return isX6Edge(event.cell) ? event.cell : undefined;
+}
+
 function isX6Node(value: unknown): value is X6Node {
 	return typeof value === 'object'
 		&& value !== null
@@ -531,6 +909,57 @@ function isX6Node(value: unknown): value is X6Node {
 		&& 'position' in value
 		&& 'size' in value
 		&& 'resize' in value;
+}
+
+function isX6Edge(value: unknown): value is X6Edge {
+	return typeof value === 'object'
+		&& value !== null
+		&& 'id' in value
+		&& 'attr' in value
+		&& 'getSourcePoint' in value
+		&& 'getTargetPoint' in value
+		&& 'getPolyline' in value;
+}
+
+function objectKeys(value: unknown): readonly string[] {
+	return typeof value === 'object' && value !== null ? Object.keys(value) : [];
+}
+
+function createTransformWidget(graph: X6Graph, node: X6Node): void {
+	if (typeof graph.createTransformWidget === 'function') {
+		graph.createTransformWidget(node);
+		return;
+	}
+
+	const transform = graph.getPlugin?.('transform');
+	if (isTransformPlugin(transform)) {
+		transform.createWidget(node);
+		return;
+	}
+
+	console.warn('[ontology-diagram-editor] x6 transform create API unavailable', { nodeId: node.id });
+}
+
+function clearTransformWidgets(graph: X6Graph): void {
+	if (typeof graph.clearTransformWidgets === 'function') {
+		graph.clearTransformWidgets();
+		return;
+	}
+
+	const transform = graph.getPlugin?.('transform');
+	if (isTransformPlugin(transform)) {
+		transform.clearWidgets();
+		return;
+	}
+
+	console.warn('[ontology-diagram-editor] x6 transform clear API unavailable');
+}
+
+function isTransformPlugin(value: unknown): value is { clearWidgets: () => void; createWidget: (node: X6Node) => void } {
+	return typeof value === 'object'
+		&& value !== null
+		&& typeof (value as { clearWidgets?: unknown }).clearWidgets === 'function'
+		&& typeof (value as { createWidget?: unknown }).createWidget === 'function';
 }
 
 function stopEvent(value: unknown): void {

@@ -12,6 +12,7 @@ export interface DiagramPayload {
 			readonly theme_file?: string;
 		};
 		readonly ontologies?: readonly unknown[];
+		readonly namespaces?: Record<string, string>;
 		readonly nodes?: readonly DiagramNode[];
 		readonly edges?: readonly DiagramEdge[];
 		readonly notes?: readonly DiagramNote[];

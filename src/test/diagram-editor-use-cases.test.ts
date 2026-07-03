@@ -269,6 +269,50 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
 	});
 
+	test('adds the rdfs namespace when materializing subclass edges', () => {
+		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
+			ontologyItemType: 'subclassRelationship',
+			ontologyItemReference: 'rdfs:subClassOf',
+			displayLabel: 'Person -> Agent',
+			ontologyItemMetadata: {
+				subclassReference: 'ex:Person',
+				superclassReference: 'ex:Agent',
+			},
+		}, { x: 200, y: 20 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.namespaces.get('rdfs'), 'http://www.w3.org/2000/01/rdf-schema#');
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
+	});
+
+	test('matches subclass endpoints by equivalent compact and full ontology references', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_person', 'https://example.com/ontology#Person', new Bounds(10, 20, 180, 72)),
+				new DiagramNode('node_agent', 'https://example.com/ontology#Agent', new Bounds(360, 20, 180, 72)),
+			],
+			[],
+		);
+
+		const result = new CreateEdgeUseCase().execute(diagram, {
+			ontologyItemType: 'subclassRelationship',
+			ontologyItemReference: 'rdfs:subClassOf',
+			displayLabel: 'Person -> Agent',
+			ontologyItemMetadata: {
+				subclassReference: 'ex:Person',
+				superclassReference: 'ex:Agent',
+			},
+		}, { x: 200, y: 20 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes.length, 2);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_person');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_agent');
+	});
+
 	test('reports duplicate materialized edges without changing the diagram', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),

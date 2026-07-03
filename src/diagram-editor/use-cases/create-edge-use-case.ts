@@ -41,7 +41,7 @@ export class CreateEdgeUseCase {
 		}
 
 		const existingEdge = diagram.edges.find((edge) =>
-			edge.ontologyRef.value === resolved.edgeOntologyRef
+			ontologyReferencesEqual(edge.ontologyRef.value, resolved.edgeOntologyRef, diagram.namespaces)
 			&& edge.source.value === endpointNodes.source.id.value
 			&& edge.target.value === endpointNodes.target.id.value,
 		);
@@ -63,11 +63,26 @@ export class CreateEdgeUseCase {
 
 		return {
 			diagram: cloneDiagram(diagram, {
+				namespaces: namespacesWithRequiredEdgePrefixes(diagram, resolved),
 				nodes: [...diagram.nodes, ...endpointNodes.created],
 				edges: [...diagram.edges, edge],
 			}),
 		};
 	}
+}
+
+function namespacesWithRequiredEdgePrefixes(
+	diagram: OntologyDiagramDocument,
+	resolved: ResolvedEdgeEndpoints,
+): OntologyDiagramDocument['namespaces'] {
+	if (resolved.edgeOntologyRef !== 'rdfs:subClassOf' || diagram.namespaces.has('rdfs')) {
+		return diagram.namespaces;
+	}
+
+	return new Map([
+		...diagram.namespaces,
+		['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
+	]);
 }
 
 function edgeRoute(source: DiagramNode, target: DiagramNode): {
@@ -84,7 +99,7 @@ function edgeRoute(source: DiagramNode, target: DiagramNode): {
 
 	const points = edgePoints(source.bounds, target.bounds);
 	return {
-		label: midpoint(points[0], points[1]),
+		label: midpoint(points[0], points[points.length - 1]),
 		points,
 	};
 }
@@ -140,8 +155,8 @@ function resolveOrCreateEndpointNodes(
 	resolved: ResolvedEdgeEndpoints,
 	position: CanvasPoint,
 ): EndpointNodes | string {
-	const sourceMatches = diagram.nodes.filter((node) => node.ontologyRef.value === resolved.sourceOntologyRef);
-	const targetMatches = diagram.nodes.filter((node) => node.ontologyRef.value === resolved.targetOntologyRef);
+	const sourceMatches = diagram.nodes.filter((node) => ontologyReferencesEqual(node.ontologyRef.value, resolved.sourceOntologyRef, diagram.namespaces));
+	const targetMatches = diagram.nodes.filter((node) => ontologyReferencesEqual(node.ontologyRef.value, resolved.targetOntologyRef, diagram.namespaces));
 	if (sourceMatches.length > 1 || targetMatches.length > 1) {
 		return 'Edge endpoint ontology items must not appear more than once on the canvas.';
 	}
@@ -245,13 +260,27 @@ function targetBounds(position: CanvasPoint, source: DiagramNode): Bounds {
 	);
 }
 
-function edgePoints(sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] {
+function edgePoints(sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] | readonly [Point, Point, Point, Point] {
 	const sourceCenter = center(sourceBounds);
 	const targetCenter = center(targetBounds);
 
-	return [
+	return orthogonalPoints(
 		boundaryPoint(sourceBounds, targetCenter),
 		boundaryPoint(targetBounds, sourceCenter),
+	);
+}
+
+function orthogonalPoints(source: Point, target: Point): readonly [Point, Point] | readonly [Point, Point, Point, Point] {
+	if (source.x === target.x || source.y === target.y) {
+		return [source, target];
+	}
+
+	const middleX = roundCoordinate((source.x + target.x) / 2);
+	return [
+		source,
+		new Point(middleX, source.y),
+		new Point(middleX, target.y),
+		target,
 	];
 }
 
@@ -289,4 +318,26 @@ function stringValue(value: unknown): string | undefined {
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
+}
+
+function ontologyReferencesEqual(left: string, right: string, namespaces: ReadonlyMap<string, string>): boolean {
+	if (left === right) {
+		return true;
+	}
+
+	return expandedOntologyReference(left, namespaces) === expandedOntologyReference(right, namespaces);
+}
+
+function expandedOntologyReference(value: string, namespaces: ReadonlyMap<string, string>): string {
+	if (value.includes('://')) {
+		return value;
+	}
+
+	const separatorIndex = value.indexOf(':');
+	if (separatorIndex <= 0) {
+		return value;
+	}
+
+	const namespace = namespaces.get(value.slice(0, separatorIndex));
+	return namespace === undefined ? value : `${namespace}${value.slice(separatorIndex + 1)}`;
 }

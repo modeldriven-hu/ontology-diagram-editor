@@ -49,9 +49,17 @@ export class CanvasPropertyPanel {
 
 			const event = message.payload;
 			if (event.type === 'canvasSelectionChanged') {
+				console.log('[ontology-diagram-editor] property-panel selection event received', {
+					selectedElementIdentifier: event.selectedElementIdentifier,
+					selectedElementType: event.selectedElementType,
+				});
 				this.selectedElement = event.selectedElementIdentifier === undefined
 					? undefined
 					: this.options.registry.element(event.selectedElementIdentifier);
+				console.log('[ontology-diagram-editor] property-panel resolved selection', {
+					kind: this.selectedElement?.kind,
+					id: this.selectedElement?.value.id,
+				});
 				this.renderSelection();
 			}
 		});

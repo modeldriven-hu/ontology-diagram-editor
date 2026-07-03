@@ -32,19 +32,28 @@ export class CanvasMessageBus {
 	}
 
 	private publish(event: CanvasMessage): void {
-		
-		console.debug('CanvasMessageBus.publish', event);
+		console.log('[ontology-diagram-editor] message-bus publish', event.kind, event.payload);
 
 		for (const listener of this.listeners) {
-			listener(event);
+			try {
+				listener(event);
+			} catch (error) {
+				console.error('[ontology-diagram-editor] message-bus listener failed', error, event);
+			}
 		}
 	}
 
 	public subscribe(listener: CanvasMessageListener): () => void {
 		this.listeners.add(listener);
+		console.log('[ontology-diagram-editor] message-bus subscribe', {
+			listenerCount: this.listeners.size,
+		});
 
 		return () => {
 			this.listeners.delete(listener);
+			console.log('[ontology-diagram-editor] message-bus unsubscribe', {
+				listenerCount: this.listeners.size,
+			});
 		};
 	}
 }

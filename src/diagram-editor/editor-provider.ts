@@ -59,7 +59,9 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			dispatchQueue = dispatchQueue.then(
 				() => dispatcher.dispatch(command),
 				() => dispatcher.dispatch(command),
-			).finally(() => {
+			).catch(async (error: unknown) => {
+				await vscode.window.showErrorMessage(`Could not update diagram: ${error instanceof Error ? error.message : String(error)}`);
+			}).finally(() => {
 				if (suppressedRefreshId !== undefined) {
 					setTimeout(() => {
 						suppressedLocalDocumentRefreshes.delete(suppressedRefreshId);
