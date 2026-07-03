@@ -1,8 +1,8 @@
-import { Maximize2, Minimize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -69,6 +69,7 @@ const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
 const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
 const minimizeElementButton = requiredElement('minimizeElementButton') as HTMLButtonElement;
+const revealModelTreeItemButton = requiredElement('revealModelTreeItemButton') as HTMLButtonElement;
 const themeModeButton = requiredElement('themeModeButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
@@ -167,6 +168,9 @@ resetViewportButton.addEventListener('click', () => {
 });
 minimizeElementButton.addEventListener('click', () => {
 	resizeSelectedElementToMinimum();
+});
+revealModelTreeItemButton.addEventListener('click', () => {
+	revealSelectedModelTreeItem();
 });
 themeModeButton.addEventListener('click', () => {
 	toggleThemeMode();
@@ -335,6 +339,10 @@ function renderViewportToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	revealModelTreeItemButton.replaceChildren(createIconElement(LocateFixed, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
 	renderThemeModeButton();
 }
 
@@ -372,6 +380,22 @@ function minimumSizeForElement(kind: string | undefined): { readonly width: numb
 	}
 
 	return undefined;
+}
+
+function revealSelectedModelTreeItem(): void {
+	const selectedElementId = canvas.selectedElementId();
+	if (selectedElementId === undefined) {
+		showStatus('Select a node or edge to locate it in the model tree.');
+		return;
+	}
+
+	const selectedElementKind = elementRegistry.element(selectedElementId)?.kind;
+	if (selectedElementKind !== 'node' && selectedElementKind !== 'edge') {
+		showStatus('Only ontology-backed nodes and edges have model-tree items.');
+		return;
+	}
+
+	messageBus.publishCommand(new RevealModelTreeItemCommand(selectedElementId));
 }
 
 function renderThemeModeButton(): void {

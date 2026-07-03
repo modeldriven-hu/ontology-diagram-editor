@@ -17,7 +17,9 @@ export function activate(context: vscode.ExtensionContext) {
 			await modelTree.setDiagramDocument(document);
 		}, async (document) => {
 			await modelTree.clearDiagramDocument(document);
-		}, () => modelTree.getLastDraggedItem()),
+		}, () => modelTree.getLastDraggedItem(), async (diagramElementId) => {
+			return modelTree.revealDiagramElement(diagramElementId);
+		}),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},

@@ -14,6 +14,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidOpenDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
+		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 	) {}
 
 	public async resolveCustomTextEditor(
@@ -48,7 +49,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			}
 		});
 		const repository = new DiagramDocumentRepository(document);
-		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem);
+		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem, this.revealModelTreeItem);
 		let dispatchQueue = Promise.resolve();
 		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
 			const suppressedRefreshId = isInPlaceBoundsUpdate(command)

@@ -287,6 +287,38 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		return this.lastDraggedItem;
 	}
 
+	public async revealDiagramElement(elementId: string): Promise<boolean> {
+		const diagram = this.parsedDiagram;
+		if (diagram === undefined) {
+			return false;
+		}
+
+		const node = diagram.nodes.find((candidate) => candidate.id.value === elementId);
+		if (node !== undefined) {
+			return this.revealOntologyItem((item) => ontologyReferencesEqual(item.reference, node.ontologyRef.value, diagram.namespaces));
+		}
+
+		const edge = diagram.edges.find((candidate) => candidate.id.value === elementId);
+		if (edge === undefined) {
+			return false;
+		}
+
+		if (edge.extra.ontology_item_type === 'subclassRelationship') {
+			const source = diagram.nodes.find((candidate) => candidate.id.value === edge.source.value);
+			const target = diagram.nodes.find((candidate) => candidate.id.value === edge.target.value);
+			if (source === undefined || target === undefined) {
+				return false;
+			}
+
+			return this.revealOntologyItem((item) => item.type === 'subclassRelationship'
+				&& ontologyReferencesEqual(item.reference, edge.ontologyRef.value, diagram.namespaces)
+				&& ontologyReferencesEqual(item.metadata.subclassReference ?? '', source.ontologyRef.value, diagram.namespaces)
+				&& ontologyReferencesEqual(item.metadata.superclassReference ?? '', target.ontologyRef.value, diagram.namespaces));
+		}
+
+		return this.revealOntologyItem((item) => ontologyReferencesEqual(item.reference, edge.ontologyRef.value, diagram.namespaces));
+	}
+
 	public dispose(): void {
 		for (const disposable of this.disposables) {
 			disposable.dispose();
@@ -419,6 +451,25 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		}
 
 		await treeView.reveal(this.createOntologyFileNode(ontology), { select: true, focus: true, expand: true });
+	}
+
+	private async revealOntologyItem(matches: (item: OntologyItem) => boolean): Promise<boolean> {
+		const treeView = this.treeView;
+		if (treeView === undefined) {
+			return false;
+		}
+
+		for (const ontology of this.loadedOntologies) {
+			const item = ontology.items.find(matches);
+			if (item === undefined) {
+				continue;
+			}
+
+			await treeView.reveal(this.createOntologyItemNode(ontology, item.type, item), { select: true, focus: true });
+			return true;
+		}
+
+		return false;
 	}
 
 	private createDiagramNode(): DiagramTreeNode {
@@ -602,4 +653,26 @@ function dragPayloadForItemNode(node: OntologyItemTreeNode): ModelTreeItemDragge
 
 function normalizePath(value: string): string {
 	return value.replaceAll('\\', '/');
+}
+
+function ontologyReferencesEqual(left: string, right: string, namespaces: ReadonlyMap<string, string>): boolean {
+	if (left === right) {
+		return true;
+	}
+
+	return expandedOntologyReference(left, namespaces) === expandedOntologyReference(right, namespaces);
+}
+
+function expandedOntologyReference(value: string, namespaces: ReadonlyMap<string, string>): string {
+	if (value.includes('://')) {
+		return value;
+	}
+
+	const separatorIndex = value.indexOf(':');
+	if (separatorIndex <= 0) {
+		return value;
+	}
+
+	const namespace = namespaces.get(value.slice(0, separatorIndex));
+	return namespace === undefined ? value : `${namespace}${value.slice(separatorIndex + 1)}`;
 }

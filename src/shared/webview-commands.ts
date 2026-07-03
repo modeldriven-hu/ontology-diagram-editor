@@ -71,6 +71,7 @@ export type WebviewCommand =
 	| UpdateLabelTextCommand
 	| UpdateNoteTextCommand
 	| UpdateThemeModeCommand
+	| RevealModelTreeItemCommand
 	| UpdateElementStyleCommand;
 
 export class CreateNodeCommand {
@@ -296,6 +297,15 @@ export class UpdateThemeModeCommand {
 
 	public constructor(themeMode: DiagramThemeMode) {
 		this.themeMode = themeMode;
+	}
+}
+
+export class RevealModelTreeItemCommand {
+	public readonly type = 'revealModelTreeItem';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
 	}
 }
 

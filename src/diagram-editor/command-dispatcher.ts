@@ -62,6 +62,7 @@ export class DiagramCommandDispatcher {
 	public constructor(
 		private readonly repository: DiagramDocumentRepository,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
+		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean> = async () => false,
 		useCases: DiagramEditorUseCases = createDefaultUseCases(),
 	) {
 		this.useCases = useCases;
@@ -185,6 +186,15 @@ export class DiagramCommandDispatcher {
 					command.themeMode,
 				));
 				return;
+			case 'revealModelTreeItem':
+				await this.revealSelectedModelTreeItem(command.id);
+				return;
+		}
+	}
+
+	private async revealSelectedModelTreeItem(diagramElementId: string): Promise<void> {
+		if (!await this.revealModelTreeItem(diagramElementId)) {
+			await vscode.window.showInformationMessage('No corresponding ontology item was found in the model tree.');
 		}
 	}
 

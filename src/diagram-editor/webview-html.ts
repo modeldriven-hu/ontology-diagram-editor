@@ -67,6 +67,8 @@ function webviewBody(
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="minimizeElementButton" type="button" title="Resize selected element to minimum size" aria-label="Resize selected element to minimum size"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="revealModelTreeItemButton" type="button" title="Select corresponding model-tree item" aria-label="Select corresponding model-tree item"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
 			</div>
 			<div class="canvas-scroll" id="canvasScroll" tabindex="0">
