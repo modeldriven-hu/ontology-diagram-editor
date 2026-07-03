@@ -122,6 +122,20 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		return this.graph.zoom();
 	}
 
+	public setZoom(zoom: number): void {
+		this.graph.translate(0, 0);
+		this.graph.zoom(zoom, {
+			absolute: true,
+			center: { x: 0, y: 0 },
+			minScale: 0.2,
+			maxScale: 4,
+		});
+	}
+
+	public resize(width: number, height: number): void {
+		this.graph.resize(width, height);
+	}
+
 	public restoreBounds(bounds: readonly BoundsUpdate[]): void {
 		this.suppressBoundsEvents = true;
 		try {

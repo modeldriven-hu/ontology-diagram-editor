@@ -24,6 +24,8 @@ export interface DiagramCanvasEngine {
 	selectedElementId(): string | undefined;
 	selectElement(id: string): void;
 	zoom(): number;
+	setZoom(zoom: number): void;
+	resize(width: number, height: number): void;
 	restoreBounds(bounds: readonly BoundsUpdate[]): void;
 	updateElementContent(update: CanvasElementContentUpdate): void;
 	edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined;

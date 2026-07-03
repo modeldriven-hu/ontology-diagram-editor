@@ -51,7 +51,7 @@ function webviewBody(
 			</div>
 			<p class="file-location">${escapeHtml(document.uri.fsPath)}</p>
 		</header>
-		<div class="canvas-scroll" id="canvasScroll" tabindex="0">
+		<div class="canvas-shell">
 			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
 				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
@@ -59,18 +59,26 @@ function webviewBody(
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
+				<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
+				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
+				<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
 			</div>
-			<form class="note-editor" id="noteEditor" hidden>
-				<textarea class="note-editor-text" id="noteEditorText" rows="5" aria-label="Note text"></textarea>
-				<div class="note-editor-actions">
-					<button class="note-editor-button primary" id="saveNoteButton" type="button">Save</button>
-					<button class="note-editor-button" id="cancelNoteButton" type="button">Cancel</button>
-				</div>
-			</form>
-			<div class="canvas-content" id="canvasContent"></div>
-			<p class="status" id="status"></p>
+			<div class="canvas-scroll" id="canvasScroll" tabindex="0">
+				<form class="note-editor" id="noteEditor" hidden>
+					<textarea class="note-editor-text" id="noteEditorText" rows="5" aria-label="Note text"></textarea>
+					<div class="note-editor-actions">
+						<button class="note-editor-button primary" id="saveNoteButton" type="button">Save</button>
+						<button class="note-editor-button" id="cancelNoteButton" type="button">Cancel</button>
+					</div>
+				</form>
+				<div class="canvas-content" id="canvasContent"></div>
+				<p class="status" id="status"></p>
+			</div>
 		</div>
 		<section class="property-panel" id="propertyPanel">
+			<div class="property-panel-resize-handle" id="propertyPanelResizeHandle" role="separator" aria-orientation="vertical" tabindex="0" title="Resize properties panel"></div>
 			<header class="property-panel-header">
 				<strong id="propertyPanelTitle">Properties</strong>
 				<button class="property-panel-toggle" id="propertyPanelToggle" type="button" aria-expanded="true" title="Toggle properties">Properties</button>
@@ -106,11 +114,17 @@ function webviewStyles(): string {
 
 	.editor {
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1fr) var(--property-panel-width, 340px);
+		grid-template-rows: auto minmax(0, 1fr);
 		height: 100vh;
 	}
 
+	.editor.property-panel-collapsed {
+		grid-template-columns: minmax(0, 1fr) 42px;
+	}
+
 	.header {
+		grid-column: 1 / -1;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -152,8 +166,18 @@ function webviewStyles(): string {
 		line-height: 1.35;
 	}
 
-	.canvas-scroll {
+	.canvas-shell {
+		grid-column: 1;
+		grid-row: 2;
 		position: relative;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.canvas-scroll {
+		position: absolute;
+		inset: 0;
 		overflow: auto;
 		outline: none;
 		background:
@@ -169,7 +193,7 @@ function webviewStyles(): string {
 		position: absolute;
 		top: 12px;
 		left: 12px;
-		z-index: 3;
+		z-index: 5;
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
@@ -410,19 +434,56 @@ function webviewStyles(): string {
 	}
 
 	.property-panel {
-		min-height: 112px;
-		max-height: 340px;
-		resize: vertical;
+		grid-column: 2;
+		grid-row: 2;
+		position: relative;
+		width: 100%;
+		height: 100%;
+		min-width: 280px;
+		min-height: 0;
 		overflow: auto;
-		border-top: 1px solid var(--vscode-panel-border);
+		border-left: 1px solid var(--vscode-panel-border);
 		background: var(--vscode-sideBar-background);
 	}
 
 	.property-panel.collapsed {
-		min-height: 34px;
-		height: 34px !important;
-		resize: none;
+		min-width: 42px;
+		max-width: 42px;
 		overflow: hidden;
+	}
+
+	.property-panel-resize-handle {
+		position: absolute;
+		inset: 0 auto 0 -4px;
+		z-index: 2;
+		width: 8px;
+		cursor: col-resize;
+		touch-action: none;
+	}
+
+	.property-panel-resize-handle::after {
+		content: "";
+		position: absolute;
+		inset: 0 3px;
+		background: transparent;
+	}
+
+	.property-panel-resize-handle:hover::after,
+	.property-panel-resize-handle:focus-visible::after,
+	.editor.property-panel-resizing .property-panel-resize-handle::after {
+		background: var(--vscode-focusBorder);
+	}
+
+	.property-panel-resize-handle:focus-visible {
+		outline: none;
+	}
+
+	.property-panel.collapsed .property-panel-resize-handle {
+		display: none;
+	}
+
+	.editor.property-panel-resizing {
+		user-select: none;
 	}
 
 	.property-panel-header {
@@ -439,6 +500,18 @@ function webviewStyles(): string {
 		background: var(--vscode-sideBar-background);
 	}
 
+	.property-panel.collapsed .property-panel-header {
+		justify-content: center;
+		height: 100%;
+		padding: 8px 4px;
+		border-bottom: 0;
+	}
+
+	.property-panel.collapsed #propertyPanelTitle,
+	.property-panel.collapsed .property-panel-body {
+		display: none;
+	}
+
 	.property-panel-toggle {
 		height: 24px;
 		padding: 0 8px;
@@ -450,9 +523,18 @@ function webviewStyles(): string {
 		cursor: pointer;
 	}
 
+	.property-panel.collapsed .property-panel-toggle {
+		width: 28px;
+		height: auto;
+		min-height: 104px;
+		padding: 8px 0;
+		writing-mode: vertical-rl;
+		text-orientation: mixed;
+	}
+
 	.property-panel-body {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		grid-template-columns: minmax(0, 1fr);
 		gap: 12px;
 		padding: 10px 12px 12px;
 	}

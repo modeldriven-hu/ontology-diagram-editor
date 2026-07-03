@@ -24,6 +24,14 @@ export interface X6Graph {
 	getPlugin?(name: string): unknown;
 	use(plugin: unknown): void;
 	zoom(): number;
+	zoom(factor: number, options?: {
+		readonly absolute?: boolean;
+		readonly minScale?: number;
+		readonly maxScale?: number;
+		readonly center?: { readonly x: number; readonly y: number };
+	}): X6Graph;
+	resize(width?: number, height?: number): X6Graph;
+	translate(tx: number, ty: number): X6Graph;
 	on(eventName: string, listener: (event: Record<string, unknown>) => void): void;
 }
 

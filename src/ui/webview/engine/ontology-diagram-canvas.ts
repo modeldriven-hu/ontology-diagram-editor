@@ -1,3 +1,5 @@
+import { Maximize2, RotateCcw, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
 import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../../../shared/webview-commands';
@@ -34,11 +36,18 @@ interface WebviewConfig {
 interface WebviewState {
 	readonly selectedElementId?: string;
 	readonly propertyPanelCollapsed?: boolean;
+	readonly propertyPanelWidth?: number;
 	readonly viewportPanX?: number;
 	readonly viewportPanY?: number;
+	readonly viewportZoom?: number;
 }
 
 const config = window.ontologyDiagramEditorConfig;
+const minimumZoom = 0.25;
+const maximumZoom = 3;
+const defaultCanvasWidth = 1800;
+const defaultCanvasHeight = 1200;
+const viewportPadding = 80;
 
 if (config === undefined) {
 	throw new Error('Missing ontology diagram webview configuration.');
@@ -54,11 +63,16 @@ const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
 const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
 const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
+const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
+const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
+const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
+const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
 const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
+const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
 const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
@@ -109,6 +123,7 @@ renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
+renderViewportToolbarIcons();
 registerExtensionMessageForwarding();
 registerCanvasStateSubscriptions();
 render();
@@ -133,6 +148,18 @@ exportSvgButton.addEventListener('click', () => {
 exportPngButton.addEventListener('click', () => {
 	void exportPng();
 });
+zoomOutButton.addEventListener('click', () => {
+	zoomBy(1 / 1.2, 'zoom');
+});
+zoomInButton.addEventListener('click', () => {
+	zoomBy(1.2, 'zoom');
+});
+fitDiagramButton.addEventListener('click', () => {
+	fitDiagramToView();
+});
+resetViewportButton.addEventListener('click', () => {
+	resetViewport();
+});
 new CanvasDropController({
 	scrollElement: canvasScroll,
 	contentElement: canvasContent,
@@ -152,6 +179,7 @@ function registerPropertyPanel(): void {
 		registry: elementRegistry,
 		messageBus,
 		panel: propertyPanel,
+		resizeHandle: propertyPanelResizeHandle,
 		title: propertyPanelTitle,
 		toggleButton: propertyPanelToggle,
 		body: propertyPanelBody,
@@ -163,6 +191,10 @@ function registerPropertyPanel(): void {
 			canvasScroll.focus();
 		},
 		initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
+		initialWidth: vscode.getState()?.propertyPanelWidth,
+		onWidthChange: (width) => {
+			updateWebviewState({ propertyPanelWidth: width });
+		},
 	}).register();
 }
 
@@ -207,6 +239,7 @@ function render(): void {
 
 	trackRenderedGeometry(webviewConfig.payload);
 	canvas.renderDiagram(webviewConfig.payload, theme);
+	resizeCanvasForZoom();
 	messageBus.publishEvent(new CanvasRenderedEvent({
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
 		renderedElementIdentifiers: elementRegistry.renderedElementIdentifiers(),
@@ -231,6 +264,7 @@ function registerCanvasStateSubscriptions(): void {
 			updateWebviewState({
 				viewportPanX: event.panX,
 				viewportPanY: event.panY,
+				viewportZoom: event.zoom,
 			});
 		}
 	});
@@ -255,6 +289,192 @@ function registerViewportEventPublishing(): void {
 	canvasScroll.addEventListener('scroll', () => {
 		publishViewportChanged('scroll');
 	});
+	canvasScroll.addEventListener('wheel', (event) => {
+		if (!event.ctrlKey && !event.metaKey || isKeyboardInputTarget(event.target)) {
+			return;
+		}
+
+		event.preventDefault();
+		zoomBy(Math.exp(-event.deltaY * 0.002), 'zoom', {
+			x: event.clientX,
+			y: event.clientY,
+		});
+	}, { passive: false });
+}
+
+function renderViewportToolbarIcons(): void {
+	zoomOutButton.replaceChildren(createIconElement(ZoomOut, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	zoomInButton.replaceChildren(createIconElement(ZoomIn, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	fitDiagramButton.replaceChildren(createIconElement(Maximize2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	resetViewportButton.replaceChildren(createIconElement(RotateCcw, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+}
+
+function zoomBy(factor: number, source: 'zoom', clientPoint?: CanvasPoint): void {
+	const oldZoom = canvas.zoom();
+	const newZoom = clampZoom(oldZoom * factor);
+	if (Math.abs(newZoom - oldZoom) < 0.001) {
+		return;
+	}
+
+	const focus = clientPoint ?? viewportCenterClientPoint();
+	const focusCanvasPoint = viewportClientPointToCanvasPoint(focus, oldZoom);
+	setZoom(newZoom);
+	scrollToCanvasPoint(focusCanvasPoint, focus);
+	publishViewportChanged(source);
+}
+
+function setZoom(zoom: number): void {
+	canvas.setZoom(clampZoom(zoom));
+	resizeCanvasForZoom();
+}
+
+function fitDiagramToView(): void {
+	const bounds = diagramContentBounds();
+	if (bounds === undefined) {
+		showStatus('There is no diagram content to fit.');
+		return;
+	}
+
+	const viewportWidth = Math.max(1, canvasScroll.clientWidth - viewportPadding);
+	const viewportHeight = Math.max(1, canvasScroll.clientHeight - viewportPadding);
+	const zoom = clampZoom(Math.min(viewportWidth / bounds.width, viewportHeight / bounds.height));
+	setZoom(zoom);
+	scrollToCanvasPoint(rectCenter(bounds), viewportCenterClientPoint());
+	publishViewportChanged('fit');
+}
+
+function resetViewport(): void {
+	setZoom(1);
+	canvasScroll.scrollTo({ left: 0, top: 0 });
+	publishViewportChanged('reset');
+}
+
+function resizeCanvasForZoom(): void {
+	const bounds = diagramContentBounds();
+	const zoom = canvas.zoom();
+	const width = Math.max(defaultCanvasWidth, Math.ceil(((bounds?.x ?? 0) + (bounds?.width ?? defaultCanvasWidth)) * zoom + viewportPadding));
+	const height = Math.max(defaultCanvasHeight, Math.ceil(((bounds?.y ?? 0) + (bounds?.height ?? defaultCanvasHeight)) * zoom + viewportPadding));
+	canvas.resize(width, height);
+}
+
+function viewportCenterClientPoint(): CanvasPoint {
+	const rect = canvasScroll.getBoundingClientRect();
+
+	return {
+		x: rect.left + rect.width / 2,
+		y: rect.top + rect.height / 2,
+	};
+}
+
+function viewportClientPointToCanvasPoint(clientPoint: CanvasPoint, zoom: number): CanvasPoint {
+	const rect = canvasScroll.getBoundingClientRect();
+
+	return {
+		x: (canvasScroll.scrollLeft + clientPoint.x - rect.left) / zoom,
+		y: (canvasScroll.scrollTop + clientPoint.y - rect.top) / zoom,
+	};
+}
+
+function scrollToCanvasPoint(canvasPoint: CanvasPoint, clientPoint: CanvasPoint): void {
+	const rect = canvasScroll.getBoundingClientRect();
+
+	canvasScroll.scrollTo({
+		left: Math.max(0, (canvasPoint.x * canvas.zoom()) - (clientPoint.x - rect.left)),
+		top: Math.max(0, (canvasPoint.y * canvas.zoom()) - (clientPoint.y - rect.top)),
+	});
+}
+
+function clampZoom(value: number): number {
+	return Math.min(Math.max(value, minimumZoom), maximumZoom);
+}
+
+interface ContentBounds {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+
+function diagramContentBounds(): ContentBounds | undefined {
+	const diagram = webviewConfig.payload.diagram;
+	if (diagram === undefined) {
+		return undefined;
+	}
+
+	const bounds: ContentBounds[] = [
+		...(diagram.nodes ?? []).map(elementBounds),
+		...(diagram.notes ?? []).map(elementBounds),
+		...(diagram.images ?? []).map(elementBounds),
+		...(diagram.labels ?? []).map(elementBounds),
+		...(diagram.edges ?? []).flatMap(edgeBounds),
+	];
+	if (bounds.length === 0) {
+		return undefined;
+	}
+
+	const left = Math.min(...bounds.map((bound) => bound.x));
+	const top = Math.min(...bounds.map((bound) => bound.y));
+	const right = Math.max(...bounds.map((bound) => bound.x + bound.width));
+	const bottom = Math.max(...bounds.map((bound) => bound.y + bound.height));
+
+	return {
+		x: left,
+		y: top,
+		width: Math.max(1, right - left),
+		height: Math.max(1, bottom - top),
+	};
+}
+
+function elementBounds(element: {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}): ContentBounds {
+	return {
+		x: element.x,
+		y: element.y,
+		width: element.width,
+		height: element.height,
+	};
+}
+
+function edgeBounds(edge: NonNullable<NonNullable<DiagramPayload['diagram']>['edges']>[number]): readonly ContentBounds[] {
+	const pointBounds = edge.points.map((point) => ({
+		x: point.x,
+		y: point.y,
+		width: 1,
+		height: 1,
+	}));
+
+	return [
+		...pointBounds,
+		{
+			x: edge.label.x,
+			y: edge.label.y,
+			width: Math.max(80, edge.ontology_ref.length * 7),
+			height: 24,
+		},
+	];
+}
+
+function rectCenter(bounds: ContentBounds): CanvasPoint {
+	return {
+		x: bounds.x + bounds.width / 2,
+		y: bounds.y + bounds.height / 2,
+	};
 }
 
 function restoreSelection(): void {
@@ -270,11 +490,17 @@ function restoreViewport(): void {
 	const state = vscode.getState();
 	const viewportPanX = state?.viewportPanX;
 	const viewportPanY = state?.viewportPanY;
-	if (viewportPanX === undefined && viewportPanY === undefined) {
+	const viewportZoom = state?.viewportZoom;
+	if (viewportPanX === undefined && viewportPanY === undefined && viewportZoom === undefined) {
 		return;
 	}
 
 	requestAnimationFrame(() => {
+		if (viewportZoom !== undefined) {
+			setZoom(viewportZoom);
+		} else {
+			resizeCanvasForZoom();
+		}
 		canvasScroll.scrollTo({
 			left: viewportPanX ?? canvasScroll.scrollLeft,
 			top: viewportPanY ?? canvasScroll.scrollTop,

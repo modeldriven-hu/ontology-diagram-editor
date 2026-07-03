@@ -14,6 +14,7 @@ interface CanvasPropertyPanelOptions {
 	readonly registry: CanvasElementRegistry;
 	readonly messageBus: CanvasMessageBus;
 	readonly panel: HTMLElement;
+	readonly resizeHandle: HTMLElement;
 	readonly title: HTMLElement;
 	readonly toggleButton: HTMLButtonElement;
 	readonly body: HTMLElement;
@@ -21,17 +22,24 @@ interface CanvasPropertyPanelOptions {
 	readonly resetEdgeLabel: (edgeId: string) => void;
 	readonly focusAfterEscape: () => void;
 	readonly initialCollapsed?: boolean;
+	readonly initialWidth?: number;
 	readonly onCollapsedChange?: (collapsed: boolean) => void;
+	readonly onWidthChange?: (width: number) => void;
 }
 
 export class CanvasPropertyPanel {
 	private collapsed = false;
+	private panelWidth?: number;
 	private selectedElement: CanvasPropertyElement | undefined;
 
 	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
 
 	public register(): void {
+		if (this.options.initialWidth !== undefined) {
+			this.applyWidth(this.options.initialWidth, false);
+		}
 		this.setCollapsed(this.options.initialCollapsed ?? false, false);
+		this.registerResizeHandle();
 		this.options.toggleButton.addEventListener('click', () => {
 			this.setCollapsed(!this.collapsed);
 		});
@@ -70,6 +78,7 @@ export class CanvasPropertyPanel {
 	private setCollapsed(collapsed: boolean, notify = true): void {
 		this.collapsed = collapsed;
 		this.options.panel.classList.toggle('collapsed', collapsed);
+		this.options.panel.closest('.editor')?.classList.toggle('property-panel-collapsed', collapsed);
 		this.options.toggleButton.setAttribute('aria-expanded', String(!collapsed));
 		this.options.messageBus.publishEvent(new CanvasPropertyPanelVisibilityChangedEvent({
 			diagramFilePath: this.options.payload.file?.fsPath,
@@ -80,6 +89,92 @@ export class CanvasPropertyPanel {
 		if (notify) {
 			this.options.onCollapsedChange?.(collapsed);
 		}
+	}
+
+	private registerResizeHandle(): void {
+		let startX = 0;
+		let startWidth = 0;
+		let activePointerId: number | undefined;
+		const editor = this.editorElement();
+
+		this.options.resizeHandle.addEventListener('pointerdown', (event) => {
+			if (this.collapsed || editor === undefined) {
+				return;
+			}
+
+			activePointerId = event.pointerId;
+			startX = event.clientX;
+			startWidth = this.currentPanelWidth();
+			this.options.resizeHandle.setPointerCapture(event.pointerId);
+			editor.classList.add('property-panel-resizing');
+			event.preventDefault();
+		});
+
+		this.options.resizeHandle.addEventListener('pointermove', (event) => {
+			if (activePointerId !== event.pointerId) {
+				return;
+			}
+
+			this.applyWidth(startWidth + startX - event.clientX);
+		});
+
+		const finishResize = (event: PointerEvent): void => {
+			if (activePointerId !== event.pointerId) {
+				return;
+			}
+
+			activePointerId = undefined;
+			editor?.classList.remove('property-panel-resizing');
+			if (this.options.resizeHandle.hasPointerCapture(event.pointerId)) {
+				this.options.resizeHandle.releasePointerCapture(event.pointerId);
+			}
+		};
+
+		this.options.resizeHandle.addEventListener('pointerup', finishResize);
+		this.options.resizeHandle.addEventListener('pointercancel', finishResize);
+		this.options.resizeHandle.addEventListener('keydown', (event) => {
+			if (this.collapsed || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) {
+				return;
+			}
+
+			const step = event.shiftKey ? 80 : 24;
+			this.applyWidth(this.currentPanelWidth() + (event.key === 'ArrowLeft' ? step : -step));
+			event.preventDefault();
+		});
+	}
+
+	private currentPanelWidth(): number {
+		return this.panelWidth ?? this.options.panel.getBoundingClientRect().width;
+	}
+
+	private applyWidth(width: number, notify = true): void {
+		const editor = this.editorElement();
+		if (editor === undefined) {
+			return;
+		}
+
+		const clampedWidth = this.clampWidth(width);
+		this.panelWidth = clampedWidth;
+		editor.style.setProperty('--property-panel-width', `${clampedWidth}px`);
+		if (notify) {
+			this.options.onWidthChange?.(clampedWidth);
+		}
+	}
+
+	private clampWidth(width: number): number {
+		const editorWidth = this.editorElement()?.getBoundingClientRect().width ?? 0;
+		const minimumWidth = 280;
+		const maximumWidth = editorWidth > 0
+			? Math.max(minimumWidth, Math.min(640, editorWidth - 360))
+			: 640;
+
+		return Math.round(Math.min(Math.max(width, minimumWidth), maximumWidth));
+	}
+
+	private editorElement(): HTMLElement | undefined {
+		const editor = this.options.panel.closest('.editor');
+
+		return editor instanceof HTMLElement ? editor : undefined;
 	}
 
 	private renderSelection(): void {
