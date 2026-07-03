@@ -2,6 +2,7 @@ import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
+import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import type { WebviewTheme } from '../webview-theme';
 
 type ExportFormat = 'svg' | 'png';
@@ -119,6 +120,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		'</filter>',
 		...edges.flatMap((edge) => renderEdgeMarkerDefinitions(edge, theme)),
 		'</defs>',
+		`<style>${noteHtmlResetStyle()}</style>`,
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme, imageHrefMode)),
 		...edges.map((edge) => renderEdge(edge, theme)),
@@ -236,19 +238,28 @@ function renderNote(note: DiagramNote, theme: WebviewTheme): string {
 	return [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(note.style, theme.noteCornerRadius))}" fill="${escapeAttribute(note.style?.bg_color ?? theme.noteBackground)}" ${borderAttributes(border)}${shadowAttribute(note.style, theme.elementShadow)}/>`,
 		renderNoteFold(bounds, border, theme),
-		renderTextBlock({
-			id: note.id,
-			text: plainText(note.text),
-			bounds,
-			color: note.style?.text_color ?? theme.noteForeground,
-			fontFamily: note.style?.font?.family ?? theme.fontFamily,
-			fontSize: note.style?.font?.size ?? theme.fontSize,
-			bold: note.style?.font?.bold,
-			italic: note.style?.font?.italic,
-			align: 'left',
-			verticalAlign: 'top',
-			padding: 12,
-		}),
+		renderNoteHtmlBlock(note, bounds, theme),
+	].join('\n');
+}
+
+function renderNoteHtmlBlock(note: DiagramNote, bounds: ExportBounds, theme: WebviewTheme): string {
+	const padding = 12;
+	const x = bounds.x + padding;
+	const y = bounds.y + padding;
+	const width = Math.max(1, bounds.width - (padding * 2));
+	const height = Math.max(1, bounds.height - (padding * 2));
+	const style = noteHtmlStyle({
+		color: note.style?.text_color ?? theme.noteForeground,
+		fontFamily: note.style?.font?.family ?? theme.fontFamily,
+		fontSize: note.style?.font?.size ?? theme.fontSize,
+		bold: note.style?.font?.bold,
+		italic: note.style?.font?.italic,
+	});
+
+	return [
+		`<foreignObject x="${numberValue(x)}" y="${numberValue(y)}" width="${numberValue(width)}" height="${numberValue(height)}">`,
+		`<div xmlns="http://www.w3.org/1999/xhtml" class="note-html" style="${escapeAttribute(style)}">${sanitizedNoteHtml(note.text)}</div>`,
+		'</foreignObject>',
 	].join('\n');
 }
 

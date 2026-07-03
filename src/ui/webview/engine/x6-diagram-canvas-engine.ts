@@ -1,5 +1,6 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry } from '../components/canvas-element-registry';
+import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -196,7 +197,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 
 		if (update.kind === 'noteText' && this.elementRegistry.element(update.id)?.kind === 'note') {
-			cell.attr('label/text', plainText(update.text));
+			cell.attr('noteHtml/html', sanitizedNoteHtml(update.text));
 		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
 			cell.attr('label/text', update.text);
 		} else if (update.kind === 'imageSource' && this.elementRegistry.element(update.id)?.kind === 'image') {
@@ -651,6 +652,7 @@ function installX6Styles(theme: WebviewTheme): void {
 		`  border-color: ${theme.focusBorder} !important;`,
 		`  background: ${theme.editorBackground} !important;`,
 		'}',
+		noteHtmlResetStyle(),
 	].join('\n');
 	if (existingStyle === null) {
 		document.head.appendChild(style);
@@ -960,7 +962,21 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 		markup: [
 			{ tagName: 'rect', selector: 'body' },
 			{ tagName: 'path', selector: 'foldedCorner' },
-			{ tagName: 'text', selector: 'label' },
+			{
+				tagName: 'foreignObject',
+				selector: 'noteContent',
+				children: [
+					{
+						tagName: 'div',
+						ns: 'http://www.w3.org/1999/xhtml',
+						selector: 'noteHtml',
+						attrs: {
+							xmlns: 'http://www.w3.org/1999/xhtml',
+							class: 'note-html',
+						},
+					},
+				],
+			},
 		],
 		attrs: {
 			body: {
@@ -982,22 +998,24 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 				strokeWidth: note.style?.border?.type === 'none' ? 0 : note.style?.border?.weight ?? 1,
 				pointerEvents: 'none',
 			},
-			label: {
-				text: plainText(note.text),
-				textWrap: {
-					width: -24,
-					height: -24,
-					ellipsis: true,
-				},
-				fill: note.style?.text_color ?? theme.noteForeground,
-				fontFamily: note.style?.font?.family ?? theme.fontFamily,
-				fontSize: note.style?.font?.size ?? theme.fontSize,
-				fontWeight: note.style?.font?.bold === true ? 700 : 400,
-				fontStyle: note.style?.font?.italic === true ? 'italic' : 'normal',
-				textAnchor: 'start',
-				textVerticalAnchor: 'top',
+			noteContent: {
 				refX: 12,
 				refY: 12,
+				refWidth: '100%',
+				refWidth2: -24,
+				refHeight: '100%',
+				refHeight2: -24,
+				pointerEvents: 'none',
+			},
+			noteHtml: {
+				html: sanitizedNoteHtml(note.text),
+				style: noteHtmlStyleAttributes({
+					color: note.style?.text_color ?? theme.noteForeground,
+					fontFamily: note.style?.font?.family ?? theme.fontFamily,
+					fontSize: note.style?.font?.size ?? theme.fontSize,
+					bold: note.style?.font?.bold,
+					italic: note.style?.font?.italic,
+				}),
 			},
 		},
 		zIndex: 40,

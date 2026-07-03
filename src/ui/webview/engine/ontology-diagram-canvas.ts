@@ -833,9 +833,11 @@ function trackRenderedGeometry(payload: DiagramPayload): void {
 }
 
 function insertionPosition(): CanvasPoint {
+	const zoom = canvas.zoom();
+
 	return {
-		x: Math.max(0, Math.round(canvasScroll.scrollLeft + 80)),
-		y: Math.max(0, Math.round(canvasScroll.scrollTop + 80)),
+		x: Math.max(0, Math.round((canvasScroll.scrollLeft + 80) / zoom)),
+		y: Math.max(0, Math.round((canvasScroll.scrollTop + 80) / zoom)),
 	};
 }
 
