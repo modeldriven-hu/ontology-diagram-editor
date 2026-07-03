@@ -155,6 +155,18 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		await this.refresh();
 	}
 
+	public async clearDiagramDocument(document?: vscode.TextDocument): Promise<void> {
+		if (document !== undefined && document.uri.toString() !== this.diagramDocument?.uri.toString()) {
+			return;
+		}
+
+		this.diagramDocument = undefined;
+		this.selectedNode = undefined;
+		this.lastDraggedItem = undefined;
+		await this.refresh();
+		this.updateSelectionContext();
+	}
+
 	public async refresh(): Promise<void> {
 		if (this.diagramDocument === undefined) {
 			this.parsedDiagram = undefined;

@@ -97,12 +97,18 @@ minimum viable product model tree group.
 The model tree is refreshed when:
 
 - A `.odiagram` file is opened.
+- The currently displayed `.odiagram` diagram editor is closed.
 - The `.odiagram` file changes on disk or in the editor.
 - An ontology file referenced by the `.odiagram` file changes.
 - An ontology is added or removed through the model tree toolbar.
 
 The refresh must preserve the current selection and expanded state when the same nodes
 still exist after the refresh.
+
+When the currently displayed `.odiagram` diagram editor is closed, the model tree shall
+clear the diagram document, parsed ontology data, current selection, and last dragged
+ontology item. The model tree shall then render no root node and shall disable commands
+that require an open diagram.
 
 ## Events
 

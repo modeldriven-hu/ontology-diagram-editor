@@ -15,6 +15,8 @@ export function activate(context: vscode.ExtensionContext) {
 		diagramEditorViewType,
 		new DiagramEditorProvider(async (document) => {
 			await modelTree.setDiagramDocument(document);
+		}, async (document) => {
+			await modelTree.clearDiagramDocument(document);
 		}, () => modelTree.getLastDraggedItem()),
 		{
 			supportsMultipleEditorsPerDocument: false,

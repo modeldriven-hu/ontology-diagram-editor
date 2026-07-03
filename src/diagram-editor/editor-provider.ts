@@ -12,6 +12,7 @@ export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 	public constructor(
 		private readonly onDidOpenDiagram: (document: vscode.TextDocument) => void | Promise<void>,
+		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 	) {}
 
@@ -74,6 +75,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
 			commandDisposable.dispose();
+			void this.onDidCloseDiagram(document);
 		});
 
 		updateWebview();
