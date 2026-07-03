@@ -118,7 +118,7 @@ function updateNoteStyle(
 		}
 
 		changed = true;
-		return new DiagramNote(note.id.value, note.bounds, note.text, nextStyle, note.extra);
+		return new DiagramNote(note.id.value, note.bounds, note.text, nextStyle, note.extra, note.exported);
 	});
 
 	return changed ? { diagram: cloneDiagram(diagram, { notes: nextNotes }) } : {};

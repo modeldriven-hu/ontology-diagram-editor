@@ -66,6 +66,7 @@ export type WebviewCommand =
 	| UpdateLabelBoundsCommand
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
+	| UpdateNoteExportVisibilityCommand
 	| UpdateImageSourceCommand
 	| PickNodeImageCommand
 	| PickImageSourceCommand
@@ -249,6 +250,17 @@ export class UpdateNodeDataPropertiesVisibilityCommand {
 	public constructor(id: string, showDataProperties: boolean) {
 		this.id = id;
 		this.showDataProperties = showDataProperties;
+	}
+}
+
+export class UpdateNoteExportVisibilityCommand {
+	public readonly type = 'updateNoteExportVisibility';
+	public readonly id: string;
+	public readonly exported: boolean;
+
+	public constructor(id: string, exported: boolean) {
+		this.id = id;
+		this.exported = exported;
 	}
 }
 

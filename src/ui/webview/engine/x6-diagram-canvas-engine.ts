@@ -203,6 +203,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		if (update.kind === 'noteText' && this.elementRegistry.element(update.id)?.kind === 'note') {
 			cell.attr('noteHtml/html', sanitizedNoteHtml(update.text));
+		} else if (update.kind === 'noteExport' && this.elementRegistry.element(update.id)?.kind === 'note') {
+			cell.attr(noteExportIndicatorAttrs(update.exported, this.theme));
 		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
 			cell.attr('label/text', update.text);
 		} else if (update.kind === 'imageSource' && this.elementRegistry.element(update.id)?.kind === 'image') {
@@ -1061,6 +1063,8 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 		markup: [
 			{ tagName: 'rect', selector: 'body' },
 			{ tagName: 'path', selector: 'foldedCorner' },
+			{ tagName: 'rect', selector: 'exportIndicatorBackground' },
+			{ tagName: 'text', selector: 'exportIndicatorLabel' },
 			{
 				tagName: 'foreignObject',
 				selector: 'noteContent',
@@ -1116,8 +1120,48 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 					italic: note.style?.font?.italic,
 				}),
 			},
+			...noteExportIndicatorAttrs(note.export !== false, theme),
 		},
 		zIndex: 40,
+	};
+}
+
+function noteExportIndicatorAttrs(exported: boolean, theme: WebviewTheme): Record<string, unknown> {
+	const opacity = exported ? 0 : 0.82;
+
+	return {
+		exportIndicatorBackground: {
+			width: 58,
+			height: 16,
+			refX: '100%',
+			refX2: -66,
+			refY: '100%',
+			refY2: -22,
+			rx: 3,
+			ry: 3,
+			fill: theme.editorBackground,
+			fillOpacity: 0.74,
+			stroke: theme.noteBorder,
+			strokeOpacity: 0.5,
+			strokeWidth: 1,
+			opacity,
+			pointerEvents: 'none',
+		},
+		exportIndicatorLabel: {
+			text: 'No export',
+			refX: '100%',
+			refX2: -37,
+			refY: '100%',
+			refY2: -10,
+			textAnchor: 'middle',
+			textVerticalAnchor: 'middle',
+			fontSize: 9,
+			fontWeight: 600,
+			fill: theme.noteForeground,
+			fillOpacity: 0.8,
+			opacity,
+			pointerEvents: 'none',
+		},
 	};
 }
 

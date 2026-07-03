@@ -38,6 +38,7 @@ export class UpdateNoteBoundsUseCase {
 				note.text,
 				note.style,
 				note.extra,
+				note.exported,
 			);
 		});
 

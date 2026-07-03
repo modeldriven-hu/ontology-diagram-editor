@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -540,6 +540,22 @@ suite('Diagram editor use cases', () => {
 
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_second']);
+	});
+
+	test('updates note export visibility', () => {
+		const diagram = diagramWithNotes([
+			new DiagramNote('note_context', new Bounds(10, 20, 120, 80), 'Context'),
+		]);
+
+		const hidden = new UpdateNoteExportVisibilityUseCase().execute(diagram, 'note_context', false);
+		assert.ok(hidden.diagram);
+		assert.strictEqual(hidden.diagram.notes[0].exported, false);
+		assert.deepStrictEqual(hidden.diagram.notes[0].toPersistenceObject().export, false);
+
+		const shown = new UpdateNoteExportVisibilityUseCase().execute(hidden.diagram, 'note_context', true);
+		assert.ok(shown.diagram);
+		assert.strictEqual(shown.diagram.notes[0].exported, undefined);
+		assert.strictEqual(shown.diagram.notes[0].toPersistenceObject().export, undefined);
 	});
 
 	test('creates a diagram label with persisted text and default bounds', () => {

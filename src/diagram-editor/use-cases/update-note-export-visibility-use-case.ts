@@ -2,19 +2,15 @@ import { DiagramNote, type OntologyDiagramDocument } from '../../documents/odiag
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 
-export class UpdateNoteTextUseCase {
+export class UpdateNoteExportVisibilityUseCase {
 	public execute(
 		diagram: OntologyDiagramDocument,
 		id: string,
-		text: string,
+		exported: boolean,
 	): DiagramMutationResult {
-		if (text.trim().length === 0) {
-			return { notification: 'Notes cannot be empty.' };
-		}
-
 		let changed = false;
 		const nextNotes = diagram.notes.map((note) => {
-			if (note.id.value !== id || note.text === text) {
+			if (note.id.value !== id || (note.exported !== false) === exported) {
 				return note;
 			}
 
@@ -22,21 +18,13 @@ export class UpdateNoteTextUseCase {
 			return new DiagramNote(
 				note.id.value,
 				note.bounds,
-				text,
+				note.text,
 				note.style,
 				note.extra,
-				note.exported,
+				exported ? undefined : false,
 			);
 		});
 
-		if (!changed) {
-			return {};
-		}
-
-		return {
-			diagram: cloneDiagram(diagram, {
-				notes: nextNotes,
-			}),
-		};
+		return changed ? { diagram: cloneDiagram(diagram, { notes: nextNotes }) } : {};
 	}
 }

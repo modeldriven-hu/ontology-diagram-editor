@@ -117,6 +117,14 @@ export class CanvasElementRegistry {
 			return;
 		}
 
+		if (update.kind === 'noteExport') {
+			const note = this.notes.get(update.id);
+			if (note !== undefined) {
+				this.notes.set(update.id, { ...note, export: update.exported ? undefined : false });
+			}
+			return;
+		}
+
 		if (update.kind === 'imageSource') {
 			const image = this.images.get(update.id);
 			if (image !== undefined) {

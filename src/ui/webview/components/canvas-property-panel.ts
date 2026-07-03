@@ -1,6 +1,6 @@
 import { minimumNodeHeight, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -342,6 +342,13 @@ export class CanvasPropertyPanel {
 							this.updateElementContent({ kind: 'noteText', id: note.id, text: value });
 							this.propertyEdited('note', note.id, ['text']);
 							this.options.messageBus.publishCommand(new UpdateNoteTextCommand(note.id, value));
+						}),
+					]),
+					sectionElement('Export', [
+						checkboxField('Include in Export', note.export !== false, (value) => {
+							this.updateElementContent({ kind: 'noteExport', id: note.id, exported: value });
+							this.propertyEdited('note', note.id, ['export']);
+							this.options.messageBus.publishCommand(new UpdateNoteExportVisibilityCommand(note.id, value));
 						}),
 					]),
 				],

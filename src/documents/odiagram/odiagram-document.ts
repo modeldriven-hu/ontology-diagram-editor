@@ -357,6 +357,7 @@ export class DiagramNote {
 		public readonly text: string,
 		public readonly style?: CommonStyle,
 		public readonly extra: JsonObject = {},
+		public readonly exported?: boolean,
 	) {
 		this.id = DiagramIdentifier.create(id, 'note');
 		this.bounds = bounds;
@@ -369,6 +370,7 @@ export class DiagramNote {
 			...this.bounds.toPersistenceObject(),
 			text: this.text,
 			style: this.style?.toPersistenceObject(),
+			export: this.exported === false ? false : undefined,
 		});
 	}
 }
@@ -552,6 +554,7 @@ const noteSchema = boundsFieldsSchema.extend({
 	id: z.string(),
 	text: z.string(),
 	style: commonStyleSchema.optional(),
+	export: z.boolean().optional(),
 });
 
 const imageSchema = boundsFieldsSchema.extend({
@@ -645,7 +648,8 @@ function parseNote(value: z.infer<typeof noteSchema>): DiagramNote {
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.text,
 		value.style ? parseCommonStyle(value.style) : undefined,
-		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'text', 'style']),
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'text', 'style', 'export']),
+		value.export,
 	);
 }
 

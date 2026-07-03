@@ -21,5 +21,6 @@ export { UpdateNodeBoundsUseCase } from './update-node-bounds-use-case';
 export { UpdateNodeDataPropertiesVisibilityUseCase } from './update-node-data-properties-visibility-use-case';
 export { UpdateNodeImageUseCase } from './update-node-image-use-case';
 export { UpdateNoteBoundsUseCase } from './update-note-bounds-use-case';
+export { UpdateNoteExportVisibilityUseCase } from './update-note-export-visibility-use-case';
 export { UpdateNoteTextUseCase } from './update-note-text-use-case';
 export { UpdateThemeModeUseCase } from './update-theme-mode-use-case';

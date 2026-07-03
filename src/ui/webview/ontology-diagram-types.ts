@@ -64,6 +64,7 @@ export interface DiagramNote {
 	readonly width: number;
 	readonly height: number;
 	readonly text: string;
+	readonly export?: boolean;
 	readonly style?: DiagramElementStyle;
 }
 

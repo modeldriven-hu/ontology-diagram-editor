@@ -89,7 +89,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 
 	const nodes = diagram.nodes ?? [];
 	const edges = diagram.edges ?? [];
-	const notes = diagram.notes ?? [];
+	const notes = (diagram.notes ?? []).filter((note) => note.export !== false);
 	const images = diagram.images ?? [];
 	const labels = diagram.labels ?? [];
 	const contentBounds = diagramContentBounds([
