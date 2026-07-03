@@ -5,6 +5,7 @@
 - Given a `.odiagram` file references ontology files, when the model tree loads, then the root node represents the diagram and direct children represent referenced ontology files in document order.
 - Given an ontology file loads successfully, when the tree expands it, then ontology items are grouped by supported item type and sorted by display label or stable source order.
 - Given an ontology file cannot be loaded, when the tree refreshes, then the ontology file node remains visible with an error status.
+- Given the currently displayed diagram editor is closed, when the model tree refreshes, then the tree is empty and diagram-dependent commands are disabled.
 
 ## Ontology Metadata
 

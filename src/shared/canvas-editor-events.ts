@@ -10,50 +10,122 @@ export type CanvasEditorEvent =
 	| CanvasPropertyEditedEvent
 	| CanvasPropertyPanelVisibilityChangedEvent;
 
-export interface CanvasRenderedEvent {
-	readonly type: 'canvasRendered';
-	readonly diagramFilePath?: string;
-	readonly renderedElementIdentifiers: readonly string[];
-	readonly warnings: readonly string[];
+export class CanvasRenderedEvent {
+	public readonly type = 'canvasRendered';
+	public readonly diagramFilePath?: string;
+	public readonly renderedElementIdentifiers: readonly string[];
+	public readonly warnings: readonly string[];
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly renderedElementIdentifiers: readonly string[];
+		readonly warnings: readonly string[];
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.renderedElementIdentifiers = options.renderedElementIdentifiers;
+		this.warnings = options.warnings;
+	}
 }
 
-export interface CanvasSelectionChangedEvent {
-	readonly type: 'canvasSelectionChanged';
-	readonly diagramFilePath?: string;
-	readonly selectedElementIdentifier?: string;
-	readonly selectedElementType?: CanvasElementType;
+export class CanvasSelectionChangedEvent {
+	public readonly type = 'canvasSelectionChanged';
+	public readonly diagramFilePath?: string;
+	public readonly selectedElementIdentifier?: string;
+	public readonly selectedElementType?: CanvasElementType;
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly selectedElementIdentifier?: string;
+		readonly selectedElementType?: CanvasElementType;
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.selectedElementIdentifier = options.selectedElementIdentifier;
+		this.selectedElementType = options.selectedElementType;
+	}
 }
 
-export interface CanvasViewportChangedEvent {
-	readonly type: 'canvasViewportChanged';
-	readonly diagramFilePath?: string;
-	readonly panX: number;
-	readonly panY: number;
-	readonly zoom: number;
-	readonly changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom';
+export class CanvasViewportChangedEvent {
+	public readonly type = 'canvasViewportChanged';
+	public readonly diagramFilePath?: string;
+	public readonly panX: number;
+	public readonly panY: number;
+	public readonly zoom: number;
+	public readonly changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom';
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly panX: number;
+		readonly panY: number;
+		readonly zoom: number;
+		readonly changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom';
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.panX = options.panX;
+		this.panY = options.panY;
+		this.zoom = options.zoom;
+		this.changeSource = options.changeSource;
+	}
 }
 
-export interface CanvasDragCompletedEvent {
-	readonly type: 'canvasDragCompleted';
-	readonly diagramFilePath?: string;
-	readonly elementIdentifier: string;
-	readonly elementType: CanvasElementType;
-	readonly dragKind: 'move' | 'resize';
-	readonly changedBounds: BoundsUpdate;
+export class CanvasDragCompletedEvent {
+	public readonly type = 'canvasDragCompleted';
+	public readonly diagramFilePath?: string;
+	public readonly elementIdentifier: string;
+	public readonly elementType: CanvasElementType;
+	public readonly dragKind: 'move' | 'resize';
+	public readonly changedBounds: BoundsUpdate;
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly elementIdentifier: string;
+		readonly elementType: CanvasElementType;
+		readonly dragKind: 'move' | 'resize';
+		readonly changedBounds: BoundsUpdate;
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.elementIdentifier = options.elementIdentifier;
+		this.elementType = options.elementType;
+		this.dragKind = options.dragKind;
+		this.changedBounds = options.changedBounds;
+	}
 }
 
-export interface CanvasPropertyEditedEvent {
-	readonly type: 'canvasPropertyEdited';
-	readonly diagramFilePath?: string;
-	readonly elementIdentifier: string;
-	readonly elementType: CanvasElementType;
-	readonly changedFields: readonly string[];
+export class CanvasPropertyEditedEvent {
+	public readonly type = 'canvasPropertyEdited';
+	public readonly diagramFilePath?: string;
+	public readonly elementIdentifier: string;
+	public readonly elementType: CanvasElementType;
+	public readonly changedFields: readonly string[];
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly elementIdentifier: string;
+		readonly elementType: CanvasElementType;
+		readonly changedFields: readonly string[];
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.elementIdentifier = options.elementIdentifier;
+		this.elementType = options.elementType;
+		this.changedFields = options.changedFields;
+	}
 }
 
-export interface CanvasPropertyPanelVisibilityChangedEvent {
-	readonly type: 'canvasPropertyPanelVisibilityChanged';
-	readonly diagramFilePath?: string;
-	readonly visible: boolean;
-	readonly collapsed: boolean;
-	readonly panelHeight: number;
+export class CanvasPropertyPanelVisibilityChangedEvent {
+	public readonly type = 'canvasPropertyPanelVisibilityChanged';
+	public readonly diagramFilePath?: string;
+	public readonly visible: boolean;
+	public readonly collapsed: boolean;
+	public readonly panelHeight: number;
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+		readonly visible: boolean;
+		readonly collapsed: boolean;
+		readonly panelHeight: number;
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+		this.visible = options.visible;
+		this.collapsed = options.collapsed;
+		this.panelHeight = options.panelHeight;
+	}
 }

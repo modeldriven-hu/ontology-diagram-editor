@@ -1,0 +1,249 @@
+import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+
+export interface ModelTreeItemDropPayload {
+	readonly sourceOntologyFilePath?: string;
+	readonly ontologyItemType: string;
+	readonly ontologyItemReference: string;
+	readonly displayLabel: string;
+	readonly ontologyItemMetadata?: unknown;
+}
+
+export type WebviewCommand =
+	| CreateNodeCommand
+	| CreateNoteCommand
+	| CreateImageCommand
+	| CreateLabelCommand
+	| SaveDiagramExportCommand
+	| DeleteEdgeCommand
+	| DeleteNodeCommand
+	| DeleteNoteCommand
+	| DeleteImageCommand
+	| DeleteLabelCommand
+	| UpdateNodeBoundsCommand
+	| UpdateEdgeRouteCommand
+	| UpdateNoteBoundsCommand
+	| UpdateImageBoundsCommand
+	| UpdateLabelBoundsCommand
+	| UpdateNodeImageCommand
+	| UpdateImageSourceCommand
+	| PickNodeImageCommand
+	| PickImageSourceCommand
+	| UpdateLabelTextCommand
+	| UpdateNoteTextCommand;
+
+export class CreateNodeCommand {
+	public readonly type = 'createNode';
+	public readonly payload?: ModelTreeItemDropPayload;
+	public readonly position: CanvasPoint;
+
+	public constructor(options: {
+		readonly payload?: ModelTreeItemDropPayload;
+		readonly position: CanvasPoint;
+	}) {
+		this.payload = options.payload;
+		this.position = options.position;
+	}
+}
+
+export class UpdateNodeBoundsCommand {
+	public readonly type = 'updateNodeBounds';
+	public readonly updates: readonly NodeBoundsUpdate[];
+
+	public constructor(updates: readonly NodeBoundsUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class UpdateEdgeRouteCommand {
+	public readonly type = 'updateEdgeRoute';
+	public readonly updates: readonly EdgeRouteUpdate[];
+
+	public constructor(updates: readonly EdgeRouteUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class CreateNoteCommand {
+	public readonly type = 'createNote';
+	public readonly text: string;
+	public readonly position: CanvasPoint;
+
+	public constructor(text: string, position: CanvasPoint) {
+		this.text = text;
+		this.position = position;
+	}
+}
+
+export class CreateImageCommand {
+	public readonly type = 'createImage';
+	public readonly position: CanvasPoint;
+
+	public constructor(position: CanvasPoint) {
+		this.position = position;
+	}
+}
+
+export class CreateLabelCommand {
+	public readonly type = 'createLabel';
+	public readonly text: string;
+	public readonly position: CanvasPoint;
+
+	public constructor(text: string, position: CanvasPoint) {
+		this.text = text;
+		this.position = position;
+	}
+}
+
+export class SaveDiagramExportCommand {
+	public readonly type = 'saveDiagramExport';
+	public readonly format: 'svg' | 'png';
+	public readonly defaultFileName: string;
+	public readonly content: string;
+	public readonly encoding: 'utf8' | 'base64';
+
+	public constructor(options: {
+		readonly format: 'svg' | 'png';
+		readonly defaultFileName: string;
+		readonly content: string;
+		readonly encoding: 'utf8' | 'base64';
+	}) {
+		this.format = options.format;
+		this.defaultFileName = options.defaultFileName;
+		this.content = options.content;
+		this.encoding = options.encoding;
+	}
+}
+
+export class DeleteNodeCommand {
+	public readonly type = 'deleteNode';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class DeleteEdgeCommand {
+	public readonly type = 'deleteEdge';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class DeleteNoteCommand {
+	public readonly type = 'deleteNote';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class DeleteImageCommand {
+	public readonly type = 'deleteImage';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class DeleteLabelCommand {
+	public readonly type = 'deleteLabel';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class UpdateNoteBoundsCommand {
+	public readonly type = 'updateNoteBounds';
+	public readonly updates: readonly NoteBoundsUpdate[];
+
+	public constructor(updates: readonly NoteBoundsUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class UpdateImageBoundsCommand {
+	public readonly type = 'updateImageBounds';
+	public readonly updates: readonly ImageBoundsUpdate[];
+
+	public constructor(updates: readonly ImageBoundsUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class UpdateLabelBoundsCommand {
+	public readonly type = 'updateLabelBounds';
+	public readonly updates: readonly LabelBoundsUpdate[];
+
+	public constructor(updates: readonly LabelBoundsUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class UpdateNodeImageCommand {
+	public readonly type = 'updateNodeImage';
+	public readonly id: string;
+	public readonly image?: string;
+
+	public constructor(id: string, image?: string) {
+		this.id = id;
+		this.image = image;
+	}
+}
+
+export class UpdateImageSourceCommand {
+	public readonly type = 'updateImageSource';
+	public readonly id: string;
+	public readonly source: string;
+
+	public constructor(id: string, source: string) {
+		this.id = id;
+		this.source = source;
+	}
+}
+
+export class PickNodeImageCommand {
+	public readonly type = 'pickNodeImage';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class PickImageSourceCommand {
+	public readonly type = 'pickImageSource';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class UpdateNoteTextCommand {
+	public readonly type = 'updateNoteText';
+	public readonly id: string;
+	public readonly text: string;
+
+	public constructor(id: string, text: string) {
+		this.id = id;
+		this.text = text;
+	}
+}
+
+export class UpdateLabelTextCommand {
+	public readonly type = 'updateLabelText';
+	public readonly id: string;
+	public readonly text: string;
+
+	public constructor(id: string, text: string) {
+		this.id = id;
+		this.text = text;
+	}
+}

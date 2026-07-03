@@ -1,34 +1,34 @@
 import * as vscode from 'vscode';
 
-import { createOntologyDiagram, createOntologyDiagramCommand } from './commands/create-ontology-diagram-command';
-import { OntologyDiagramEditorProvider, ontologyDiagramEditorViewType } from './editors/ontology-diagram-editor-provider';
-import { ModelTreeController } from './model-tree/model-tree-controller';
+import { DiagramEditorProvider, diagramEditorViewType } from './diagram-editor/editor-provider';
+import { ModelTree } from './ui/model-tree/model-tree';
+import { CreateDiagramCommand } from './diagram-editor/create-diagram-command';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "ontology-diagram-editor" is now active!');
 
-	const modelTreeController = new ModelTreeController();
-	modelTreeController.register(context);
+	const modelTree = new ModelTree();
+	modelTree.register(context);
 
-	const createDiagramDisposable = vscode.commands.registerCommand(createOntologyDiagramCommand, async (resource?: vscode.Uri) => {
-		await createOntologyDiagram(resource);
-	});
-	const ontologyDiagramEditorDisposable = vscode.window.registerCustomEditorProvider(
-		ontologyDiagramEditorViewType,
-		new OntologyDiagramEditorProvider(async (document) => {
-			await modelTreeController.setDiagramDocument(document);
-		}, () => modelTreeController.getLastDraggedItem()),
+	new CreateDiagramCommand().register(context);
+	const diagramEditorDisposable = vscode.window.registerCustomEditorProvider(
+		diagramEditorViewType,
+		new DiagramEditorProvider(async (document) => {
+			await modelTree.setDiagramDocument(document);
+		}, async (document) => {
+			await modelTree.clearDiagramDocument(document);
+		}, () => modelTree.getLastDraggedItem()),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},
 	);
 	const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		if (editor !== undefined) {
-			await modelTreeController.setDiagramDocument(editor.document);
+			await modelTree.setDiagramDocument(editor.document);
 		}
 	});
 
-	context.subscriptions.push(createDiagramDisposable, ontologyDiagramEditorDisposable, activeEditorDisposable);
+	context.subscriptions.push(diagramEditorDisposable, activeEditorDisposable);
 }
 
 export function deactivate() {}

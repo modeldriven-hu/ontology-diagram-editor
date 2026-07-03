@@ -7,6 +7,11 @@ export const minimumImageHeight = 32;
 export const minimumLabelWidth = 48;
 export const minimumLabelHeight = 24;
 
+export interface CanvasPoint {
+	readonly x: number;
+	readonly y: number;
+}
+
 export interface BoundsUpdate {
 	readonly id: string;
 	readonly x: number;
@@ -22,11 +27,6 @@ export type LabelBoundsUpdate = BoundsUpdate;
 
 export interface EdgeRouteUpdate {
 	readonly id: string;
-	readonly points: readonly CanvasRoutePoint[];
-	readonly label: CanvasRoutePoint;
-}
-
-export interface CanvasRoutePoint {
-	readonly x: number;
-	readonly y: number;
+	readonly points: readonly CanvasPoint[];
+	readonly label: CanvasPoint;
 }

@@ -17,7 +17,7 @@ import {
 	readOntologyDiagramFile,
 	stringifyOntologyDiagramYaml,
 	writeOntologyDiagramFile,
-} from '../odiagram';
+} from '../documents/odiagram';
 
 suite('OntologyDiagram model', () => {
 	const validDiagramYaml = `
