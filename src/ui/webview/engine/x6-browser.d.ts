@@ -43,6 +43,7 @@ export interface X6Node extends X6Cell {
 export interface X6Edge extends X6Cell {
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;
+	getLabels(): readonly X6EdgeLabel[];
 	getSource(): X6Terminal;
 	getSourcePoint(): { readonly x: number; readonly y: number };
 	getTarget(): X6Terminal;
@@ -66,4 +67,19 @@ export interface X6Terminal {
 export interface X6EdgeView {
 	readonly routePoints?: readonly { readonly x: number; readonly y: number }[];
 	getTerminalConnectionPoint(type: 'source' | 'target'): { readonly x: number; readonly y: number };
+	getLabelTransformationMatrix(labelPosition: X6LabelPosition): DOMMatrix;
 }
+
+export interface X6EdgeLabel {
+	readonly position?: X6LabelPosition;
+}
+
+export type X6LabelPosition = number | {
+	readonly distance: number;
+	readonly offset?: number | {
+		readonly x?: number;
+		readonly y?: number;
+	};
+	readonly angle?: number;
+	readonly options?: Record<string, unknown>;
+};

@@ -4,7 +4,7 @@ import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
-import type { X6Edge, X6EdgeView, X6Graph, X6Node } from './x6-browser';
+import type { X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
 type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
@@ -51,7 +51,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			interacting: {
 				nodeMovable: true,
 				edgeMovable: false,
-				edgeLabelMovable: false,
+				edgeLabelMovable: true,
 				arrowheadMovable: false,
 				vertexMovable: true,
 			},
@@ -162,7 +162,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return undefined;
 		}
 
-		const points = normalizedRoutePoints(cell, edgeView(this.graph, cell));
+		const view = edgeView(this.graph, cell);
+		const points = normalizedRoutePoints(cell, view);
 		if (points.length < 2) {
 			return undefined;
 		}
@@ -170,7 +171,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		return {
 			id: edgeId,
 			points,
-			label,
+			label: edgeLabelPoint(cell, view) ?? label,
 		};
 	}
 
@@ -230,6 +231,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.markEdgeRouteChanged(eventEdge(event));
 		});
 		this.graph.on('edge:change:vertices', (event) => {
+			this.markEdgeRouteChanged(eventEdge(event));
+		});
+		this.graph.on('edge:change:labels', (event) => {
 			this.markEdgeRouteChanged(eventEdge(event));
 		});
 		this.graph.on('edge:mouseup', (event) => {
@@ -560,7 +564,7 @@ function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, t
 			},
 		},
 		labels: [{
-			position: 0.5,
+			position: labelPosition(edge.label, sourcePoint),
 			attrs: {
 				rect: {
 					fill: theme.editorBackground,
@@ -580,6 +584,20 @@ function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, t
 			},
 		}],
 		zIndex: 30,
+	};
+}
+
+function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): Record<string, unknown> {
+	return {
+		distance: 0,
+		offset: {
+			x: label.x - sourcePoint.x,
+			y: label.y - sourcePoint.y,
+		},
+		options: {
+			absoluteDistance: true,
+			absoluteOffset: true,
+		},
 	};
 }
 
@@ -843,6 +861,28 @@ function normalizedRoutePoints(edge: X6Edge, view: X6EdgeView | undefined): read
 		...edge.getVertices().flatMap((point) => isPointLike(point) ? [canvasPoint(point)] : []),
 		canvasPoint(edge.getTargetPoint()),
 	]);
+}
+
+function edgeLabelPoint(edge: X6Edge, view: X6EdgeView | undefined): CanvasPoint | undefined {
+	if (view === undefined) {
+		return undefined;
+	}
+
+	const labelPositionValue = edge.getLabels()[0]?.position;
+	const labelPosition = normalizeLabelPosition(labelPositionValue);
+	if (labelPosition === undefined) {
+		return undefined;
+	}
+
+	const matrix = view.getLabelTransformationMatrix(labelPosition);
+	return canvasPoint({
+		x: matrix.e,
+		y: matrix.f,
+	});
+}
+
+function normalizeLabelPosition(position: X6LabelPosition | undefined): X6LabelPosition | undefined {
+	return position === undefined ? undefined : position;
 }
 
 function canvasPoint(point: { readonly x: number; readonly y: number }): CanvasPoint {
