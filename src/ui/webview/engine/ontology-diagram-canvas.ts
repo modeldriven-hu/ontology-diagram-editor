@@ -156,6 +156,9 @@ function registerPropertyPanel(): void {
 		toggleButton: propertyPanelToggle,
 		body: propertyPanelBody,
 		showStatus,
+		resetEdgeLabel: (edgeId) => {
+			canvas.resetEdgeLabel(edgeId);
+		},
 		focusAfterEscape: () => {
 			canvasScroll.focus();
 		},

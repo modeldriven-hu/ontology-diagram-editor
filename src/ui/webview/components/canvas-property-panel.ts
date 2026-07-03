@@ -18,6 +18,7 @@ interface CanvasPropertyPanelOptions {
 	readonly toggleButton: HTMLButtonElement;
 	readonly body: HTMLElement;
 	readonly showStatus: (message: string) => void;
+	readonly resetEdgeLabel: (edgeId: string) => void;
 	readonly focusAfterEscape: () => void;
 	readonly initialCollapsed?: boolean;
 	readonly onCollapsedChange?: (collapsed: boolean) => void;
@@ -153,6 +154,9 @@ export class CanvasPropertyPanel {
 			readonlyField('Target', edge.target),
 		]));
 		this.options.body.appendChild(sectionElement('Actions', [
+			actionButton('Reset Label Position', 'secondary', () => {
+				this.options.resetEdgeLabel(edge.id);
+			}),
 			actionButton('Delete Edge', 'danger', () => {
 				this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
 			}),

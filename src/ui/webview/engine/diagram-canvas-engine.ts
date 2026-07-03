@@ -27,6 +27,7 @@ export interface DiagramCanvasEngine {
 	restoreBounds(bounds: readonly BoundsUpdate[]): void;
 	updateElementContent(update: CanvasElementContentUpdate): void;
 	edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined;
+	resetEdgeLabel(edgeId: string): void;
 	onSelectionChanged(listener: CanvasSelectionListener): void;
 	onElementDoubleClicked(listener: CanvasDoubleClickListener): void;
 	onElementBoundsChanged(listener: CanvasBoundsChangeListener): void;

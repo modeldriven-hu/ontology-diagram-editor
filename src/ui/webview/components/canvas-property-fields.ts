@@ -54,7 +54,7 @@ export function imageField(label: string, value: string, commit: (value: string)
 	return editableField(label, wrapper);
 }
 
-export function actionButton(label: string, kind: 'danger', action: () => void): HTMLElement {
+export function actionButton(label: string, kind: 'secondary' | 'danger', action: () => void): HTMLElement {
 	const button = document.createElement('button');
 	button.className = `property-button property-button-${kind}`;
 	button.type = 'button';

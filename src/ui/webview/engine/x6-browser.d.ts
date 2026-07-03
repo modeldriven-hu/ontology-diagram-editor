@@ -36,11 +36,13 @@ export interface X6Node extends X6Cell {
 	position(x: number, y: number): void;
 	size(): { readonly width: number; readonly height: number };
 	resize(width: number, height: number): void;
+	attr(path: string): unknown;
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;
 }
 
 export interface X6Edge extends X6Cell {
+	attr(path: string): unknown;
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;
 	getLabels(): readonly X6EdgeLabel[];
@@ -51,6 +53,7 @@ export interface X6Edge extends X6Cell {
 	getVertices(): unknown[];
 	getPolyline(): { readonly points: readonly { readonly x: number; readonly y: number }[] };
 	removeTools(): void;
+	setLabelAt(index: number, label: X6EdgeLabel): X6Edge;
 	setTools(tools?: unknown): X6Edge;
 }
 

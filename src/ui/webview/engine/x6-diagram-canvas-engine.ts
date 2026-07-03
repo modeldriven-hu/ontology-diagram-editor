@@ -21,11 +21,12 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private suppressEdgeRouteEvents = false;
 	private suppressBlankSelectionClear = false;
 	private edgeRoutePublishTimer: number | undefined;
+	private labelDragHighlight: { readonly edgeId: string; readonly lineAttrs: unknown } | undefined;
 
 	public constructor(
 		container: HTMLElement,
 		private readonly elementRegistry: CanvasElementRegistry,
-		theme: WebviewTheme,
+		private readonly theme: WebviewTheme,
 	) {
 		const x6 = window.X6;
 		if (x6 === undefined) {
@@ -175,6 +176,27 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		};
 	}
 
+	public resetEdgeLabel(edgeId: string): void {
+		const cell = this.graph.getCellById(edgeId);
+		if (!isX6Edge(cell)) {
+			return;
+		}
+
+		const view = edgeView(this.graph, cell);
+		const points = normalizedRoutePoints(cell, view);
+		if (points.length < 2) {
+			return;
+		}
+
+		const label = resetLabelPoint(points);
+		const existingLabel = cell.getLabels()[0] ?? {};
+		cell.setLabelAt(0, {
+			...existingLabel,
+			position: labelPosition(label, points[0]),
+		});
+		this.clearLabelDragHighlight(cell.id);
+	}
+
 	public onSelectionChanged(listener: CanvasSelectionListener): void {
 		this.selectionListeners.add(listener);
 	}
@@ -234,11 +256,15 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.markEdgeRouteChanged(eventEdge(event));
 		});
 		this.graph.on('edge:change:labels', (event) => {
-			this.markEdgeRouteChanged(eventEdge(event));
+			const edge = eventEdge(event);
+			this.highlightLabelDragEdge(edge);
+			this.markEdgeRouteChanged(edge);
 		});
 		this.graph.on('edge:mouseup', (event) => {
-			this.markEdgeRouteChanged(eventEdge(event));
+			const edge = eventEdge(event);
+			this.markEdgeRouteChanged(edge);
 			this.flushEdgeRouteChanges();
+			this.clearLabelDragHighlight(edge?.id);
 		});
 		this.graph.on('blank:click', () => {
 			console.log('[ontology-diagram-editor] x6 blank:click');
@@ -374,6 +400,34 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.edgeRoutePublishTimer = undefined;
 		}
 		this.pendingEdgeRouteChanges.clear();
+	}
+
+	private highlightLabelDragEdge(edge: X6Edge | undefined): void {
+		if (this.suppressEdgeRouteEvents || edge === undefined || this.labelDragHighlight?.edgeId === edge.id) {
+			return;
+		}
+
+		this.clearLabelDragHighlight();
+		this.labelDragHighlight = {
+			edgeId: edge.id,
+			lineAttrs: cloneJsonCompatible(edge.attr('line')),
+		};
+		edge.attr('line/stroke', this.theme.focusBorder);
+		edge.attr('line/strokeWidth', Math.max(numberValue(edge.attr('line/strokeWidth')), this.theme.edgeWeight + 1));
+		edge.attr('line/targetMarker/stroke', this.theme.focusBorder);
+	}
+
+	private clearLabelDragHighlight(edgeId?: string): void {
+		if (this.labelDragHighlight === undefined || edgeId !== undefined && this.labelDragHighlight.edgeId !== edgeId) {
+			return;
+		}
+
+		const highlighted = this.labelDragHighlight;
+		this.labelDragHighlight = undefined;
+		const cell = this.graph.getCellById(highlighted.edgeId);
+		if (isX6Edge(cell)) {
+			cell.attr('line', highlighted.lineAttrs);
+		}
 	}
 }
 
@@ -587,7 +641,7 @@ function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, t
 	};
 }
 
-function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): Record<string, unknown> {
+function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): X6LabelPosition {
 	return {
 		distance: 0,
 		offset: {
@@ -599,6 +653,54 @@ function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): Record<str
 			absoluteOffset: true,
 		},
 	};
+}
+
+function resetLabelPoint(points: readonly CanvasPoint[]): CanvasPoint {
+	const totalLength = routeLength(points);
+	if (totalLength === 0) {
+		return points[0];
+	}
+
+	const targetLength = totalLength / 2;
+	let traversedLength = 0;
+	for (let index = 1; index < points.length; index += 1) {
+		const start = points[index - 1];
+		const end = points[index];
+		const segmentLength = distance(start, end);
+		if (segmentLength === 0) {
+			continue;
+		}
+		if (traversedLength + segmentLength >= targetLength) {
+			const ratio = (targetLength - traversedLength) / segmentLength;
+			return offsetLabelPoint({
+				x: start.x + (end.x - start.x) * ratio,
+				y: start.y + (end.y - start.y) * ratio,
+			}, start, end);
+		}
+		traversedLength += segmentLength;
+	}
+
+	return offsetLabelPoint(points[points.length - 1], points[points.length - 2], points[points.length - 1]);
+}
+
+function routeLength(points: readonly CanvasPoint[]): number {
+	return points.reduce((length, point, index) => {
+		const previous = points[index - 1];
+		return previous === undefined ? length : length + distance(previous, point);
+	}, 0);
+}
+
+function distance(start: CanvasPoint, end: CanvasPoint): number {
+	return Math.hypot(end.x - start.x, end.y - start.y);
+}
+
+function offsetLabelPoint(point: CanvasPoint, segmentStart: CanvasPoint, segmentEnd: CanvasPoint): CanvasPoint {
+	const offset = 16;
+	const dx = segmentEnd.x - segmentStart.x;
+	const dy = segmentEnd.y - segmentStart.y;
+	return canvasPoint(Math.abs(dx) >= Math.abs(dy)
+		? { x: point.x, y: point.y - offset }
+		: { x: point.x + offset, y: point.y });
 }
 
 function edgeEditTools(): Record<string, unknown> {
@@ -966,6 +1068,14 @@ function isX6Edge(value: unknown): value is X6Edge {
 
 function objectKeys(value: unknown): readonly string[] {
 	return typeof value === 'object' && value !== null ? Object.keys(value) : [];
+}
+
+function cloneJsonCompatible(value: unknown): unknown {
+	return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function numberValue(value: unknown): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 function edgeView(graph: X6Graph, edge: X6Edge): X6EdgeView | undefined {
