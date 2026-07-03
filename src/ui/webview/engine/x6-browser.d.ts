@@ -17,6 +17,7 @@ export interface X6Graph {
 	addNode(metadata: Record<string, unknown>): X6Node;
 	addEdge(metadata: Record<string, unknown>): X6Edge;
 	clearCells(): void;
+	findViewByCell?(cell: X6Cell | string): unknown;
 	getCellById(id: string): X6Cell | undefined;
 	createTransformWidget?: (node: X6Node) => void;
 	clearTransformWidgets?: () => void;
@@ -42,10 +43,27 @@ export interface X6Node extends X6Cell {
 export interface X6Edge extends X6Cell {
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;
+	getSource(): X6Terminal;
 	getSourcePoint(): { readonly x: number; readonly y: number };
+	getTarget(): X6Terminal;
 	getTargetPoint(): { readonly x: number; readonly y: number };
 	getVertices(): unknown[];
 	getPolyline(): { readonly points: readonly { readonly x: number; readonly y: number }[] };
 	removeTools(): void;
 	setTools(tools?: unknown): X6Edge;
+}
+
+export interface X6Terminal {
+	readonly cell?: string | X6Cell;
+	readonly x?: number;
+	readonly y?: number;
+	readonly anchor?: {
+		readonly name?: string;
+		readonly args?: Record<string, unknown>;
+	};
+}
+
+export interface X6EdgeView {
+	readonly routePoints?: readonly { readonly x: number; readonly y: number }[];
+	getTerminalConnectionPoint(type: 'source' | 'target'): { readonly x: number; readonly y: number };
 }

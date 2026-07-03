@@ -4,7 +4,7 @@ import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
-import type { X6Edge, X6Graph, X6Node } from './x6-browser';
+import type { X6Edge, X6EdgeView, X6Graph, X6Node } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
 type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
@@ -162,7 +162,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return undefined;
 		}
 
-		const points = normalizedRoutePoints(cell);
+		const points = normalizedRoutePoints(cell, edgeView(this.graph, cell));
 		if (points.length < 2) {
 			return undefined;
 		}
@@ -829,17 +829,20 @@ function borderAttrs(
 	};
 }
 
-function normalizedRoutePoints(edge: X6Edge): readonly CanvasPoint[] {
-	const polylinePoints = edge.getPolyline().points.map(canvasPoint);
-	const routePoints = polylinePoints.length >= 2
-		? polylinePoints
-		: [
-			canvasPoint(edge.getSourcePoint()),
-			...edge.getVertices().flatMap((point) => isPointLike(point) ? [canvasPoint(point)] : []),
-			canvasPoint(edge.getTargetPoint()),
-		];
+function normalizedRoutePoints(edge: X6Edge, view: X6EdgeView | undefined): readonly CanvasPoint[] {
+	if (view !== undefined) {
+		return withoutRedundantPoints([
+			canvasPoint(view.getTerminalConnectionPoint('source')),
+			...(view.routePoints ?? []).map(canvasPoint),
+			canvasPoint(view.getTerminalConnectionPoint('target')),
+		]);
+	}
 
-	return withoutRedundantPoints(routePoints);
+	return withoutRedundantPoints([
+		canvasPoint(edge.getSourcePoint()),
+		...edge.getVertices().flatMap((point) => isPointLike(point) ? [canvasPoint(point)] : []),
+		canvasPoint(edge.getTargetPoint()),
+	]);
 }
 
 function canvasPoint(point: { readonly x: number; readonly y: number }): CanvasPoint {
@@ -923,6 +926,17 @@ function isX6Edge(value: unknown): value is X6Edge {
 
 function objectKeys(value: unknown): readonly string[] {
 	return typeof value === 'object' && value !== null ? Object.keys(value) : [];
+}
+
+function edgeView(graph: X6Graph, edge: X6Edge): X6EdgeView | undefined {
+	const view = graph.findViewByCell?.(edge);
+	return isX6EdgeView(view) ? view : undefined;
+}
+
+function isX6EdgeView(value: unknown): value is X6EdgeView {
+	return typeof value === 'object'
+		&& value !== null
+		&& typeof (value as { getTerminalConnectionPoint?: unknown }).getTerminalConnectionPoint === 'function';
 }
 
 function createTransformWidget(graph: X6Graph, node: X6Node): void {
