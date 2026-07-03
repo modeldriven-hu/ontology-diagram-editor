@@ -1,5 +1,6 @@
 import type { BoundsUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementType } from '../../../shared/canvas-editor-events';
+import type { ElementStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { CanvasElementContentUpdate } from '../engine/diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 
@@ -127,6 +128,37 @@ export class CanvasElementRegistry {
 		const node = this.nodes.get(update.id);
 		if (node !== undefined) {
 			this.nodes.set(update.id, { ...node, image: update.image });
+		}
+	}
+
+	public updateStyle(elementType: StyledCanvasElementType, id: string, style: ElementStylePatch | undefined): void {
+		if (elementType === 'node') {
+			const node = this.nodes.get(id);
+			if (node !== undefined) {
+				this.nodes.set(id, { ...node, style });
+			}
+			return;
+		}
+
+		if (elementType === 'edge') {
+			const edge = this.edges.get(id);
+			if (edge !== undefined) {
+				this.edges.set(id, { ...edge, style });
+			}
+			return;
+		}
+
+		if (elementType === 'note') {
+			const note = this.notes.get(id);
+			if (note !== undefined) {
+				this.notes.set(id, { ...note, style });
+			}
+			return;
+		}
+
+		const label = this.labels.get(id);
+		if (label !== undefined) {
+			this.labels.set(id, { ...label, style });
 		}
 	}
 }

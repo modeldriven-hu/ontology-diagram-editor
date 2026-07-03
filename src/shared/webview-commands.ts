@@ -8,6 +8,43 @@ export interface ModelTreeItemDropPayload {
 	readonly ontologyItemMetadata?: unknown;
 }
 
+export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'label';
+
+export interface FontStylePatch {
+	readonly family?: string;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+	readonly size?: number;
+}
+
+export interface BorderStylePatch {
+	readonly type?: 'solid' | 'dashed' | 'dotted' | 'none';
+	readonly weight?: number;
+	readonly color?: string;
+}
+
+export interface CommonStylePatch {
+	readonly bg_color?: string;
+	readonly text_color?: string;
+	readonly font?: FontStylePatch;
+	readonly border?: BorderStylePatch;
+}
+
+export interface EdgeStylePatch {
+	readonly color?: string;
+	readonly line_style?: 'solid' | 'dashed' | 'dotted' | 'none';
+	readonly weight?: number;
+	readonly text_color?: string;
+	readonly font?: FontStylePatch;
+}
+
+export interface LabelStylePatch {
+	readonly text_color?: string;
+	readonly font?: FontStylePatch;
+}
+
+export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePatch;
+
 export type WebviewCommand =
 	| CreateNodeCommand
 	| CreateNoteCommand
@@ -29,7 +66,8 @@ export type WebviewCommand =
 	| PickNodeImageCommand
 	| PickImageSourceCommand
 	| UpdateLabelTextCommand
-	| UpdateNoteTextCommand;
+	| UpdateNoteTextCommand
+	| UpdateElementStyleCommand;
 
 export class CreateNodeCommand {
 	public readonly type = 'createNode';
@@ -245,5 +283,18 @@ export class UpdateLabelTextCommand {
 	public constructor(id: string, text: string) {
 		this.id = id;
 		this.text = text;
+	}
+}
+
+export class UpdateElementStyleCommand {
+	public readonly type = 'updateElementStyle';
+	public readonly elementType: StyledCanvasElementType;
+	public readonly id: string;
+	public readonly style?: ElementStylePatch;
+
+	public constructor(elementType: StyledCanvasElementType, id: string, style?: ElementStylePatch) {
+		this.elementType = elementType;
+		this.id = id;
+		this.style = style;
 	}
 }

@@ -15,6 +15,7 @@ import {
 	DeleteNoteUseCase,
 	SaveDiagramExportUseCase,
 	UpdateEdgeRouteUseCase,
+	UpdateElementStyleUseCase,
 	UpdateImageBoundsUseCase,
 	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
@@ -41,6 +42,7 @@ interface DiagramEditorUseCases {
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
+	readonly updateElementStyle: UpdateElementStyleUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
@@ -165,6 +167,14 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.id,
 					command.text,
+				));
+				return;
+			case 'updateElementStyle':
+				await this.handleResult(this.useCases.updateElementStyle.execute(
+					this.repository.load(),
+					command.elementType,
+					command.id,
+					command.style,
 				));
 				return;
 		}
@@ -352,6 +362,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
+		updateElementStyle: new UpdateElementStyleUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),

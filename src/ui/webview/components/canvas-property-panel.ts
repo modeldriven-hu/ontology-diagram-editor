@@ -1,10 +1,11 @@
 import type { BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
+import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
-import { actionButton, imageField, numberField, readonlyField, sectionElement, textAreaField } from './canvas-property-fields';
+import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField } from './canvas-property-fields';
 import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 
@@ -237,6 +238,7 @@ export class CanvasPropertyPanel {
 				this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
 			}),
 		]));
+		this.options.body.appendChild(this.commonStyleSection('node', node.id, node.style));
 	}
 
 	private renderEdge(edge: DiagramEdge): void {
@@ -248,6 +250,7 @@ export class CanvasPropertyPanel {
 			readonlyField('Source', edge.source),
 			readonlyField('Target', edge.target),
 		]));
+		this.options.body.appendChild(this.edgeStyleSection(edge.id, edge.style));
 		this.options.body.appendChild(sectionElement('Actions', [
 			actionButton('Reset Label Position', 'secondary', () => {
 				this.options.resetEdgeLabel(edge.id);
@@ -270,6 +273,7 @@ export class CanvasPropertyPanel {
 			this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
 			this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand([update]));
 		})));
+		this.options.body.appendChild(this.commonStyleSection('note', note.id, note.style));
 	}
 
 	private renderLabel(label: DiagramLabel): void {
@@ -284,6 +288,7 @@ export class CanvasPropertyPanel {
 			this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
 			this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand([update]));
 		})));
+		this.options.body.appendChild(this.labelStyleSection(label.id, label.style));
 	}
 
 	private renderImage(image: DiagramImage): void {
@@ -337,6 +342,138 @@ export class CanvasPropertyPanel {
 		];
 	}
 
+	private commonStyleSection(elementType: 'node' | 'note', id: string, style: DiagramElementStyle | undefined): HTMLElement {
+		const commit = (nextStyle: CommonStylePatch | undefined): void => {
+			this.updateElementStyle(elementType, id, nextStyle);
+		};
+		const patch = (): CommonStylePatch => cloneCommonStyle(style);
+
+		return sectionElement('Style', [
+			colorField('Fill Color', style?.bg_color ?? '', (value) => {
+				commit(cleanCommonStyle({ ...patch(), bg_color: blankToUndefined(value) }));
+			}),
+			colorField('Text Color', style?.text_color ?? '', (value) => {
+				commit(cleanCommonStyle({ ...patch(), text_color: blankToUndefined(value) }));
+			}),
+			this.fontField(style?.font?.family, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
+			}),
+			optionalNumberComboField('Font Size', style?.font?.size, standardFontSizes, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, font: { ...next.font, size: value } }));
+			}),
+			checkboxField('Bold', style?.font?.bold ?? false, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, font: { ...next.font, bold: value } }));
+			}),
+			checkboxField('Italic', style?.font?.italic ?? false, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, font: { ...next.font, italic: value } }));
+			}),
+			selectField('Border', style?.border?.type ?? '', borderTypeOptions, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, type: value } }));
+			}),
+			optionalNumberField('Border Weight', style?.border?.weight, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, weight: value } }));
+			}),
+			colorField('Border Color', style?.border?.color ?? '', (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, color: blankToUndefined(value) } }));
+			}),
+			actionButton('Clear Style', 'secondary', () => {
+				commit(undefined);
+			}),
+		]);
+	}
+
+	private edgeStyleSection(id: string, style: DiagramEdgeStyle | undefined): HTMLElement {
+		const commit = (nextStyle: EdgeStylePatch | undefined): void => {
+			this.updateElementStyle('edge', id, nextStyle);
+		};
+		const patch = (): EdgeStylePatch => cloneEdgeStyle(style);
+
+		return sectionElement('Style', [
+			colorField('Line Color', style?.color ?? '', (value) => {
+				commit(cleanEdgeStyle({ ...patch(), color: blankToUndefined(value) }));
+			}),
+			selectField('Line Style', style?.line_style ?? '', lineStyleOptions, (value) => {
+				commit(cleanEdgeStyle({ ...patch(), line_style: value }));
+			}),
+			optionalNumberField('Line Weight', style?.weight, (value) => {
+				commit(cleanEdgeStyle({ ...patch(), weight: value }));
+			}),
+			colorField('Label Text Color', style?.text_color ?? '', (value) => {
+				commit(cleanEdgeStyle({ ...patch(), text_color: blankToUndefined(value) }));
+			}),
+			this.fontField(style?.font?.family, (value) => {
+				const next = patch();
+				commit(cleanEdgeStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
+			}),
+			optionalNumberComboField('Font Size', style?.font?.size, standardFontSizes, (value) => {
+				const next = patch();
+				commit(cleanEdgeStyle({ ...next, font: { ...next.font, size: value } }));
+			}),
+			checkboxField('Bold', style?.font?.bold ?? false, (value) => {
+				const next = patch();
+				commit(cleanEdgeStyle({ ...next, font: { ...next.font, bold: value } }));
+			}),
+			checkboxField('Italic', style?.font?.italic ?? false, (value) => {
+				const next = patch();
+				commit(cleanEdgeStyle({ ...next, font: { ...next.font, italic: value } }));
+			}),
+			actionButton('Clear Style', 'secondary', () => {
+				commit(undefined);
+			}),
+		]);
+	}
+
+	private labelStyleSection(id: string, style: DiagramLabelStyle | undefined): HTMLElement {
+		const commit = (nextStyle: LabelStylePatch | undefined): void => {
+			this.updateElementStyle('label', id, nextStyle);
+		};
+		const patch = (): LabelStylePatch => cloneLabelStyle(style);
+
+		return sectionElement('Style', [
+			colorField('Text Color', style?.text_color ?? '', (value) => {
+				commit(cleanLabelStyle({ ...patch(), text_color: blankToUndefined(value) }));
+			}),
+			this.fontField(style?.font?.family, (value) => {
+				const next = patch();
+				commit(cleanLabelStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
+			}),
+			optionalNumberComboField('Font Size', style?.font?.size, standardFontSizes, (value) => {
+				const next = patch();
+				commit(cleanLabelStyle({ ...next, font: { ...next.font, size: value } }));
+			}),
+			checkboxField('Bold', style?.font?.bold ?? false, (value) => {
+				const next = patch();
+				commit(cleanLabelStyle({ ...next, font: { ...next.font, bold: value } }));
+			}),
+			checkboxField('Italic', style?.font?.italic ?? false, (value) => {
+				const next = patch();
+				commit(cleanLabelStyle({ ...next, font: { ...next.font, italic: value } }));
+			}),
+			actionButton('Clear Style', 'secondary', () => {
+				commit(undefined);
+			}),
+		]);
+	}
+
+	private updateElementStyle(elementType: StyledCanvasElementType, id: string, style: ElementStylePatch | undefined): void {
+		this.options.registry.updateStyle(elementType, id, style);
+		this.propertyEdited(elementType, id, ['style']);
+		this.options.messageBus.publishCommand(new UpdateElementStyleCommand(elementType, id, style));
+	}
+
+	private fontField(value: string | undefined, commit: (value: string) => void): HTMLElement {
+		return selectField('Font', value ?? '', fontFamilyOptions(value), (selectedValue) => {
+			commit(selectedValue ?? '');
+		});
+	}
+
 	private propertyEdited(elementType: CanvasElementType, elementIdentifier: string, changedFields: readonly string[]): void {
 		this.options.messageBus.publishEvent(new CanvasPropertyEditedEvent({
 			diagramFilePath: this.options.payload.file?.fsPath,
@@ -354,4 +491,173 @@ export class CanvasPropertyPanel {
 
 function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+const borderTypeOptions = [
+	{ value: '', label: 'Default' },
+	{ value: 'solid', label: 'Solid' },
+	{ value: 'dashed', label: 'Dashed' },
+	{ value: 'dotted', label: 'Dotted' },
+	{ value: 'none', label: 'None' },
+] as const;
+
+const lineStyleOptions = [
+	{ value: '', label: 'Default' },
+	{ value: 'solid', label: 'Solid' },
+	{ value: 'dashed', label: 'Dashed' },
+	{ value: 'dotted', label: 'Dotted' },
+	{ value: 'none', label: 'None' },
+] as const;
+
+const defaultFontFamilyOptions = [
+	{ value: '', label: 'Default' },
+	{ value: 'system-ui', label: 'System UI' },
+	{ value: 'sans-serif', label: 'Sans Serif' },
+	{ value: 'serif', label: 'Serif' },
+	{ value: 'monospace', label: 'Monospace' },
+	{ value: 'Arial', label: 'Arial' },
+	{ value: 'Helvetica Neue', label: 'Helvetica Neue' },
+	{ value: 'Verdana', label: 'Verdana' },
+	{ value: 'Tahoma', label: 'Tahoma' },
+	{ value: 'Trebuchet MS', label: 'Trebuchet MS' },
+	{ value: 'Georgia', label: 'Georgia' },
+	{ value: 'Times New Roman', label: 'Times New Roman' },
+	{ value: 'Menlo', label: 'Menlo' },
+	{ value: 'Monaco', label: 'Monaco' },
+	{ value: 'Consolas', label: 'Consolas' },
+	{ value: 'Courier New', label: 'Courier New' },
+] as const;
+
+const standardFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64] as const;
+
+function fontFamilyOptions(currentValue: string | undefined): readonly { readonly value: string; readonly label: string }[] {
+	const current = currentValue?.trim();
+	if (current === undefined || current.length === 0 || defaultFontFamilyOptions.some((option) => option.value === current)) {
+		return defaultFontFamilyOptions;
+	}
+
+	return [
+		{ value: current, label: current },
+		...defaultFontFamilyOptions,
+	];
+}
+
+function cloneCommonStyle(style: DiagramElementStyle | undefined): CommonStylePatch {
+	return {
+		bg_color: style?.bg_color,
+		text_color: style?.text_color,
+		font: cloneFontStyle(style?.font),
+		border: style?.border === undefined
+			? undefined
+			: {
+				type: style.border.type,
+				weight: style.border.weight,
+				color: style.border.color,
+			},
+	};
+}
+
+function cloneEdgeStyle(style: DiagramEdgeStyle | undefined): EdgeStylePatch {
+	return {
+		color: style?.color,
+		line_style: style?.line_style,
+		weight: style?.weight,
+		text_color: style?.text_color,
+		font: cloneFontStyle(style?.font),
+	};
+}
+
+function cloneLabelStyle(style: DiagramLabelStyle | undefined): LabelStylePatch {
+	return {
+		text_color: style?.text_color,
+		font: cloneFontStyle(style?.font),
+	};
+}
+
+function cloneFontStyle(style: DiagramElementStyle['font'] | undefined): NonNullable<CommonStylePatch['font']> | undefined {
+	if (style === undefined) {
+		return undefined;
+	}
+
+	return {
+		family: style.family,
+		bold: style.bold,
+		italic: style.italic,
+		size: style.size,
+	};
+}
+
+function cleanCommonStyle(style: CommonStylePatch): CommonStylePatch | undefined {
+	const font = cleanFontStyle(style.font);
+	const border = cleanBorderStyle(style.border);
+	const cleaned = {
+		bg_color: style.bg_color,
+		text_color: style.text_color,
+		font,
+		border,
+	};
+
+	return hasAnyValue(cleaned) ? cleaned : undefined;
+}
+
+function cleanEdgeStyle(style: EdgeStylePatch): EdgeStylePatch | undefined {
+	const font = cleanFontStyle(style.font);
+	const cleaned = {
+		color: style.color,
+		line_style: style.line_style,
+		weight: style.weight,
+		text_color: style.text_color,
+		font,
+	};
+
+	return hasAnyValue(cleaned) ? cleaned : undefined;
+}
+
+function cleanLabelStyle(style: LabelStylePatch): LabelStylePatch | undefined {
+	const font = cleanFontStyle(style.font);
+	const cleaned = {
+		text_color: style.text_color,
+		font,
+	};
+
+	return hasAnyValue(cleaned) ? cleaned : undefined;
+}
+
+function cleanFontStyle(style: CommonStylePatch['font'] | undefined): CommonStylePatch['font'] | undefined {
+	if (style === undefined) {
+		return undefined;
+	}
+
+	const cleaned = {
+		family: style.family,
+		bold: style.bold,
+		italic: style.italic,
+		size: style.size,
+	};
+
+	return hasAnyValue(cleaned) ? cleaned : undefined;
+}
+
+function cleanBorderStyle(style: BorderStylePatch | undefined): BorderStylePatch | undefined {
+	if (style === undefined) {
+		return undefined;
+	}
+
+	const cleaned = {
+		type: style.type,
+		weight: style.weight,
+		color: style.color,
+	};
+
+	return hasAnyValue(cleaned) ? cleaned : undefined;
+}
+
+function blankToUndefined(value: string): string | undefined {
+	const trimmed = value.trim();
+
+	return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function hasAnyValue(value: Record<string, unknown>): boolean {
+	return Object.values(value).some((entry) => entry !== undefined);
 }

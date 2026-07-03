@@ -8,10 +8,12 @@ import {
 	DiagramMetadata,
 	DiagramNode,
 	DiagramNote,
+	FontStyle,
+	LabelStyle,
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../diagram-editor/use-cases';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -592,6 +594,102 @@ suite('Diagram editor use cases', () => {
 
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.labels.map((label) => label.id.value), ['label_second']);
+	});
+
+	test('updates node style overrides', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 100, 50)),
+		]);
+
+		const result = new UpdateElementStyleUseCase().execute(diagram, 'node', 'node_person', {
+			bg_color: '#FFFFFF',
+			text_color: 'black',
+			font: {
+				family: 'Arial',
+				bold: true,
+				size: 14,
+			},
+			border: {
+				type: 'dashed',
+				weight: 2,
+				color: '#336699',
+			},
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes[0].style?.toPersistenceObject(), {
+			bg_color: '#FFFFFF',
+			text_color: 'black',
+			font: {
+				family: 'Arial',
+				bold: true,
+				size: 14,
+			},
+			border: {
+				type: 'dashed',
+				weight: 2,
+				color: '#336699',
+			},
+		});
+	});
+
+	test('updates edge style overrides', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+			],
+		);
+
+		const result = new UpdateElementStyleUseCase().execute(diagram, 'edge', 'edge_relates', {
+			color: '#111111',
+			line_style: 'dotted',
+			weight: 3,
+			text_color: '#222222',
+			font: {
+				italic: true,
+			},
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].style?.toPersistenceObject(), {
+			color: '#111111',
+			line_style: 'dotted',
+			weight: 3,
+			text_color: '#222222',
+			font: {
+				italic: true,
+			},
+		});
+	});
+
+	test('clears element style overrides', () => {
+		const diagram = diagramWithLabels([
+			new DiagramLabel(
+				'label_title',
+				new Bounds(10, 20, 100, 40),
+				'Title',
+				new LabelStyle('#111827', new FontStyle(undefined, true)),
+			),
+		]);
+
+		const result = new UpdateElementStyleUseCase().execute(diagram, 'label', 'label_title', undefined);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.labels[0].style, undefined);
 	});
 
 	test('saves UTF-8 diagram exports through the export save port', async () => {

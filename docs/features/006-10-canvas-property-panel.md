@@ -1,24 +1,24 @@
 # Canvas Property Panel
 
-This specification defines the bottom property panel used to inspect and edit the
-selected canvas element.
+This specification defines the property panel used to inspect and edit the selected
+canvas element.
 
 # Scope
 
 This specification covers property panel visibility, selection behavior, supported
-fields, validation, and persistence. It does not define theme file editing, ontology
-source editing, or floating toolbar behavior.
+fields, element-level style overrides, validation, and persistence. It does not define
+theme file editing, ontology source editing, or canvas toolbar behavior.
 
-# Bottom Property Panel
+# Property Panel
 
-The canvas shall provide a property panel docked to the bottom of the canvas view.
+The canvas shall provide a property panel docked to the side of the canvas view.
 
-The panel shall be collapsible. When expanded, it shall use a stable bottom-docked
-layout and shall not cover the selected element without allowing the user to pan or
-scroll the canvas to keep working.
+The panel shall be collapsible. When expanded, it shall use a stable docked layout and
+shall not cover the selected element without allowing the user to pan or scroll the
+canvas to keep working.
 
-The user shall be able to resize the panel height within minimum and maximum limits set
-by the implementation. The panel collapsed or expanded state and height are
+The user shall be able to resize the panel width within minimum and maximum limits set
+by the implementation. The panel collapsed or expanded state and width are
 editor-only state and shall not be persisted to the `.odiagram` file.
 
 # Selection Behavior
@@ -50,7 +50,7 @@ The panel shall display these read-only fields in version 1:
 | Label | `id`. |
 | Image | `id`. |
 
-The panel shall expose only these editable fields in version 1:
+The panel shall expose these non-style editable fields in version 1:
 
 | Element type | Editable fields |
 |--------------|-----------------|
@@ -79,23 +79,34 @@ version 1. Those values are structural and shall be edited through canvas gestur
 model tree actions. Note connection fields are not part of the version 1 `.odiagram`
 file format.
 
-The panel shall group fields into sections for identity, ontology, geometry, text, and
-image. Section grouping is presentation behavior and shall not affect persistence.
+The panel shall also expose element-level style override fields for styled elements:
 
-# Relationship To The Floating Toolbar
+| Element type | Editable style fields |
+|--------------|-----------------------|
+| Node | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
+| Edge | Line color, line style, line weight, label text color, font family, font size, bold, italic. |
+| Note | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
+| Label | Text color, font family, font size, bold, italic. |
+| Image | None. |
 
-The floating toolbar is the version 1 surface for element-level style
-customization. The property panel provides precise inspection and editing for
-non-style persisted fields.
+Style edits shall update only the selected element's `style` map in the `.odiagram`
+file. The property panel shall not modify the active `.otheme` file.
 
-The property panel shall not expose style override editing in version 1.
+The property panel shall provide a way to clear all style overrides for the selected
+element. If a style field is cleared, the renderer shall fall back to the active theme or
+internal defaults for that field.
+
+The panel shall group fields into sections for identity, ontology, geometry, text,
+image, and style. Section grouping is presentation behavior and shall not affect
+persistence.
 
 # Validation
 
 The property panel shall validate edits before writing them to the `.odiagram` document.
 
 The panel shall reject edits that would create an invalid diagram state. Examples
-include non-positive dimensions, invalid image sources, and text values that exceed
+include non-positive dimensions, invalid image sources, unsupported style enum values,
+negative line or border weights, non-positive font sizes, and text values that exceed
 configured text length limits.
 
 When an edit is rejected, the panel shall leave the persisted document unchanged and

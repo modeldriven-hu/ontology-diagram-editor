@@ -592,6 +592,14 @@ function webviewStyles(): string {
 		outline: none;
 	}
 
+	.property-checkbox {
+		justify-self: start;
+		width: 16px;
+		height: 16px;
+		margin: 0;
+		accent-color: var(--vscode-focusBorder);
+	}
+
 	.property-textarea {
 		min-height: 58px;
 		resize: vertical;
@@ -606,6 +614,32 @@ function webviewStyles(): string {
 
 	.property-inline .property-input {
 		flex: 1 1 auto;
+	}
+
+	.property-combo-field {
+		display: block;
+		min-width: 0;
+		width: 100%;
+	}
+
+	.property-color-field {
+		align-items: stretch;
+	}
+
+	.property-color-input {
+		flex: 0 0 auto;
+		width: 32px;
+		height: 28px;
+		padding: 2px;
+		border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+		border-radius: 4px;
+		background: var(--vscode-input-background);
+		cursor: pointer;
+	}
+
+	.property-color-input:focus {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
 	}
 
 	.property-button {

@@ -1,54 +1,38 @@
-# Canvas Floating Toolbar
+# Canvas Toolbar
 
-This specification defines the floating toolbar used to customize selected canvas
-elements.
+This specification defines the canvas-level toolbar used for global diagram actions.
+Element inspection, geometry editing, image source editing, and element-level style
+customization are handled by the property panel.
 
 # Scope
 
-This specification covers toolbar visibility, supported controls, and persistence of
-element-level style overrides. It does not define theme file editing or bottom property
-panel behavior.
+This specification covers toolbar visibility, supported canvas actions, and viewport
+controls. It does not define selected-element property editing or theme file editing.
 
-# Customize Elements With the Floating Toolbar
+# Canvas Actions
 
-When an element is selected, the canvas shall show a floating toolbar near the selected
-element when there are customization actions available for that element.
+The canvas shall show a toolbar over the canvas viewport. The toolbar shall remain
+visible while the user pans, scrolls, or zooms the diagram.
 
-The toolbar shall expose style controls based on the style fields defined by the
-`.odiagram` and `.otheme` specifications.
+Version 1 toolbar actions are:
 
-Supported customization controls in version 1 are:
+| Action | Result |
+|--------|--------|
+| Add note | Opens the note text entry flow and creates a note. |
+| Add label | Opens the label text entry flow and creates a standalone label. |
+| Add image | Opens the image picker and creates a standalone image. |
+| Export SVG | Saves the diagram as an SVG export. |
+| Export PNG | Saves the diagram as a PNG export. |
+| Zoom out | Decreases canvas zoom without changing persisted coordinates. |
+| Zoom in | Increases canvas zoom without changing persisted coordinates. |
+| Fit diagram to view | Fits all rendered content in the visible viewport. |
+| Reset viewport | Resets zoom and pan to the implementation-defined default. |
 
-| Element type | Controls |
-|--------------|----------|
-| Node | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
-| Edge | Line color, line style, line weight, label text color, font family, font size, bold, italic. |
-| Note | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
-| Label | Text color, font family, font size, bold, italic. |
-| Image | None. |
+Toolbar buttons shall be disabled or shall show a concise user-visible problem when the
+action cannot be completed. For example, exporting an empty diagram shall not create an
+empty export file.
 
-Changing a toolbar control shall update the selected element's `style` map in the
-`.odiagram` file. Style changes shall be stored only as element-level overrides. The
-toolbar shall not modify the active `.otheme` file.
+# Style Editing
 
-The toolbar shall not expose node image, standalone image source, or image dimension
-editing. Node image and standalone image source fields are edited through the property
-panel. Standalone image dimensions are edited through canvas resize handles or the
-property panel.
-
-If a toolbar value matches the effective theme value, the implementation shall remove
-the corresponding element-level override to keep the `.odiagram` file minimal.
-
-# Validation
-
-The toolbar shall validate style edits before writing them to the `.odiagram` document.
-
-The toolbar shall reject edits that would create invalid style values, such as
-unparseable colors, unsupported line or border styles, non-positive font sizes, or
-negative line and border weights.
-
-When a style edit is rejected, the toolbar shall leave the persisted document unchanged
-and show the validation problem near the edited control or in a canvas-level notification
-area.
-
-The toolbar shall not appear while the user is editing text inside a note or label.
+Version 1 does not use a floating toolbar for element-level style customization.
+Element style overrides are edited in the selected element's property panel.
