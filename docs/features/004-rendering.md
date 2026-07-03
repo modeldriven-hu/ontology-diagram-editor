@@ -84,11 +84,18 @@ diagram content itself shall remain positioned according to the persisted coordi
 The effective style for each renderable element shall be resolved in this order:
 
 1. Renderer internal defaults.
-2. Active theme defaults for the element type.
-3. Element-level `style` values from the `.odiagram` file.
+2. Built-in defaults for the selected light or dark mode.
+3. Active theme base defaults for the element type.
+4. Active theme defaults for the selected light or dark mode.
+5. Element-level `style` values from the `.odiagram` file.
 
 Style maps shall be merged by field. Nested `font` and `border` maps shall be merged by
-their individual fields, as defined by the `.otheme` format specification.
+their individual fields, as defined by the `.otheme` format specification. Common style
+fields such as `corner_radius` and `shadow` shall inherit from the active theme unless
+an element-level style overrides them.
+
+The canvas background shall use the active theme's `canvas.bg_color` value for the
+selected light or dark mode when present.
 
 If no theme file is referenced, if the referenced theme file is missing, or if the theme
 cannot be parsed, the renderer shall use internal defaults and any element-level style

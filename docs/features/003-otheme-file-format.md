@@ -30,10 +30,13 @@ An `.otheme` file shall contain a top-level `theme` mapping:
 
 ```yaml
 theme:
+  canvas: <canvas_defaults>
   nodes: <node_defaults>
   edges: <edge_defaults>
   notes: <note_defaults>
   labels: <label_defaults>
+  light: <light_mode_defaults>
+  dark: <dark_mode_defaults>
 ```
 
 Readers should not require every element block to be present. Omitted blocks mean that
@@ -45,10 +48,13 @@ A theme definition may contain the following fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `canvas` | map | No | Default style for the canvas surface. |
 | `nodes` | map | No | Default style for diagram nodes. |
 | `edges` | map | No | Default style for diagram edges and edge labels. |
 | `notes` | map | No | Default style for free-form notes. |
 | `labels` | map | No | Default style for standalone labels. |
+| `light` | map | No | Light-mode defaults using the same fields as a theme definition except nested modes. |
+| `dark` | map | No | Dark-mode defaults using the same fields as a theme definition except nested modes. |
 
 The theme does not define default geometry, positions, ontology references, image
 sources, or element identifiers.
@@ -61,8 +67,10 @@ by the referenced image content and their persisted bounds.
 The effective style for an element is resolved in this order:
 
 1. Renderer internal defaults.
-2. Active theme defaults for the element type.
-3. Element-level `style` values from the `.odiagram` file.
+2. Built-in defaults for the selected light or dark mode.
+3. Active theme base defaults for the element type.
+4. Active theme defaults for the selected light or dark mode.
+5. Element-level `style` values from the `.odiagram` file.
 
 Style maps are merged by field. If a nested `font` or `border` map is present, its
 individual fields override only the matching fields from lower-precedence styles.
@@ -78,6 +86,17 @@ style:
 shall keep the active font family, size, and italic value, while overriding only
 `font.bold`.
 
+# Canvas Style Fields
+
+The `canvas` map may contain:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bg_color` | string | Canvas background color. |
+
+Mode-specific `light.canvas` and `dark.canvas` maps use the same fields and override
+the base `canvas` map only when that mode is active.
+
 # Common Style Fields
 
 Nodes and notes may use these common style fields:
@@ -88,6 +107,8 @@ Nodes and notes may use these common style fields:
 | `text_color` | string | Text color. |
 | `font` | map | Text font settings. |
 | `border` | map | Border settings. |
+| `corner_radius` | number | Rounded corner radius in diagram canvas units. |
+| `shadow` | boolean | Whether the element draws a drop shadow. |
 
 The `font` map may contain:
 
@@ -107,10 +128,11 @@ The `border` map may contain:
 | `color` | string | Border color. |
 
 If `border.type` is `none`, renderers shall not draw a border. `border.weight` and
-`border.color` may still be preserved for later edits.
+`border.color` may still be preserved for later edits. Numeric common style values such
+as border weight, font size, and corner radius shall be non-negative.
 
 Standalone labels are text-only in version 1. Label theme defaults may use `text_color`
-and `font`, but shall not use `bg_color` or `border`.
+and `font`, but shall not use `bg_color`, `border`, `corner_radius`, or `shadow`.
 
 # Edge Style Fields
 
@@ -174,24 +196,29 @@ shall not knowingly persist invalid `.otheme` content.
 
 ```yaml
 theme:
+  canvas:
+    bg_color: "#FFFFFF"
+
   nodes:
-    bg_color: "#E6F7FF"
-    text_color: "#102A43"
+    bg_color: "#FFFFCC"
+    text_color: "#000000"
     border:
       type: solid
-      weight: 1.5
-      color: "#1890FF"
+      weight: 1
+      color: "#333333"
+    corner_radius: 0
+    shadow: true
     font:
       family: "Arial"
-      bold: true
+      bold: false
       italic: false
       size: 12
 
   edges:
-    color: "#595959"
+    color: "#4A4A4A"
     line_style: solid
-    weight: 1.25
-    text_color: "#333333"
+    weight: 1
+    text_color: "#000000"
     font:
       family: "Arial"
       bold: false
@@ -199,12 +226,14 @@ theme:
       size: 10
 
   notes:
-    bg_color: "#FFFBE6"
-    text_color: "#3D2C00"
+    bg_color: "#CCFFCC"
+    text_color: "#000000"
     border:
-      type: dashed
+      type: solid
       weight: 1
-      color: "#FAAD14"
+      color: "#669966"
+    corner_radius: 0
+    shadow: true
     font:
       family: "Tahoma"
       bold: false
@@ -215,7 +244,19 @@ theme:
     text_color: "#000000"
     font:
       family: "Helvetica"
-      bold: true
+      bold: false
       italic: false
-      size: 9
+      size: 12
+
+  dark:
+    canvas:
+      bg_color: "#111827"
+    nodes:
+      bg_color: "#1F2937"
+      text_color: "#F9FAFB"
+      font:
+        family: "Arial"
+        bold: false
+        italic: false
+        size: 12
 ```

@@ -89,6 +89,8 @@ export interface DiagramElementStyle {
 		readonly weight?: number;
 		readonly color?: string;
 	};
+	readonly corner_radius?: number;
+	readonly shadow?: boolean;
 }
 
 export interface DiagramLabelStyle {

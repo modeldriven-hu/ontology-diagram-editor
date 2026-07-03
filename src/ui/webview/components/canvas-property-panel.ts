@@ -383,6 +383,12 @@ export class CanvasPropertyPanel {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, border: { ...next.border, color: blankToUndefined(value) } }));
 			}),
+			optionalNumberComboField('Corner Radius', style?.corner_radius, standardCornerRadii, (value) => {
+				commit(cleanCommonStyle({ ...patch(), corner_radius: value }));
+			}),
+			selectField('Drop Shadow', shadowValue(style?.shadow), shadowOptions, (value) => {
+				commit(cleanCommonStyle({ ...patch(), shadow: value === undefined ? undefined : value === 'true' }));
+			}),
 			actionButton('Clear Style', 'secondary', () => {
 				commit(undefined);
 			}),
@@ -529,6 +535,13 @@ const defaultFontFamilyOptions = [
 ] as const;
 
 const standardFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64] as const;
+const standardCornerRadii = [0, 2, 4, 6, 8, 12, 16, 24, 32] as const;
+
+const shadowOptions = [
+	{ value: '', label: 'Default' },
+	{ value: 'true', label: 'On' },
+	{ value: 'false', label: 'Off' },
+] as const;
 
 function fontFamilyOptions(currentValue: string | undefined): readonly { readonly value: string; readonly label: string }[] {
 	const current = currentValue?.trim();
@@ -554,6 +567,8 @@ function cloneCommonStyle(style: DiagramElementStyle | undefined): CommonStylePa
 				weight: style.border.weight,
 				color: style.border.color,
 			},
+		corner_radius: style?.corner_radius,
+		shadow: style?.shadow,
 	};
 }
 
@@ -595,6 +610,8 @@ function cleanCommonStyle(style: CommonStylePatch): CommonStylePatch | undefined
 		text_color: style.text_color,
 		font,
 		border,
+		corner_radius: style.corner_radius,
+		shadow: style.shadow,
 	};
 
 	return hasAnyValue(cleaned) ? cleaned : undefined;
@@ -656,6 +673,10 @@ function blankToUndefined(value: string): string | undefined {
 	const trimmed = value.trim();
 
 	return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function shadowValue(value: boolean | undefined): '' | 'true' | 'false' {
+	return value === undefined ? '' : String(value) as 'true' | 'false';
 }
 
 function hasAnyValue(value: Record<string, unknown>): boolean {

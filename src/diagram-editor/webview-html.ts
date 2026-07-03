@@ -64,6 +64,8 @@ function webviewBody(
 				<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
 				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
 				<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
 			</div>
 			<div class="canvas-scroll" id="canvasScroll" tabindex="0">
 				<form class="note-editor" id="noteEditor" hidden>
@@ -181,11 +183,11 @@ function webviewStyles(): string {
 		overflow: auto;
 		outline: none;
 		background:
-			linear-gradient(color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background)), color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background))),
-			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
-			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 7%, transparent) 1px, transparent 1px),
-			linear-gradient(color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px),
-			linear-gradient(90deg, color-mix(in srgb, var(--vscode-editor-foreground) 12%, transparent) 1px, transparent 1px);
+			linear-gradient(var(--diagram-canvas-background, var(--vscode-editor-background)), var(--diagram-canvas-background, var(--vscode-editor-background))),
+			linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
+			linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
+			linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px),
+			linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px);
 		background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
 	}
 
@@ -220,7 +222,8 @@ function webviewStyles(): string {
 	}
 
 	.canvas-action:hover,
-	.canvas-action:focus-visible {
+	.canvas-action:focus-visible,
+	.canvas-action[aria-pressed="true"] {
 		border-color: var(--vscode-focusBorder);
 		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
 		outline: none;

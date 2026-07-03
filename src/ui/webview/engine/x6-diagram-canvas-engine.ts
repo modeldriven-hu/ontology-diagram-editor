@@ -7,6 +7,7 @@ import type { WebviewTheme } from '../webview-theme';
 import type { X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
+type ElementStyle = NonNullable<DiagramNode['style']>;
 type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
 
 export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
@@ -26,7 +27,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	public constructor(
 		container: HTMLElement,
 		private readonly elementRegistry: CanvasElementRegistry,
-		private readonly theme: WebviewTheme,
+		private theme: WebviewTheme,
 	) {
 		const x6 = window.X6;
 		if (x6 === undefined) {
@@ -70,6 +71,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	}
 
 	public renderDiagram(payload: DiagramPayload, theme: WebviewTheme): void {
+		this.theme = theme;
+		installX6Styles(theme);
 		this.suppressEdgeRouteEvents = true;
 		try {
 			this.clearPendingEdgeRouteChanges();
@@ -447,11 +450,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 function installX6Styles(theme: WebviewTheme): void {
 	const styleId = 'ontology-diagram-editor-x6-styles';
-	if (document.getElementById(styleId) !== null) {
-		return;
-	}
-
-	const style = document.createElement('style');
+	const existingStyle = document.getElementById(styleId);
+	const style = existingStyle instanceof HTMLStyleElement ? existingStyle : document.createElement('style');
 	style.id = styleId;
 	style.textContent = [
 		'.x6-graph {',
@@ -544,11 +544,14 @@ function installX6Styles(theme: WebviewTheme): void {
 		`  background: ${theme.editorBackground} !important;`,
 		'}',
 	].join('\n');
-	document.head.appendChild(style);
+	if (existingStyle === null) {
+		document.head.appendChild(style);
+	}
 }
 
 function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, unknown> {
 	const hasImage = node.image !== undefined && node.image.trim() !== '';
+	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
 
 	return {
 		id: node.id,
@@ -565,11 +568,11 @@ function x6OntologyNode(node: DiagramNode, theme: WebviewTheme): Record<string, 
 			body: {
 				refWidth: '100%',
 				refHeight: '100%',
-				rx: 8,
-				ry: 8,
+				rx: radius,
+				ry: radius,
 				fill: node.style?.bg_color ?? theme.nodeBackground,
 				...borderAttrs(node.style?.border, theme.nodeBorder, 1),
-				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
+				filter: shadowFilter(node.style, theme.elementShadow, theme),
 			},
 			nodeImage: {
 				width: 28,
@@ -635,7 +638,7 @@ function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, t
 			position: labelPosition(edge.label, sourcePoint),
 			attrs: {
 				rect: {
-					fill: theme.editorBackground,
+					fill: theme.canvasBackground,
 					stroke: 'none',
 					fillOpacity: 0.85,
 					rx: 3,
@@ -822,7 +825,7 @@ function edgeTargetMarker(
 		return {
 			tagName: 'path',
 			d: 'M 12 -6 0 0 12 6 Z',
-			fill: theme.editorBackground,
+			fill: theme.canvasBackground,
 			stroke,
 			strokeWidth,
 		};
@@ -838,6 +841,8 @@ function edgeTargetMarker(
 }
 
 function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {
+	const radius = cornerRadius(note.style, theme.noteCornerRadius);
+
 	return {
 		id: note.id,
 		x: note.x,
@@ -846,21 +851,32 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 		height: note.height,
 		markup: [
 			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'path', selector: 'foldedCorner' },
 			{ tagName: 'text', selector: 'label' },
 		],
 		attrs: {
 			body: {
 				refWidth: '100%',
 				refHeight: '100%',
-				rx: 6,
-				ry: 6,
-				fill: note.style?.bg_color ?? '#fff4b8',
-				...borderAttrs(note.style?.border, '#d7b85d', 1),
-				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
+				rx: radius,
+				ry: radius,
+				fill: note.style?.bg_color ?? theme.noteBackground,
+				...borderAttrs(note.style?.border, theme.noteBorder, 1),
+				filter: shadowFilter(note.style, theme.elementShadow, theme),
+			},
+			foldedCorner: {
+				d: 'M 0 0 L 14 0 L 14 14 Z',
+				refX: '100%',
+				refX2: -14,
+				refY: 0,
+				fill: theme.noteFoldBackground,
+				stroke: note.style?.border?.color ?? theme.noteBorder,
+				strokeWidth: note.style?.border?.type === 'none' ? 0 : note.style?.border?.weight ?? 1,
+				pointerEvents: 'none',
 			},
 			label: {
 				text: plainText(note.text),
-				fill: note.style?.text_color ?? '#3b2f00',
+				fill: note.style?.text_color ?? theme.noteForeground,
 				fontFamily: note.style?.font?.family ?? theme.fontFamily,
 				fontSize: note.style?.font?.size ?? theme.fontSize,
 				fontWeight: note.style?.font?.bold === true ? 700 : 400,
@@ -926,10 +942,10 @@ function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string, unkno
 			body: {
 				refWidth: '100%',
 				refHeight: '100%',
-				fill: theme.editorBackground,
+				fill: theme.canvasBackground,
 				stroke: theme.nodeBorder,
 				strokeWidth: 1,
-				filter: `drop-shadow(0 2px 3px ${theme.shadowColor})`,
+				filter: theme.elementShadow ? `drop-shadow(3px 3px 2px ${theme.shadowColor})` : 'none',
 			},
 			image: {
 				refWidth: '100%',
@@ -961,6 +977,16 @@ function borderAttrs(
 		strokeWidth,
 		strokeDasharray,
 	};
+}
+
+function cornerRadius(style: ElementStyle | undefined, fallback: number): number {
+	return style?.corner_radius ?? fallback;
+}
+
+function shadowFilter(style: ElementStyle | undefined, fallback: boolean, theme: WebviewTheme): string {
+	return (style?.shadow ?? fallback)
+		? `drop-shadow(3px 3px 2px ${theme.shadowColor})`
+		: 'none';
 }
 
 function normalizedRoutePoints(edge: X6Edge, view: X6EdgeView | undefined): readonly CanvasPoint[] {

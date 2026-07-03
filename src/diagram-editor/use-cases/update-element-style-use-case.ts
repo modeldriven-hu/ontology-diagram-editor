@@ -157,6 +157,8 @@ function commonStyle(style: ElementStylePatch): CommonStyle {
 			readonly weight?: number;
 			readonly color?: string;
 		};
+		readonly corner_radius?: number;
+		readonly shadow?: boolean;
 	};
 
 	return new CommonStyle(
@@ -166,6 +168,9 @@ function commonStyle(style: ElementStylePatch): CommonStyle {
 		common.border === undefined
 			? undefined
 			: new BorderStyle(common.border.type, common.border.weight, blankToUndefined(common.border.color)),
+		{},
+		common.corner_radius,
+		common.shadow,
 	);
 }
 

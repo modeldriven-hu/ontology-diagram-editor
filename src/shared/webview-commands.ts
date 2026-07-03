@@ -28,6 +28,8 @@ export interface CommonStylePatch {
 	readonly text_color?: string;
 	readonly font?: FontStylePatch;
 	readonly border?: BorderStylePatch;
+	readonly corner_radius?: number;
+	readonly shadow?: boolean;
 }
 
 export interface EdgeStylePatch {

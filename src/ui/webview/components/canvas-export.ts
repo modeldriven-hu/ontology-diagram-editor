@@ -114,11 +114,11 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${numberValue(viewBox.x)} ${numberValue(viewBox.y)} ${numberValue(viewBox.width)} ${numberValue(viewBox.height)}">`,
 		'<defs>',
 		'<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
-		'<feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>',
+		'<feDropShadow dx="3" dy="3" stdDeviation="1.6" flood-color="#000000" flood-opacity="0.16"/>',
 		'</filter>',
 		...edges.flatMap((edge) => renderEdgeMarkerDefinitions(edge, theme)),
 		'</defs>',
-		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.editorBackground)}"/>`,
+		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme, imageHrefMode)),
 		...edges.map((edge) => renderEdge(edge, theme)),
 		...nodes.map((node) => renderNode(node, theme)),
@@ -187,7 +187,7 @@ function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): re
 	const stroke = edgeStroke(edge, theme);
 	if (edge.ontology_item_type === 'subclassRelationship') {
 		return [
-			`<marker id="${edgeMarkerId(edge, 'hollow-triangle')}" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 1 1 L 11 5 L 1 9 Z" fill="${escapeAttribute(theme.editorBackground)}" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"/></marker>`,
+			`<marker id="${edgeMarkerId(edge, 'hollow-triangle')}" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 1 1 L 11 5 L 1 9 Z" fill="${escapeAttribute(theme.canvasBackground)}" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"/></marker>`,
 		];
 	}
 
@@ -211,7 +211,7 @@ function renderNode(node: DiagramNode, theme: WebviewTheme): string {
 	const bounds = elementBounds(node);
 
 	return [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="8" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)} filter="url(#shadow)"/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		renderTextBlock({
 			id: node.id,
 			text: displayName(node.ontology_ref),
@@ -229,16 +229,17 @@ function renderNode(node: DiagramNode, theme: WebviewTheme): string {
 }
 
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {
-	const border = borderStyle(note.style, '#d7b85d', 1);
+	const border = borderStyle(note.style, theme.noteBorder, 1);
 	const bounds = elementBounds(note);
 
 	return [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="6" fill="${escapeAttribute(note.style?.bg_color ?? '#fff4b8')}" ${borderAttributes(border)} filter="url(#shadow)"/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(note.style, theme.noteCornerRadius))}" fill="${escapeAttribute(note.style?.bg_color ?? theme.noteBackground)}" ${borderAttributes(border)}${shadowAttribute(note.style, theme.elementShadow)}/>`,
+		renderNoteFold(bounds, border, theme),
 		renderTextBlock({
 			id: note.id,
 			text: plainText(note.text),
 			bounds,
-			color: note.style?.text_color ?? '#3b2f00',
+			color: note.style?.text_color ?? theme.noteForeground,
 			fontFamily: note.style?.font?.family ?? theme.fontFamily,
 			fontSize: note.style?.font?.size ?? theme.fontSize,
 			bold: note.style?.font?.bold,
@@ -248,6 +249,22 @@ function renderNote(note: DiagramNote, theme: WebviewTheme): string {
 			padding: 12,
 		}),
 	].join('\n');
+}
+
+function renderNoteFold(bounds: ExportBounds, border: { readonly color: string; readonly weight: number; readonly type: string | undefined }, theme: WebviewTheme): string {
+	const size = Math.min(14, bounds.width, bounds.height);
+	if (size <= 0) {
+		return '';
+	}
+
+	const x = bounds.x + bounds.width;
+	const y = bounds.y;
+	const stroke = border.type === 'none' || border.weight === 0
+		? 'none'
+		: escapeAttribute(border.color);
+	const strokeWidth = border.type === 'none' ? 0 : border.weight;
+
+	return `<path d="M ${numberValue(x - size)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y + size)} Z" fill="${escapeAttribute(theme.noteFoldBackground)}" stroke="${stroke}" stroke-width="${numberValue(strokeWidth)}"/>`;
 }
 
 function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {
@@ -271,7 +288,7 @@ function renderImage(image: DiagramImage, theme: WebviewTheme, imageHrefMode: Im
 	const href = imageHrefMode === 'webview' ? image.webview_src : image.source;
 
 	return [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="${escapeAttribute(theme.editorBackground)}" stroke="${escapeAttribute(theme.nodeBorder)}" stroke-width="1" filter="url(#shadow)"/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="${escapeAttribute(theme.canvasBackground)}" stroke="${escapeAttribute(theme.nodeBorder)}" stroke-width="1"${theme.elementShadow ? ' filter="url(#shadow)"' : ''}/>`,
 		`<image href="${escapeAttribute(href)}" x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" preserveAspectRatio="xMidYMid meet"/>`,
 	].join('\n');
 }
@@ -327,6 +344,14 @@ function borderAttributes(border: { readonly color: string; readonly weight: num
 			: '';
 
 	return `stroke="${escapeAttribute(border.color)}" stroke-width="${numberValue(border.weight)}"${dashArray}`;
+}
+
+function cornerRadius(style: DiagramElementStyle | undefined, fallback: number): number {
+	return style?.corner_radius ?? fallback;
+}
+
+function shadowAttribute(style: DiagramElementStyle | undefined, fallback: boolean): string {
+	return (style?.shadow ?? fallback) ? ' filter="url(#shadow)"' : '';
 }
 
 function wrapLines(text: string, width: number, fontSize: number): readonly string[] {

@@ -119,6 +119,8 @@ Supported common style fields are:
 | `text_color` | string | Text color. |
 | `font` | map | Text font settings. |
 | `border` | map | Border settings. |
+| `corner_radius` | number | Rounded corner radius in diagram canvas units. |
+| `shadow` | boolean | Whether the element draws a drop shadow. |
 
 Nodes and notes may use all common style fields. In version 1, standalone labels may use
 only `text_color` and `font`; labels shall not draw a background or border.
@@ -141,7 +143,8 @@ The `border` map may contain:
 | `color` | string | Border color. |
 
 Style properties override the active theme for that element only. If a style property is
-omitted, the renderer shall use the active theme or its internal default.
+omitted, the renderer shall use the active theme or its internal default. Numeric style
+values such as border weight, font size, and corner radius shall be non-negative.
 
 ## Image Source
 

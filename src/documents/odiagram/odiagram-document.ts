@@ -159,7 +159,13 @@ export class CommonStyle {
 		public readonly font?: FontStyle,
 		public readonly border?: BorderStyle,
 		public readonly extra: JsonObject = {},
-	) {}
+		public readonly cornerRadius?: number,
+		public readonly shadow?: boolean,
+	) {
+		if (cornerRadius !== undefined) {
+			assertNonNegativeNumber(cornerRadius, 'Corner radius');
+		}
+	}
 
 	public toPersistenceObject(): JsonObject {
 		return omitUndefined({
@@ -168,6 +174,8 @@ export class CommonStyle {
 			text_color: this.textColor,
 			font: this.font?.toPersistenceObject(),
 			border: this.border?.toPersistenceObject(),
+			corner_radius: this.cornerRadius,
+			shadow: this.shadow,
 		});
 	}
 }
@@ -487,6 +495,8 @@ const commonStyleSchema = z.object({
 	text_color: z.string().optional(),
 	font: fontStyleSchema.optional(),
 	border: borderStyleSchema.optional(),
+	corner_radius: z.number().optional(),
+	shadow: z.boolean().optional(),
 }).passthrough();
 
 const labelStyleSchema = z.object({
@@ -668,7 +678,9 @@ function parseCommonStyle(value: z.infer<typeof commonStyleSchema>): CommonStyle
 		value.text_color,
 		value.font ? parseFontStyle(value.font) : undefined,
 		value.border ? parseBorderStyle(value.border) : undefined,
-		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border']),
+		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border', 'corner_radius', 'shadow']),
+		value.corner_radius,
+		value.shadow,
 	);
 }
 

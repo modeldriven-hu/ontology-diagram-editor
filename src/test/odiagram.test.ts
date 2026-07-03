@@ -69,6 +69,37 @@ edges: []
 		assert.strictEqual(document.nodes[0].ontologyRef.value, 'ex:Person');
 	});
 
+	test('parses common style corner radius and shadow overrides', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Styled"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - id: "node_person"
+    ontology_ref: "ex:Person"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    style:
+      corner_radius: 12
+      shadow: false
+edges: []
+`);
+
+		assert.strictEqual(document.nodes[0].style?.cornerRadius, 12);
+		assert.strictEqual(document.nodes[0].style?.shadow, false);
+		assert.deepStrictEqual(document.nodes[0].style?.toPersistenceObject(), {
+			corner_radius: 12,
+			shadow: false,
+		});
+	});
+
 	test('preserves unknown fields when serializing parsed YAML', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:

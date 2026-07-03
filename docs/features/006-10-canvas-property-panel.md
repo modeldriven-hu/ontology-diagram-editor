@@ -83,9 +83,9 @@ The panel shall also expose element-level style override fields for styled eleme
 
 | Element type | Editable style fields |
 |--------------|-----------------------|
-| Node | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
+| Node | Background color, text color, font family, font size, bold, italic, border type, border weight, border color, corner radius, drop shadow. |
 | Edge | Line color, line style, line weight, label text color, font family, font size, bold, italic. |
-| Note | Background color, text color, font family, font size, bold, italic, border type, border weight, border color. |
+| Note | Background color, text color, font family, font size, bold, italic, border type, border weight, border color, corner radius, drop shadow. |
 | Label | Text color, font family, font size, bold, italic. |
 | Image | None. |
 

@@ -1,30 +1,82 @@
 import { BorderStyle, CommonStyle, EdgeStyle, FontStyle, LabelStyle } from '../odiagram';
 import { defaultOntologyDiagramTheme } from './default-theme';
-import { OntologyDiagramTheme } from './otheme-document';
+import { CanvasStyle, OntologyDiagramTheme, OntologyDiagramThemeStyleSet } from './otheme-document';
 
-export function resolveOntologyDiagramTheme(activeTheme?: OntologyDiagramTheme): OntologyDiagramTheme {
+export type OntologyDiagramThemeMode = 'light' | 'dark';
+
+export function resolveOntologyDiagramTheme(activeTheme?: OntologyDiagramTheme, mode?: OntologyDiagramThemeMode): OntologyDiagramTheme {
+	const defaultStyleSet = resolveThemeStyleSet(defaultOntologyDiagramTheme, mode);
+	const activeStyleSet = resolveThemeStyleSet(activeTheme, mode);
+	const merged = mergeThemeStyleSet(defaultStyleSet, activeStyleSet);
+
 	return new OntologyDiagramTheme(
-		mergeCommonStyle(defaultOntologyDiagramTheme.nodes, activeTheme?.nodes),
-		mergeEdgeStyle(defaultOntologyDiagramTheme.edges, activeTheme?.edges),
-		mergeCommonStyle(defaultOntologyDiagramTheme.notes, activeTheme?.notes),
-		mergeLabelStyle(defaultOntologyDiagramTheme.labels, activeTheme?.labels),
+		merged.nodes,
+		merged.edges,
+		merged.notes,
+		merged.labels,
+		{},
+		{},
+		merged.canvas,
 	);
 }
 
-export function resolveNodeStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: CommonStyle): CommonStyle {
-	return mergeCommonStyle(resolveOntologyDiagramTheme(activeTheme).nodes, elementStyle);
+export function resolveCanvasStyle(activeTheme?: OntologyDiagramTheme, mode?: OntologyDiagramThemeMode): CanvasStyle {
+	return resolveOntologyDiagramTheme(activeTheme, mode).canvas ?? new CanvasStyle();
 }
 
-export function resolveNoteStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: CommonStyle): CommonStyle {
-	return mergeCommonStyle(resolveOntologyDiagramTheme(activeTheme).notes, elementStyle);
+export function resolveNodeStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: CommonStyle, mode?: OntologyDiagramThemeMode): CommonStyle {
+	return mergeCommonStyle(resolveOntologyDiagramTheme(activeTheme, mode).nodes, elementStyle);
 }
 
-export function resolveEdgeStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: EdgeStyle): EdgeStyle {
-	return mergeEdgeStyle(resolveOntologyDiagramTheme(activeTheme).edges, elementStyle);
+export function resolveNoteStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: CommonStyle, mode?: OntologyDiagramThemeMode): CommonStyle {
+	return mergeCommonStyle(resolveOntologyDiagramTheme(activeTheme, mode).notes, elementStyle);
 }
 
-export function resolveLabelStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: LabelStyle): LabelStyle {
-	return mergeLabelStyle(resolveOntologyDiagramTheme(activeTheme).labels, elementStyle);
+export function resolveEdgeStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: EdgeStyle, mode?: OntologyDiagramThemeMode): EdgeStyle {
+	return mergeEdgeStyle(resolveOntologyDiagramTheme(activeTheme, mode).edges, elementStyle);
+}
+
+export function resolveLabelStyle(activeTheme?: OntologyDiagramTheme, elementStyle?: LabelStyle, mode?: OntologyDiagramThemeMode): LabelStyle {
+	return mergeLabelStyle(resolveOntologyDiagramTheme(activeTheme, mode).labels, elementStyle);
+}
+
+function resolveThemeStyleSet(theme: OntologyDiagramTheme | undefined, mode: OntologyDiagramThemeMode | undefined): OntologyDiagramThemeStyleSet | undefined {
+	if (theme === undefined) {
+		return undefined;
+	}
+
+	return mergeThemeStyleSet(baseThemeStyleSet(theme), mode === undefined ? undefined : theme[mode]);
+}
+
+function baseThemeStyleSet(theme: OntologyDiagramTheme): OntologyDiagramThemeStyleSet {
+	return new OntologyDiagramThemeStyleSet(
+		theme.canvas,
+		theme.nodes,
+		theme.edges,
+		theme.notes,
+		theme.labels,
+	);
+}
+
+function mergeThemeStyleSet(
+	base: OntologyDiagramThemeStyleSet | undefined,
+	override: OntologyDiagramThemeStyleSet | undefined,
+): OntologyDiagramThemeStyleSet {
+	return new OntologyDiagramThemeStyleSet(
+		mergeCanvasStyle(base?.canvas, override?.canvas),
+		mergeCommonStyle(base?.nodes, override?.nodes),
+		mergeEdgeStyle(base?.edges, override?.edges),
+		mergeCommonStyle(base?.notes, override?.notes),
+		mergeLabelStyle(base?.labels, override?.labels),
+	);
+}
+
+function mergeCanvasStyle(base: CanvasStyle | undefined, override: CanvasStyle | undefined): CanvasStyle | undefined {
+	if (base === undefined && override === undefined) {
+		return undefined;
+	}
+
+	return new CanvasStyle(override?.bgColor ?? base?.bgColor);
 }
 
 function mergeCommonStyle(base: CommonStyle | undefined, override: CommonStyle | undefined): CommonStyle {
@@ -33,6 +85,9 @@ function mergeCommonStyle(base: CommonStyle | undefined, override: CommonStyle |
 		override?.textColor ?? base?.textColor,
 		mergeFontStyle(base?.font, override?.font),
 		mergeBorderStyle(base?.border, override?.border),
+		{},
+		override?.cornerRadius ?? base?.cornerRadius,
+		override?.shadow ?? base?.shadow,
 	);
 }
 

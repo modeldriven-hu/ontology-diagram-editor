@@ -1,4 +1,4 @@
-import { Maximize2, RotateCcw, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { Maximize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
@@ -13,7 +13,7 @@ import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
 import type { DiagramPayload } from '../ontology-diagram-types';
-import { readTheme } from '../webview-theme';
+import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
 declare const acquireVsCodeApi: () => {
@@ -40,6 +40,7 @@ interface WebviewState {
 	readonly viewportPanX?: number;
 	readonly viewportPanY?: number;
 	readonly viewportZoom?: number;
+	readonly themeMode?: WebviewThemeMode;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -67,6 +68,7 @@ const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
 const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
+const themeModeButton = requiredElement('themeModeButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
@@ -76,7 +78,8 @@ const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
 const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
-const theme = readTheme();
+let themeMode: WebviewThemeMode = vscode.getState()?.themeMode ?? detectPreferredThemeMode();
+let theme = readTheme(themeMode);
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
@@ -124,6 +127,7 @@ renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
 renderViewportToolbarIcons();
+applyCanvasTheme(theme);
 registerExtensionMessageForwarding();
 registerCanvasStateSubscriptions();
 render();
@@ -159,6 +163,9 @@ fitDiagramButton.addEventListener('click', () => {
 });
 resetViewportButton.addEventListener('click', () => {
 	resetViewport();
+});
+themeModeButton.addEventListener('click', () => {
+	toggleThemeMode();
 });
 new CanvasDropController({
 	scrollElement: canvasScroll,
@@ -319,6 +326,41 @@ function renderViewportToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	renderThemeModeButton();
+}
+
+function renderThemeModeButton(): void {
+	const nextMode = themeMode === 'dark' ? 'light' : 'dark';
+	themeModeButton.replaceChildren(createIconElement(themeMode === 'dark' ? Sun : Moon, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	themeModeButton.title = `Switch to ${nextMode} mode`;
+	themeModeButton.setAttribute('aria-label', `Switch to ${nextMode} mode`);
+	themeModeButton.setAttribute('aria-pressed', String(themeMode === 'dark'));
+}
+
+function toggleThemeMode(): void {
+	const selectedElementId = canvas.selectedElementId();
+	themeMode = themeMode === 'dark' ? 'light' : 'dark';
+	theme = readTheme(themeMode);
+	updateWebviewState({ themeMode });
+	applyCanvasTheme(theme);
+	renderThemeModeButton();
+	render();
+	if (selectedElementId !== undefined) {
+		canvas.selectElement(selectedElementId);
+	}
+	showStatus(`${capitalize(themeMode)} mode`);
+}
+
+function applyCanvasTheme(nextTheme: WebviewTheme): void {
+	canvasScroll.style.setProperty('--diagram-canvas-background', nextTheme.canvasBackground);
+	canvasScroll.style.setProperty('--diagram-canvas-foreground', nextTheme.editorForeground);
+}
+
+function capitalize(value: string): string {
+	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
 function zoomBy(factor: number, source: 'zoom', clientPoint?: CanvasPoint): void {

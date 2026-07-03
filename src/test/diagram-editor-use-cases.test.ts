@@ -614,6 +614,8 @@ suite('Diagram editor use cases', () => {
 				weight: 2,
 				color: '#336699',
 			},
+			corner_radius: 14,
+			shadow: false,
 		});
 
 		assert.ok(result.diagram);
@@ -630,6 +632,8 @@ suite('Diagram editor use cases', () => {
 				weight: 2,
 				color: '#336699',
 			},
+			corner_radius: 14,
+			shadow: false,
 		});
 	});
 
