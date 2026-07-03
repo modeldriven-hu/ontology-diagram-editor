@@ -24,6 +24,7 @@ import {
 	UpdateNodeImageUseCase,
 	UpdateNoteBoundsUseCase,
 	UpdateNoteTextUseCase,
+	UpdateThemeModeUseCase,
 } from './use-cases';
 import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
@@ -51,6 +52,7 @@ interface DiagramEditorUseCases {
 	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
+	readonly updateThemeMode: UpdateThemeModeUseCase;
 	readonly saveDiagramExport: SaveDiagramExportUseCase;
 }
 
@@ -175,6 +177,12 @@ export class DiagramCommandDispatcher {
 					command.elementType,
 					command.id,
 					command.style,
+				));
+				return;
+			case 'updateThemeMode':
+				await this.handleResult(this.useCases.updateThemeMode.execute(
+					this.repository.load(),
+					command.themeMode,
 				));
 				return;
 		}
@@ -371,6 +379,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateLabelBounds: new UpdateLabelBoundsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
+		updateThemeMode: new UpdateThemeModeUseCase(),
 		saveDiagramExport: new SaveDiagramExportUseCase(new VsCodeDiagramExportSavePort()),
 	};
 }

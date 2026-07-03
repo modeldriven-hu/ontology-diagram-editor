@@ -193,6 +193,35 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		};
 	}
 
+	public nudgeEdgeLabel(edgeId: string, delta: CanvasPoint): boolean {
+		const cell = this.graph.getCellById(edgeId);
+		if (!isX6Edge(cell)) {
+			return false;
+		}
+
+		const view = edgeView(this.graph, cell);
+		const points = normalizedRoutePoints(cell, view);
+		if (points.length < 2) {
+			return false;
+		}
+		const currentLabel = edgeLabelPoint(cell, view) ?? resetLabelPoint(points);
+
+		const nextLabel = {
+			x: Math.max(0, currentLabel.x + delta.x),
+			y: Math.max(0, currentLabel.y + delta.y),
+		};
+		const existingLabel = cell.getLabels()[0] ?? {};
+		cell.setLabelAt(0, {
+			...existingLabel,
+			position: labelPosition(nextLabel, points[0]),
+		});
+		this.clearLabelDragHighlight(cell.id);
+		this.markEdgeRouteChanged(cell);
+		this.flushEdgeRouteChanges();
+
+		return true;
+	}
+
 	public resetEdgeLabel(edgeId: string): void {
 		const cell = this.graph.getCellById(edgeId);
 		if (!isX6Edge(cell)) {
@@ -255,6 +284,17 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			});
 			if (edge === undefined) {
 				console.warn('[ontology-diagram-editor] x6 edge:click did not resolve an edge cell', event);
+				return;
+			}
+
+			stopEvent(event.e);
+			clearTransformWidgets(this.graph);
+			edge.setTools(edgeEditTools());
+			this.setSelectedId(edge.id);
+		});
+		this.graph.on('edge:label:click', (event) => {
+			const edge = eventEdge(event);
+			if (edge === undefined) {
 				return;
 			}
 

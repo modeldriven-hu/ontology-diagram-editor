@@ -9,6 +9,7 @@ export interface ModelTreeItemDropPayload {
 }
 
 export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'label';
+export type DiagramThemeMode = 'light' | 'dark';
 
 export interface FontStylePatch {
 	readonly family?: string;
@@ -69,6 +70,7 @@ export type WebviewCommand =
 	| PickImageSourceCommand
 	| UpdateLabelTextCommand
 	| UpdateNoteTextCommand
+	| UpdateThemeModeCommand
 	| UpdateElementStyleCommand;
 
 export class CreateNodeCommand {
@@ -285,6 +287,15 @@ export class UpdateLabelTextCommand {
 	public constructor(id: string, text: string) {
 		this.id = id;
 		this.text = text;
+	}
+}
+
+export class UpdateThemeModeCommand {
+	public readonly type = 'updateThemeMode';
+	public readonly themeMode: DiagramThemeMode;
+
+	public constructor(themeMode: DiagramThemeMode) {
+		this.themeMode = themeMode;
 	}
 }
 

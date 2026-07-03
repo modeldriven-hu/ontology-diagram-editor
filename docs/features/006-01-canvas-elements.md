@@ -122,6 +122,9 @@ Deletion shall emit a `Canvas elements deleted` event and persist the updated
 
 The canvas shall support keyboard deletion of the selected element with `Delete`.
 
+When an edge is selected, the canvas shall support moving the edge label with the arrow
+keys. Holding `Shift` shall use a larger movement step.
+
 The canvas shall support standard undo and redo keyboard shortcuts when focus is in the
 canvas and no text field or text editor is actively handling the shortcut. Undo and redo
 behavior is defined by the canvas persistence specification.

@@ -10,6 +10,7 @@ export interface DiagramPayload {
 		readonly metadata?: {
 			readonly title?: string;
 			readonly theme_file?: string;
+			readonly theme_mode?: 'light' | 'dark';
 		};
 		readonly ontologies?: readonly unknown[];
 		readonly namespaces?: Record<string, string>;

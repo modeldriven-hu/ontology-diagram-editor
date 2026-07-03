@@ -166,12 +166,14 @@ The `metadata` section shall contain:
 | `authors` | list of strings | Yes | Diagram authors. |
 | `diagram_version` | string | Yes | User-defined diagram version. |
 | `theme_file` | string | No | Relative path to a standalone theme file. |
+| `theme_mode` | string | No | Preferred render mode, either `light` or `dark`. |
 | `additional` | map | No | Extra metadata key-value pairs. |
 
 The `additional` map may contain arbitrary scalar, list, or map values.
 
 Themes are referenced only through `metadata.theme_file`. The `.odiagram` format does not
-support embedded theme definitions.
+support embedded theme definitions. If `metadata.theme_mode` is present, editors shall
+use it as the initial light/dark render mode when opening the diagram.
 
 # Empty Diagram Template
 

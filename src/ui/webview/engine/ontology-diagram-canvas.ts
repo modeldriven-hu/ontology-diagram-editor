@@ -2,7 +2,7 @@ import { Maximize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as crea
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -78,7 +78,7 @@ const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
 const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
-let themeMode: WebviewThemeMode = vscode.getState()?.themeMode ?? detectPreferredThemeMode();
+let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
 let theme = readTheme(themeMode);
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
@@ -177,6 +177,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 registerNoteEditHandlers();
+registerEdgeLabelKeyboardHandlers();
 registerDeleteHandlers();
 
 function registerPropertyPanel(): void {
@@ -351,6 +352,7 @@ function toggleThemeMode(): void {
 	if (selectedElementId !== undefined) {
 		canvas.selectElement(selectedElementId);
 	}
+	messageBus.publishCommand(new UpdateThemeModeCommand(themeMode));
 	showStatus(`${capitalize(themeMode)} mode`);
 }
 
@@ -625,6 +627,48 @@ function editLabel(id: string): boolean {
 	noteEditorController.open('label', id);
 
 	return true;
+}
+
+function registerEdgeLabelKeyboardHandlers(): void {
+	document.addEventListener('keydown', (event) => {
+		if (noteEditorController.isOpen() || isKeyboardInputTarget(event.target)) {
+			return;
+		}
+		if (event.altKey || event.ctrlKey || event.metaKey) {
+			return;
+		}
+
+		const delta = edgeLabelNudgeDelta(event);
+		if (delta === undefined) {
+			return;
+		}
+
+		const selectedElementId = canvas.selectedElementId();
+		if (selectedElementId === undefined || !geometryPersistence.hasEdge(selectedElementId)) {
+			return;
+		}
+		if (canvas.nudgeEdgeLabel(selectedElementId, delta)) {
+			event.preventDefault();
+		}
+	});
+}
+
+function edgeLabelNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
+	const step = event.shiftKey ? 10 : 1;
+	if (event.key === 'ArrowLeft') {
+		return { x: -step, y: 0 };
+	}
+	if (event.key === 'ArrowRight') {
+		return { x: step, y: 0 };
+	}
+	if (event.key === 'ArrowUp') {
+		return { x: 0, y: -step };
+	}
+	if (event.key === 'ArrowDown') {
+		return { x: 0, y: step };
+	}
+
+	return undefined;
 }
 
 function registerDeleteHandlers(): void {

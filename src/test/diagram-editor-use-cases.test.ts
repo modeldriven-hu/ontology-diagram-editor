@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase } from '../diagram-editor/use-cases';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -694,6 +694,15 @@ suite('Diagram editor use cases', () => {
 
 		assert.ok(result.diagram);
 		assert.strictEqual(result.diagram.labels[0].style, undefined);
+	});
+
+	test('updates persisted theme mode metadata', () => {
+		const result = new UpdateThemeModeUseCase().execute(emptyDiagram(), 'dark');
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.metadata.themeMode, 'dark');
+		const metadata = result.diagram.metadata.toPersistenceObject() as { readonly theme_mode?: unknown };
+		assert.strictEqual(metadata.theme_mode, 'dark');
 	});
 
 	test('saves UTF-8 diagram exports through the export save port', async () => {

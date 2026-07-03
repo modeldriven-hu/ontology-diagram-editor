@@ -156,8 +156,10 @@ the corresponding first or last point in the persisted `points` list so the edge
 connected to the node boundary. Intermediate route points in an existing diagram shall
 be preserved.
 
-The user can move the edge label. Moving the label shall update the persisted `label`
-point.
+The user can move the edge label by dragging it, or by selecting the edge label/edge and
+using the arrow keys. Arrow keys shall move the label by one canvas unit; holding
+`Shift` shall move it by a larger implementation-defined step. Moving the label shall
+update the persisted `label` point.
 
 # Ontology to UML Rendering Mapping
 

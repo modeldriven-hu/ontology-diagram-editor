@@ -236,6 +236,7 @@ export class DiagramMetadata {
 		public readonly themeFile?: string,
 		public readonly additional?: JsonObject,
 		public readonly extra: JsonObject = {},
+		public readonly themeMode?: 'light' | 'dark',
 	) {}
 
 	public static createEmpty(title: string): DiagramMetadata {
@@ -250,6 +251,7 @@ export class DiagramMetadata {
 			authors: [...this.authors],
 			diagram_version: this.diagramVersion,
 			theme_file: this.themeFile,
+			theme_mode: this.themeMode,
 			additional: this.additional,
 		});
 	}
@@ -518,6 +520,7 @@ const metadataSchema = z.object({
 	authors: z.array(z.string()),
 	diagram_version: z.string(),
 	theme_file: z.string().optional(),
+	theme_mode: z.enum(['light', 'dark']).optional(),
 	additional: jsonObjectSchema.optional(),
 }).passthrough();
 
@@ -599,7 +602,8 @@ function parseMetadata(value: z.infer<typeof metadataSchema>): DiagramMetadata {
 		value.diagram_version,
 		value.theme_file,
 		value.additional,
-		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'additional']),
+		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'theme_mode', 'additional']),
+		value.theme_mode,
 	);
 }
 

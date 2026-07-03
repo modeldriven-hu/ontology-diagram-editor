@@ -1,6 +1,7 @@
 import { OntologyDiagramDocument } from '../../documents/odiagram';
 
 interface DiagramOverrides {
+	readonly metadata?: OntologyDiagramDocument['metadata'];
 	readonly namespaces?: OntologyDiagramDocument['namespaces'];
 	readonly nodes?: OntologyDiagramDocument['nodes'];
 	readonly edges?: OntologyDiagramDocument['edges'];
@@ -14,7 +15,7 @@ export function cloneDiagram(
 	overrides: DiagramOverrides,
 ): OntologyDiagramDocument {
 	return new OntologyDiagramDocument(
-		diagram.metadata,
+		overrides.metadata ?? diagram.metadata,
 		diagram.ontologies,
 		overrides.namespaces ?? diagram.namespaces,
 		overrides.nodes ?? diagram.nodes,

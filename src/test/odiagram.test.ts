@@ -69,6 +69,26 @@ edges: []
 		assert.strictEqual(document.nodes[0].ontologyRef.value, 'ex:Person');
 	});
 
+	test('parses and serializes persisted theme mode metadata', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Dark diagram"
+  authors: []
+  diagram_version: "0.1.0"
+  theme_mode: dark
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes: []
+edges: []
+`);
+
+		assert.strictEqual(document.metadata.themeMode, 'dark');
+		const metadata = document.metadata.toPersistenceObject() as { readonly theme_mode?: unknown };
+		assert.strictEqual(metadata.theme_mode, 'dark');
+	});
+
 	test('parses common style corner radius and shadow overrides', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
