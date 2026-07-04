@@ -1,3 +1,4 @@
+export { ArrangeDiagramUseCase } from './arrange-diagram-use-case';
 export { CreateImageUseCase } from './create-image-use-case';
 export { CreateLabelUseCase } from './create-label-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';

@@ -61,6 +61,8 @@ function webviewBody(
 				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="arrangeDiagramButton" type="button" title="Arrange diagram" aria-label="Arrange diagram"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
 				<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
 				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
@@ -236,6 +238,17 @@ function webviewStyles(): string {
 		border-color: var(--vscode-focusBorder);
 		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
 		outline: none;
+	}
+
+	.canvas-action:disabled {
+		color: var(--vscode-disabledForeground);
+		cursor: default;
+		opacity: 0.62;
+	}
+
+	.canvas-action:disabled:hover {
+		border-color: transparent;
+		background: transparent;
 	}
 
 	.canvas-action-icon {

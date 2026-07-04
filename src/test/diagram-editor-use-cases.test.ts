@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { ArrangeDiagramUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -902,6 +902,120 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.metadata.themeMode, 'dark');
 		const metadata = result.diagram.metadata.toPersistenceObject() as { readonly theme_mode?: unknown };
 		assert.strictEqual(metadata.theme_mode, 'dark');
+	});
+
+	test('arranges ontology nodes in directed layers and reroutes edges', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_person', 'ex:Person', new Bounds(500, 300, 100, 50)),
+				new DiagramNode('node_org', 'ex:Organization', new Bounds(20, 20, 120, 60)),
+				new DiagramNode('node_role', 'ex:Role', new Bounds(20, 220, 80, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_memberOf',
+					'node_person',
+					'node_org',
+					'ex:memberOf',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+				new DiagramEdge(
+					'edge_hasRole',
+					'node_org',
+					'node_role',
+					'ex:hasRole',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+				new DiagramEdge(
+					'edge_noteConnection',
+					'note_context',
+					'node_person',
+					'https://ontology-diagram-editor.local/note-connection',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+					undefined,
+					{ ontology_item_type: 'noteConnection' },
+				),
+			],
+			[new DiagramNote('note_context', new Bounds(0, 200, 100, 80), 'Context')],
+		);
+
+		const result = new ArrangeDiagramUseCase().execute(diagram);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 80, y: 80, width: 100, height: 50 },
+			{ x: 360, y: 80, width: 120, height: 60 },
+			{ x: 660, y: 80, width: 80, height: 50 },
+		]);
+		assert.deepStrictEqual(result.diagram.notes[0].bounds.toPersistenceObject(), {
+			x: 0,
+			y: 200,
+			width: 100,
+			height: 80,
+		});
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 180, y: 106 },
+			{ x: 270, y: 106 },
+			{ x: 270, y: 109 },
+			{ x: 360, y: 109 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 270,
+			y: 108,
+		});
+		assert.deepStrictEqual(result.diagram.edges[2].points.map((point) => point.toPersistenceObject()), [
+			{ x: 90, y: 200 },
+			{ x: 90, y: 130 },
+		]);
+	});
+
+	test('reports empty diagrams when arranging', () => {
+		const result = new ArrangeDiagramUseCase().execute(emptyDiagram());
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'There are no ontology nodes to arrange.');
+	});
+
+	test('reroutes stale edges when arranging already placed nodes', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(80, 80, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(360, 80, 120, 60)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+			],
+		);
+
+		const result = new ArrangeDiagramUseCase().execute(diagram);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 80, y: 80, width: 100, height: 50 },
+			{ x: 360, y: 80, width: 120, height: 60 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 180, y: 106 },
+			{ x: 270, y: 106 },
+			{ x: 270, y: 109 },
+			{ x: 360, y: 109 },
+		]);
 	});
 
 	test('saves UTF-8 diagram exports through the export save port', async () => {

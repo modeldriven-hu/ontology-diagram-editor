@@ -50,6 +50,7 @@ export interface LabelStylePatch {
 export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePatch;
 
 export type WebviewCommand =
+	| ArrangeDiagramCommand
 	| CreateNodeCommand
 	| CreateNoteCommand
 	| CreateNoteConnectionCommand
@@ -78,6 +79,10 @@ export type WebviewCommand =
 	| UpdateThemeModeCommand
 	| RevealModelTreeItemCommand
 	| UpdateElementStyleCommand;
+
+export class ArrangeDiagramCommand {
+	public readonly type = 'arrangeDiagram';
+}
 
 export class CreateNodeCommand {
 	public readonly type = 'createNode';

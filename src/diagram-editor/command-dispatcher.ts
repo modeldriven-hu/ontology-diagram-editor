@@ -3,6 +3,7 @@ import * as path from 'path';
 import { readFile } from 'fs/promises';
 
 import {
+	ArrangeDiagramUseCase,
 	CreateEdgeUseCase,
 	CreateImageUseCase,
 	CreateLabelUseCase,
@@ -36,6 +37,7 @@ import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview
 import { DiagramDocumentRepository } from './document-repository';
 
 interface DiagramEditorUseCases {
+	readonly arrangeDiagram: ArrangeDiagramUseCase;
 	readonly createNode: CreateNodeUseCase;
 	readonly createEdge: CreateEdgeUseCase;
 	readonly createNote: CreateNoteUseCase;
@@ -78,6 +80,11 @@ export class DiagramCommandDispatcher {
 
 	public async dispatch(command: WebviewCommand): Promise<void> {
 		switch (command.type) {
+			case 'arrangeDiagram':
+				await this.handleResult(this.useCases.arrangeDiagram.execute(
+					this.repository.load(),
+				));
+				return;
 			case 'createNode':
 				await this.createNode(command);
 				return;
@@ -413,6 +420,7 @@ export class DiagramCommandDispatcher {
 
 function createDefaultUseCases(): DiagramEditorUseCases {
 	return {
+		arrangeDiagram: new ArrangeDiagramUseCase(),
 		createNode: new CreateNodeUseCase(),
 		createEdge: new CreateEdgeUseCase(),
 		createNote: new CreateNoteUseCase(),

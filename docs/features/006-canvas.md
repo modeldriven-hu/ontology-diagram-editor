@@ -80,11 +80,13 @@ The minimum viable product shall support:
   Visual Studio Code document model allows it.
 - Providing viewport controls for panning, zooming, fitting the diagram to view, and
   resetting the viewport.
+- Arranging existing ontology-backed nodes and connected edges through an explicit
+  toolbar action.
 - Showing validation and persistence errors in a user-visible way.
 
-The minimum viable product does not include automatic layout, multi-user editing,
-multi-selection editing, grouping, layer management, freehand drawing, direct ontology
-source editing, or theme file editing from canvas controls.
+The minimum viable product does not include multi-user editing, multi-selection editing,
+grouping, layer management, freehand drawing, direct ontology source editing, or theme
+file editing from canvas controls.
 
 # Viewport Controls
 
@@ -162,7 +164,6 @@ reported without silently discarding the user's last visible edit.
 
 Version 1 canvas behavior excludes:
 
-- Automatic layout.
 - Multi-user editing.
 - Multi-selection editing.
 - Grouping elements.

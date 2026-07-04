@@ -1,8 +1,8 @@
-import { Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -69,6 +69,7 @@ const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
 const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
 const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
+const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
 const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
@@ -138,7 +139,9 @@ renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderLocalElementToolbarIcons();
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
+renderArrangeDiagramToolbarIcon();
 renderViewportToolbarIcons();
+updateToolbarActionStates();
 applyCanvasTheme(theme);
 registerExtensionMessageForwarding();
 registerCanvasStateSubscriptions();
@@ -175,6 +178,16 @@ exportSvgButton.addEventListener('click', () => {
 });
 exportPngButton.addEventListener('click', () => {
 	void exportPng();
+});
+arrangeDiagramButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	if ((webviewConfig.payload.diagram?.nodes?.length ?? 0) === 0) {
+		showStatus('There are no ontology nodes to arrange.');
+		return;
+	}
+
+	showStatus('Arranging diagram.');
+	messageBus.publishCommand(new ArrangeDiagramCommand());
 });
 zoomOutButton.addEventListener('click', () => {
 	zoomBy(1 / 1.2, 'zoom');
@@ -391,6 +404,19 @@ function renderViewportToolbarIcons(): void {
 		class: 'canvas-action-icon',
 	}));
 	renderThemeModeButton();
+}
+
+function renderArrangeDiagramToolbarIcon(): void {
+	arrangeDiagramButton.replaceChildren(createIconElement(LayoutTemplate, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	arrangeDiagramButton.title = 'Arrange diagram';
+	arrangeDiagramButton.setAttribute('aria-label', 'Arrange diagram');
+}
+
+function updateToolbarActionStates(): void {
+	arrangeDiagramButton.disabled = (webviewConfig.payload.diagram?.nodes?.length ?? 0) === 0;
 }
 
 function toggleNoteConnectionMode(): void {

@@ -24,6 +24,7 @@ Version 1 toolbar actions are:
 | Add image | Opens the image picker and creates a standalone image. |
 | Export SVG | Saves the diagram as an SVG export. |
 | Export PNG | Saves the diagram as a PNG export. |
+| Arrange diagram | Automatically positions ontology-backed nodes and reroutes connected edges. |
 | Zoom out | Decreases canvas zoom without changing persisted coordinates. |
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
 | Fit diagram to view | Fits all rendered content in the visible viewport. |
@@ -33,6 +34,28 @@ Version 1 toolbar actions are:
 Toolbar buttons shall be disabled or shall show a concise user-visible problem when the
 action cannot be completed. For example, exporting an empty diagram shall not create an
 empty export file.
+
+Toolbar action groups shall be visually separated where this improves scanning. In
+version 1, creation, export, layout, viewport, model-tree reveal, and theme-mode actions
+are separate toolbar groups.
+
+# Arrange Diagram
+
+The arrange diagram action shall update only diagram geometry. It shall preserve ontology
+references, element identifiers, text, style overrides, images, notes, standalone labels,
+and theme settings.
+
+Arranging the diagram shall:
+
+- Position ontology-backed nodes in a deterministic left-to-right layout derived from
+  directed ontology-backed edges.
+- Preserve each node's persisted width and height.
+- Reroute connected edges so endpoints remain on element boundaries.
+- Update edge label positions to reasonable route midpoints.
+- Persist the result as one logical `.odiagram` document edit.
+
+If the diagram has no ontology-backed nodes, the toolbar action shall be disabled or show
+a concise user-visible problem without changing the `.odiagram` document.
 
 # Style Editing
 
