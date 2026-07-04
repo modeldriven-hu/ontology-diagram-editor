@@ -3,6 +3,7 @@ import { minimumImageHeight, minimumImageWidth, type ImageBoundsUpdate } from '.
 import { boundsEqual, toBounds } from './bounds';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
+import { recalculateConnectedEdgeEndpoints } from './geometry';
 
 export class UpdateImageBoundsUseCase {
 	public execute(
@@ -20,6 +21,11 @@ export class UpdateImageBoundsUseCase {
 
 		const updateById = new Map(updates.map((update) => [update.id, update]));
 		let changed = false;
+		const boundsByElementId = new Map([
+			...diagram.nodes.map((node) => [node.id.value, node.bounds] as const),
+			...diagram.notes.map((note) => [note.id.value, note.bounds] as const),
+			...diagram.images.map((image) => [image.id.value, image.bounds] as const),
+		]);
 		const nextImages = diagram.images.map((image) => {
 			const update = updateById.get(image.id.value);
 			if (update === undefined) {
@@ -32,6 +38,7 @@ export class UpdateImageBoundsUseCase {
 			}
 
 			changed = true;
+			boundsByElementId.set(image.id.value, nextBounds);
 			return new DiagramImage(
 				image.id.value,
 				nextBounds,
@@ -39,6 +46,8 @@ export class UpdateImageBoundsUseCase {
 				image.extra,
 			);
 		});
+		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId));
+		changed = changed || nextEdges.some((edge, index) => edge !== diagram.edges[index]);
 
 		if (!changed) {
 			return {};
@@ -47,6 +56,7 @@ export class UpdateImageBoundsUseCase {
 		return {
 			diagram: cloneDiagram(diagram, {
 				images: nextImages,
+				edges: nextEdges,
 			}),
 		};
 	}

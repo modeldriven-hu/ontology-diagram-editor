@@ -1,3 +1,4 @@
+import type { EdgeRouteLayout } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 
 export interface ModelTreeItemDropPayload {
@@ -51,6 +52,7 @@ export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePa
 export type WebviewCommand =
 	| CreateNodeCommand
 	| CreateNoteCommand
+	| CreateNoteConnectionCommand
 	| CreateImageCommand
 	| CreateLabelCommand
 	| SaveDiagramExportCommand
@@ -61,6 +63,7 @@ export type WebviewCommand =
 	| DeleteLabelCommand
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
+	| UpdateEdgeRouteLayoutCommand
 	| UpdateNoteBoundsCommand
 	| UpdateImageBoundsCommand
 	| UpdateLabelBoundsCommand
@@ -108,6 +111,17 @@ export class UpdateEdgeRouteCommand {
 	}
 }
 
+export class UpdateEdgeRouteLayoutCommand {
+	public readonly type = 'updateEdgeRouteLayout';
+	public readonly id: string;
+	public readonly routeLayout?: EdgeRouteLayout;
+
+	public constructor(id: string, routeLayout?: EdgeRouteLayout) {
+		this.id = id;
+		this.routeLayout = routeLayout;
+	}
+}
+
 export class CreateNoteCommand {
 	public readonly type = 'createNote';
 	public readonly text: string;
@@ -116,6 +130,17 @@ export class CreateNoteCommand {
 	public constructor(text: string, position: CanvasPoint) {
 		this.text = text;
 		this.position = position;
+	}
+}
+
+export class CreateNoteConnectionCommand {
+	public readonly type = 'createNoteConnection';
+	public readonly noteId: string;
+	public readonly targetId: string;
+
+	public constructor(noteId: string, targetId: string) {
+		this.noteId = noteId;
+		this.targetId = targetId;
 	}
 }
 

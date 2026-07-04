@@ -47,6 +47,9 @@ updated.
 The canvas shall enforce a positive width and height and minimum dimensions that keep
 image handles usable.
 
+When an image is selected, the local element toolbar shall provide a resize-to-minimum
+action.
+
 # Delete Images
 
 The user can delete a selected image from the canvas.

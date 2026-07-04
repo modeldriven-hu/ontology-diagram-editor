@@ -7,6 +7,7 @@ import {
 	DiagramEdge,
 	DiagramMetadata,
 	DiagramNode,
+	DiagramNote,
 	Bounds,
 	OntologyDiagramDocument,
 	OntologyDiagramValidationError,
@@ -120,6 +121,80 @@ notes:
 		assert.match(stringifyOntologyDiagramYaml(document), /export: false/);
 	});
 
+	test('parses and serializes note and image edge endpoints with route layout', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Example"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - id: "node_person"
+    ontology_ref: "ex:Person"
+    x: 200
+    y: 20
+    width: 160
+    height: 80
+notes:
+  - id: "note_context"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    text: "Context"
+images:
+  - id: "image_logo"
+    x: 400
+    y: 20
+    width: 64
+    height: 64
+    source: "images/logo.png"
+edges:
+  - id: "edge_noteNode"
+    source: "note_context"
+    target: "node_person"
+    ontology_ref: "https://ontology-diagram-editor.local/note-connection"
+    label:
+      x: 180
+      y: 60
+    points:
+      - x: 170
+        y: 60
+      - x: 200
+        y: 60
+    style:
+      line_style: dotted
+    route_layout: orthogonal
+  - id: "edge_noteImage"
+    source: "note_context"
+    target: "image_logo"
+    ontology_ref: "https://ontology-diagram-editor.local/note-connection"
+    label:
+      x: 250
+      y: 60
+    points:
+      - x: 170
+        y: 60
+      - x: 400
+        y: 52
+    route_layout: direct
+`);
+
+		assert.strictEqual(document.edges[0].source.value, 'note_context');
+		assert.strictEqual(document.edges[0].target.value, 'node_person');
+		assert.strictEqual(document.edges[0].style?.lineStyle, 'dotted');
+		assert.strictEqual(document.edges[0].routeLayout, 'orthogonal');
+		assert.strictEqual(document.edges[1].target.value, 'image_logo');
+		assert.strictEqual(document.edges[1].routeLayout, 'direct');
+		const serialized = stringifyOntologyDiagramYaml(document);
+		assert.match(serialized, /source: note_context/);
+		assert.match(serialized, /target: image_logo/);
+		assert.match(serialized, /route_layout: direct/);
+	});
+
 	test('parses and serializes persisted theme mode metadata', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
@@ -211,7 +286,7 @@ custom_section:
 		);
 	});
 
-	test('rejects edges that reference missing nodes', () => {
+	test('rejects edges that reference missing elements', () => {
 		assert.throws(
 			() => new OntologyDiagramDocument(
 				DiagramMetadata.createEmpty('Invalid'),
@@ -228,6 +303,7 @@ custom_section:
 						[new Point(100, 25), new Point(200, 25)],
 					),
 				],
+				[new DiagramNote('note_context', new Bounds(0, 0, 120, 64), 'Context')],
 			),
 			OntologyDiagramValidationError,
 		);

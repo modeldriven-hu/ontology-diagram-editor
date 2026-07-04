@@ -19,7 +19,11 @@ export class UpdateEdgeRouteUseCase {
 		}
 
 		const updateById = new Map(updates.map((update) => [update.id, update]));
-		const nodeBoundsById = new Map(diagram.nodes.map((node) => [node.id.value, node.bounds]));
+		const boundsByElementId = new Map([
+			...diagram.nodes.map((node) => [node.id.value, node.bounds] as const),
+			...diagram.notes.map((note) => [note.id.value, note.bounds] as const),
+			...diagram.images.map((image) => [image.id.value, image.bounds] as const),
+		]);
 		let changed = false;
 		const nextEdges = diagram.edges.map((edge) => {
 			const update = updateById.get(edge.id.value);
@@ -27,8 +31,8 @@ export class UpdateEdgeRouteUseCase {
 				return edge;
 			}
 
-			const sourceBounds = nodeBoundsById.get(edge.source.value);
-			const targetBounds = nodeBoundsById.get(edge.target.value);
+			const sourceBounds = boundsByElementId.get(edge.source.value);
+			const targetBounds = boundsByElementId.get(edge.target.value);
 			if (sourceBounds === undefined || targetBounds === undefined) {
 				return edge;
 			}
@@ -54,6 +58,7 @@ export class UpdateEdgeRouteUseCase {
 				nextPoints,
 				edge.style,
 				edge.extra,
+				edge.routeLayout,
 			);
 		});
 

@@ -45,6 +45,9 @@ updated.
 The canvas shall enforce a positive width and height and minimum dimensions that keep
 label text and handles usable.
 
+When a label is selected, the local element toolbar shall provide a resize-to-minimum
+action.
+
 # Delete Labels
 
 The user can delete a selected label from the canvas.

@@ -15,6 +15,7 @@ export class DeleteNoteUseCase {
 		return {
 			diagram: cloneDiagram(diagram, {
 				notes: nextNotes,
+				edges: diagram.edges.filter((edge) => edge.source.value !== id && edge.target.value !== id),
 			}),
 		};
 	}

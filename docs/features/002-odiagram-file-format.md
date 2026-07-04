@@ -267,18 +267,24 @@ Each edge shall contain:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | identifier | Yes | Unique edge identifier. |
-| `source` | identifier | Yes | Source node identifier. |
-| `target` | identifier | Yes | Target node identifier. |
+| `source` | identifier | Yes | Source node, note, or image identifier. |
+| `target` | identifier | Yes | Target node, note, or image identifier. |
 | `ontology_ref` | ontology reference | Yes | Referenced edge-capable ontology item. |
 | `label` | point | Yes | Label position. |
 | `points` | list of points | Yes | Edge route coordinates. |
 | `style` | map | No | Edge style override. |
+| `route_layout` | string | No | Preferred route layout, such as `orthogonal` or `direct`. |
 
-`source` and `target` shall reference existing nodes.
+`source` and `target` shall reference existing nodes, notes, or images.
 
 Version 1 supports object properties and data properties, plus explicit subclass
 relationships, as edge ontology references when the connection satisfies the canvas edge
 rules.
+
+Version 1 also supports note connection edges whose endpoints include a note and whose
+other endpoint is a node, note, or image. Note connection edges may use an
+implementation-defined absolute `ontology_ref` and shall render as dotted annotation
+edges by default.
 
 Subclass relationship edges shall use `rdfs:subClassOf` as `ontology_ref`; the concrete
 subclass and superclass are identified by the edge `source` and `target` nodes. When the
@@ -317,7 +323,9 @@ Each note shall contain:
 | `text` | string | Yes | Note content. |
 | `style` | map | No | Note style override. |
 
-Version 1 notes are standalone annotations.
+Version 1 notes may be connected to nodes, notes, or images by edges. A note remains a
+separate element; deleting an opposing connected element removes the connecting edge but
+does not remove the note.
 
 # Images
 
@@ -366,7 +374,8 @@ A conforming reader shall validate at least the following rules:
 - In version 1, `rdfs:subClassOf` is a supported built-in edge predicate when the edge
   `source` and `target` nodes resolve to ontology items that can participate in a
   subclass relationship.
-- Every edge `source` and edge `target` reference points to an existing node.
+- Every edge `source` and edge `target` reference points to an existing node, note, or
+  image.
 - Every bounds object has positive `width` and `height`.
 - Every edge has at least two route points.
 - Every label `style` map, when present, contains only label-supported style fields.

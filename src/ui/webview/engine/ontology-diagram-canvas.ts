@@ -1,19 +1,19 @@
-import { LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
-import { CanvasElementRegistry } from '../components/canvas-element-registry';
+import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { CanvasPropertyPanel } from '../components/canvas-property-panel';
-import { nodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
+import { measuredTextWidth, nodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
-import type { DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
@@ -50,6 +50,10 @@ const maximumZoom = 3;
 const defaultCanvasWidth = 1800;
 const defaultCanvasHeight = 1200;
 const viewportPadding = 80;
+const noteContentHorizontalPadding = 24;
+const noteContentVerticalPadding = 24;
+const noteCompactMaximumWidth = 320;
+const noteLineHeightFactor = 1.25;
 
 if (config === undefined) {
 	throw new Error('Missing ontology diagram webview configuration.');
@@ -69,13 +73,16 @@ const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
 const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
-const minimizeElementButton = requiredElement('minimizeElementButton') as HTMLButtonElement;
 const revealModelTreeItemButton = requiredElement('revealModelTreeItemButton') as HTMLButtonElement;
 const themeModeButton = requiredElement('themeModeButton') as HTMLButtonElement;
 const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
 const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
 const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
 const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
+const localElementToolbar = requiredElement('localElementToolbar');
+const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
+const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
+const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
 const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
 const propertyPanelTitle = requiredElement('propertyPanelTitle');
@@ -83,6 +90,7 @@ const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButton
 const propertyPanelBody = requiredElement('propertyPanelBody');
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
 let theme = readTheme(themeMode);
+let pendingNoteConnectionSourceId: string | undefined;
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
@@ -128,6 +136,7 @@ const noteEditorController = new NoteEditorController({
 renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
+renderLocalElementToolbarIcons();
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
 renderViewportToolbarIcons();
 applyCanvasTheme(theme);
@@ -140,7 +149,19 @@ registerPropertyPanel();
 restoreSelection();
 restoreViewport();
 noteEditorController.register();
+minimizeLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	resizeSelectedElementToMinimum();
+});
+connectNoteLocalButton.addEventListener('click', () => {
+	toggleNoteConnectionMode();
+});
+deleteEdgeLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	deleteSelectedEdge();
+});
 addImageButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
 	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
 });
 exportSvgButton.addEventListener('click', () => {
@@ -166,9 +187,6 @@ fitDiagramButton.addEventListener('click', () => {
 });
 resetViewportButton.addEventListener('click', () => {
 	resetViewport();
-});
-minimizeElementButton.addEventListener('click', () => {
-	resizeSelectedElementToMinimum();
 });
 revealModelTreeItemButton.addEventListener('click', () => {
 	revealSelectedModelTreeItem();
@@ -258,6 +276,7 @@ function render(): void {
 	trackRenderedGeometry(webviewConfig.payload);
 	canvas.renderDiagram(webviewConfig.payload, theme);
 	resizeCanvasForZoom();
+	updateLocalElementToolbar();
 	messageBus.publishEvent(new CanvasRenderedEvent({
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
 		renderedElementIdentifiers: elementRegistry.renderedElementIdentifiers(),
@@ -291,6 +310,8 @@ function registerCanvasStateSubscriptions(): void {
 function registerSelectionEventPublishing(): void {
 	canvas.onSelectionChanged(() => {
 		const selectedElementId = canvas.selectedElementId();
+		handlePendingNoteConnectionSelection(selectedElementId);
+		updateLocalElementToolbar();
 		console.log('[ontology-diagram-editor] publish canvas selection', {
 			selectedElementId,
 			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
@@ -303,8 +324,36 @@ function registerSelectionEventPublishing(): void {
 	});
 }
 
+function renderLocalElementToolbarIcons(): void {
+	minimizeLocalButton.replaceChildren(createIconElement(Minimize2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	minimizeLocalButton.title = 'Resize to minimum size';
+	minimizeLocalButton.setAttribute('aria-label', 'Resize to minimum size');
+
+	const badge = document.createElement('span');
+	badge.className = 'local-action-note-badge';
+	badge.textContent = 'N';
+	connectNoteLocalButton.replaceChildren(createIconElement(Link2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}), badge);
+	connectNoteLocalButton.title = 'Connect note';
+	connectNoteLocalButton.setAttribute('aria-label', 'Connect note');
+	connectNoteLocalButton.setAttribute('aria-pressed', 'false');
+
+	deleteEdgeLocalButton.replaceChildren(createIconElement(Trash2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	deleteEdgeLocalButton.title = 'Remove edge';
+	deleteEdgeLocalButton.setAttribute('aria-label', 'Remove edge');
+}
+
 function registerViewportEventPublishing(): void {
 	canvasScroll.addEventListener('scroll', () => {
+		updateLocalElementToolbar();
 		publishViewportChanged('scroll');
 	});
 	canvasScroll.addEventListener('wheel', (event) => {
@@ -337,15 +386,218 @@ function renderViewportToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	minimizeElementButton.replaceChildren(createIconElement(Minimize2, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
 	revealModelTreeItemButton.replaceChildren(createIconElement(LocateFixed, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
 	renderThemeModeButton();
+}
+
+function toggleNoteConnectionMode(): void {
+	if (pendingNoteConnectionSourceId !== undefined) {
+		cancelPendingNoteConnection();
+		showStatus('Note connection cancelled.');
+		return;
+	}
+
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'note') {
+		showStatus('Select a note before creating a note connection.');
+		return;
+	}
+
+	pendingNoteConnectionSourceId = selectedElementId;
+	connectNoteLocalButton.setAttribute('aria-pressed', 'true');
+	showStatus('Select another note, node, or image to create the note connection.');
+	canvasScroll.focus();
+}
+
+function cancelPendingNoteConnection(): void {
+	pendingNoteConnectionSourceId = undefined;
+	connectNoteLocalButton.setAttribute('aria-pressed', 'false');
+}
+
+function handlePendingNoteConnectionSelection(targetId: string | undefined): void {
+	const sourceId = pendingNoteConnectionSourceId;
+	if (sourceId === undefined || targetId === undefined || targetId === sourceId) {
+		return;
+	}
+
+	const source = elementRegistry.element(sourceId);
+	const target = elementRegistry.element(targetId);
+	if (source === undefined || target === undefined || !isNoteConnectionEndpointKind(source.kind) || !isNoteConnectionEndpointKind(target.kind)) {
+		showStatus('Select a note, node, or image to complete the note connection.');
+		return;
+	}
+
+	if (source.kind !== 'note' && target.kind !== 'note') {
+		showStatus('A note connection needs at least one note endpoint.');
+		return;
+	}
+
+	const noteId = source.kind === 'note' ? sourceId : targetId;
+	const targetElementId = source.kind === 'note' ? targetId : sourceId;
+	cancelPendingNoteConnection();
+	messageBus.publishCommand(new CreateNoteConnectionCommand(noteId, targetElementId));
+	showStatus('Creating note connection.');
+}
+
+function isNoteConnectionEndpointKind(kind: string): boolean {
+	return kind === 'node' || kind === 'note' || kind === 'image';
+}
+
+function updateLocalElementToolbar(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElement === undefined || !hasLocalElementToolbarActions(selectedElement) || noteEditorController.isOpen()) {
+		localElementToolbar.hidden = true;
+		return;
+	}
+
+	updateLocalElementToolbarButtons(selectedElement);
+	const toolbarAnchor = localElementToolbarAnchor(selectedElement);
+	if (toolbarAnchor === undefined) {
+		localElementToolbar.hidden = true;
+		return;
+	}
+
+	const zoom = canvas.zoom();
+	const toolbarWidth = localElementToolbar.getBoundingClientRect().width || localElementToolbarFallbackWidth(selectedElement);
+	const x = toolbarAnchor.x * zoom - canvasScroll.scrollLeft;
+	const y = toolbarAnchor.y * zoom - canvasScroll.scrollTop;
+	const left = Math.round(Math.min(Math.max(x, toolbarWidth / 2 + 8), Math.max(toolbarWidth / 2 + 8, canvasScroll.clientWidth - toolbarWidth / 2 - 8)));
+	const belowY = toolbarAnchor.belowY * zoom - canvasScroll.scrollTop;
+	const top = Math.round(y >= 48 ? y - 42 : belowY + 8);
+	localElementToolbar.style.left = `${left}px`;
+	localElementToolbar.style.top = `${Math.max(8, top)}px`;
+	localElementToolbar.hidden = false;
+	connectNoteLocalButton.setAttribute('aria-pressed', String(pendingNoteConnectionSourceId === selectedElementId));
+}
+
+function hasLocalElementToolbarActions(element: CanvasPropertyElement): boolean {
+	return element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label' || element.kind === 'edge';
+}
+
+function updateLocalElementToolbarButtons(element: CanvasPropertyElement): void {
+	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
+	minimizeLocalButton.hidden = !canResize;
+	connectNoteLocalButton.hidden = element.kind !== 'note';
+	deleteEdgeLocalButton.hidden = element.kind !== 'edge';
+
+	if (element.kind === 'note') {
+		minimizeLocalButton.title = 'Resize note to compact size';
+		minimizeLocalButton.setAttribute('aria-label', 'Resize note to compact size');
+	} else if (element.kind === 'image') {
+		minimizeLocalButton.title = 'Resize image to minimum size';
+		minimizeLocalButton.setAttribute('aria-label', 'Resize image to minimum size');
+	} else if (element.kind === 'label') {
+		minimizeLocalButton.title = 'Resize label to minimum size';
+		minimizeLocalButton.setAttribute('aria-label', 'Resize label to minimum size');
+	} else {
+		minimizeLocalButton.title = 'Resize to minimum size';
+		minimizeLocalButton.setAttribute('aria-label', 'Resize to minimum size');
+	}
+}
+
+interface LocalElementToolbarAnchor {
+	readonly x: number;
+	readonly y: number;
+	readonly belowY: number;
+}
+
+function localElementToolbarAnchor(element: CanvasPropertyElement): LocalElementToolbarAnchor | undefined {
+	if (element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label') {
+		return {
+			x: element.value.x + element.value.width / 2,
+			y: element.value.y,
+			belowY: element.value.y + element.value.height,
+		};
+	}
+
+	if (element.kind === 'edge') {
+		const point = edgeToolbarPoint(element.value);
+		if (point === undefined) {
+			return undefined;
+		}
+
+		return {
+			x: point.x,
+			y: point.y,
+			belowY: point.y,
+		};
+	}
+
+	return undefined;
+}
+
+function edgeToolbarPoint(edge: NonNullable<NonNullable<DiagramPayload['diagram']>['edges']>[number]): CanvasPoint | undefined {
+	const points = edgeRoutePoints(edge);
+	if (points.length === 0) {
+		return undefined;
+	}
+	if (points.length === 1) {
+		return points[0];
+	}
+
+	const totalLength = points.slice(1).reduce((sum, point, index) => sum + pointDistance(points[index], point), 0);
+	if (totalLength <= 0) {
+		return {
+			x: (points[0].x + points[points.length - 1].x) / 2,
+			y: (points[0].y + points[points.length - 1].y) / 2,
+		};
+	}
+
+	let traversedLength = 0;
+	const targetLength = totalLength / 2;
+	for (let index = 1; index < points.length; index += 1) {
+		const start = points[index - 1];
+		const end = points[index];
+		const segmentLength = pointDistance(start, end);
+		if (traversedLength + segmentLength >= targetLength) {
+			const ratio = segmentLength === 0 ? 0 : (targetLength - traversedLength) / segmentLength;
+			return {
+				x: start.x + ((end.x - start.x) * ratio),
+				y: start.y + ((end.y - start.y) * ratio),
+			};
+		}
+
+		traversedLength += segmentLength;
+	}
+
+	return points[points.length - 1];
+}
+
+function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
+	return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function localElementToolbarFallbackWidth(element: CanvasPropertyElement): number {
+	if (element.kind === 'note') {
+		return 67;
+	}
+
+	return 36;
+}
+
+function deleteSelectedEdge(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+		showStatus('Select an edge to remove.');
+		return;
+	}
+
+	if (deleteElement(selectedElementId)) {
+		localElementToolbar.hidden = true;
+		showStatus('Removing edge.');
+	}
 }
 
 function resizeSelectedElementToMinimum(): void {
@@ -393,7 +645,7 @@ function minimumSizeForElement(element: ReturnType<CanvasElementRegistry['elemen
 		};
 	}
 	if (element?.kind === 'note') {
-		return { width: minimumNoteWidth, height: minimumNoteHeight };
+		return requiredNoteSize(element.value);
 	}
 	if (element?.kind === 'image') {
 		return { width: minimumImageWidth, height: minimumImageHeight };
@@ -403,6 +655,153 @@ function minimumSizeForElement(element: ReturnType<CanvasElementRegistry['elemen
 	}
 
 	return undefined;
+}
+
+function requiredNoteSize(note: DiagramNote): { readonly width: number; readonly height: number } {
+	const fontSize = note.style?.font?.size ?? theme.fontSize;
+	const fontFamily = note.style?.font?.family ?? theme.fontFamily;
+	const visibleText = visibleNoteText(note.text);
+	const explicitLines = normalizeLineEndings(visibleText).split('\n');
+	const widestLine = Math.max(0, ...explicitLines.map((line) => measuredNoteTextWidth({
+		note,
+		text: line,
+		fontSize,
+		fontFamily,
+	})));
+	const width = Math.ceil(Math.max(
+		minimumNoteWidth,
+		Math.min(noteCompactMaximumWidth, widestLine + noteContentHorizontalPadding),
+	));
+	const contentWidth = Math.max(1, width - noteContentHorizontalPadding);
+	const visualLineCount = explicitLines
+		.map((line) => wrappedNoteLineCount({ note, line, fontSize, fontFamily, contentWidth }))
+		.reduce((sum, lineCount) => sum + lineCount, 0);
+	const lineHeight = Math.ceil(fontSize * noteLineHeightFactor);
+	const height = Math.ceil(Math.max(
+		minimumNoteHeight,
+		(visualLineCount * lineHeight) + noteContentVerticalPadding,
+	));
+
+	return { width, height };
+}
+
+function visibleNoteText(value: string): string {
+	if (typeof DOMParser === 'undefined') {
+		return value;
+	}
+
+	const parsed = new DOMParser().parseFromString(value, 'text/html');
+	const text = renderedNoteText(parsed.body);
+	if (text.endsWith('\n') && /<\/(?:div|li|ol|p|ul)>\s*$/iu.test(value)) {
+		return text.slice(0, -1);
+	}
+
+	return text;
+}
+
+function renderedNoteText(node: ChildNode): string {
+	if (node.nodeType === Node.TEXT_NODE) {
+		return node.textContent ?? '';
+	}
+	if (!(node instanceof Element)) {
+		return '';
+	}
+
+	const tagName = node.tagName.toLowerCase();
+	if (tagName === 'br') {
+		return '\n';
+	}
+
+	const text = [...node.childNodes].map(renderedNoteText).join('');
+	if (isNoteBlockElement(tagName) && text.length > 0 && !text.endsWith('\n')) {
+		return `${text}\n`;
+	}
+
+	return text;
+}
+
+function isNoteBlockElement(tagName: string): boolean {
+	return tagName === 'div' || tagName === 'p' || tagName === 'li' || tagName === 'ul' || tagName === 'ol';
+}
+
+function normalizeLineEndings(value: string): string {
+	return value.replace(/\r\n?/gu, '\n');
+}
+
+function wrappedNoteLineCount(options: {
+	readonly note: DiagramNote;
+	readonly line: string;
+	readonly fontSize: number;
+	readonly fontFamily: string;
+	readonly contentWidth: number;
+}): number {
+	const words = options.line.trim().split(/\s+/u).filter((word) => word.length > 0);
+	if (words.length === 0) {
+		return 1;
+	}
+
+	let lineCount = 1;
+	let currentLine = '';
+	for (const word of words) {
+		const candidate = currentLine.length === 0 ? word : `${currentLine} ${word}`;
+		if (measuredNoteTextWidth({ ...options, text: candidate }) <= options.contentWidth) {
+			currentLine = candidate;
+			continue;
+		}
+
+		if (currentLine.length > 0) {
+			lineCount += 1;
+			currentLine = '';
+		}
+
+		currentLine = word;
+		while (currentLine.length > 1 && measuredNoteTextWidth({ ...options, text: currentLine }) > options.contentWidth) {
+			const breakIndex = Math.min(
+				currentLine.length - 1,
+				maximumFittingNotePrefixLength({ ...options, text: currentLine }),
+			);
+			lineCount += 1;
+			currentLine = currentLine.slice(breakIndex);
+		}
+	}
+
+	return lineCount;
+}
+
+function maximumFittingNotePrefixLength(options: {
+	readonly note: DiagramNote;
+	readonly text: string;
+	readonly fontSize: number;
+	readonly fontFamily: string;
+	readonly contentWidth: number;
+}): number {
+	let lower = 1;
+	let upper = options.text.length;
+	while (lower < upper) {
+		const middle = Math.ceil((lower + upper) / 2);
+		if (measuredNoteTextWidth({ ...options, text: options.text.slice(0, middle) }) <= options.contentWidth) {
+			lower = middle;
+		} else {
+			upper = middle - 1;
+		}
+	}
+
+	return Math.max(1, lower);
+}
+
+function measuredNoteTextWidth(options: {
+	readonly note: DiagramNote;
+	readonly text: string;
+	readonly fontSize: number;
+	readonly fontFamily: string;
+}): number {
+	return measuredTextWidth({
+		text: options.text,
+		fontSize: options.fontSize,
+		fontFamily: options.fontFamily,
+		bold: options.note.style?.font?.bold,
+		italic: options.note.style?.font?.italic,
+	});
 }
 
 function revealSelectedModelTreeItem(): void {
@@ -473,6 +872,7 @@ function zoomBy(factor: number, source: 'zoom', clientPoint?: CanvasPoint): void
 function setZoom(zoom: number): void {
 	canvas.setZoom(clampZoom(zoom));
 	resizeCanvasForZoom();
+	updateLocalElementToolbar();
 }
 
 function fitDiagramToView(): void {
@@ -587,7 +987,7 @@ function elementBounds(element: {
 }
 
 function edgeBounds(edge: NonNullable<NonNullable<DiagramPayload['diagram']>['edges']>[number]): readonly ContentBounds[] {
-	const pointBounds = edge.points.map((point) => ({
+	const pointBounds = edgeRoutePoints(edge).map((point) => ({
 		x: point.x,
 		y: point.y,
 		width: 1,
@@ -596,13 +996,26 @@ function edgeBounds(edge: NonNullable<NonNullable<DiagramPayload['diagram']>['ed
 
 	return [
 		...pointBounds,
+		...(edge.ontology_item_type === 'noteConnection' ? [] : [
 		{
 			x: edge.label.x,
 			y: edge.label.y,
 			width: Math.max(80, edge.ontology_ref.length * 7),
 			height: 24,
 		},
+		]),
 	];
+}
+
+function edgeRoutePoints(edge: NonNullable<NonNullable<DiagramPayload['diagram']>['edges']>[number]): readonly CanvasPoint[] {
+	if (edge.points.length < 2) {
+		return [];
+	}
+	if (edge.route_layout === 'direct') {
+		return [edge.points[0], edge.points[edge.points.length - 1]];
+	}
+
+	return edge.points;
 }
 
 function rectCenter(bounds: ContentBounds): CanvasPoint {
@@ -705,6 +1118,7 @@ function editNote(id: string): boolean {
 		return false;
 	}
 
+	localElementToolbar.hidden = true;
 	noteEditorController.open('note', id);
 
 	return true;
@@ -715,6 +1129,7 @@ function editLabel(id: string): boolean {
 		return false;
 	}
 
+	localElementToolbar.hidden = true;
 	noteEditorController.open('label', id);
 
 	return true;
@@ -800,13 +1215,14 @@ function isKeyboardInputTarget(target: EventTarget | null): boolean {
 }
 
 function deleteElement(id: string): boolean {
-	if (elementRegistry.element(id)?.kind === 'node') {
+	const element = elementRegistry.element(id);
+	if (element?.kind === 'node') {
 		messageBus.publishCommand(new DeleteNodeCommand(id));
 
 		return true;
 	}
 
-	if (geometryPersistence.hasEdge(id)) {
+	if (element?.kind === 'edge') {
 		messageBus.publishCommand(new DeleteEdgeCommand(id));
 
 		return true;

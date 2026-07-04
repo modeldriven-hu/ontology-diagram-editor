@@ -11,6 +11,7 @@ import type { X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node } from './x6-
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
 type ElementStyle = NonNullable<DiagramNode['style']>;
 type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
+type ConnectableElement = Pick<DiagramNode | DiagramNote | DiagramImage, 'id' | 'x' | 'y' | 'width' | 'height'>;
 
 export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly graph: X6Graph;
@@ -87,12 +88,16 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			for (const node of payload.diagram?.nodes ?? []) {
 				this.graph.addNode(x6OntologyNode(node, payload, theme));
 			}
-			const nodeById = new Map((payload.diagram?.nodes ?? []).map((node) => [node.id, node]));
-			for (const edge of payload.diagram?.edges ?? []) {
-				this.graph.addEdge(x6Edge(edge, nodeById, theme));
-			}
 			for (const note of payload.diagram?.notes ?? []) {
 				this.graph.addNode(x6Note(note, theme));
+			}
+			const connectableElementById = new Map<string, ConnectableElement>([
+				...(payload.diagram?.nodes ?? []).map((node) => [node.id, node] as const),
+				...(payload.diagram?.notes ?? []).map((note) => [note.id, note] as const),
+				...(payload.diagram?.images ?? []).map((image) => [image.id, image] as const),
+			]);
+			for (const edge of payload.diagram?.edges ?? []) {
+				this.graph.addEdge(x6Edge(edge, connectableElementById, theme));
 			}
 			for (const label of payload.diagram?.labels ?? []) {
 				this.graph.addNode(x6Label(label, theme));
@@ -813,30 +818,31 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	};
 }
 
-function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, theme: WebviewTheme): Record<string, unknown> {
+function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableElement>, theme: WebviewTheme): Record<string, unknown> {
 	const persistedPoints = edge.points.length >= 2 ? edge.points : [{ x: 0, y: 0 }, { x: 0, y: 0 }];
-	const points = orthogonalDisplayPoints(persistedPoints);
+	const points = displayPoints(edge, persistedPoints);
 	const sourcePoint = points[0];
 	const targetPoint = points[points.length - 1];
-	const sourceNode = nodeById.get(edge.source);
-	const targetNode = nodeById.get(edge.target);
+	const sourceElement = elementById.get(edge.source);
+	const targetElement = elementById.get(edge.target);
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const lineStyle = edge.style?.line_style;
 	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
-	const label = edgeDisplayName(edge.ontology_ref);
+	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
 
 	return {
 		id: edge.id,
 		shape: 'edge',
-		source: sourceNode === undefined ? sourcePoint : {
+		source: sourceElement === undefined ? sourcePoint : {
 			cell: edge.source,
-			anchor: anchorFromPoint(sourcePoint, sourceNode),
+			anchor: anchorFromPoint(sourcePoint, sourceElement),
 		},
-		target: targetNode === undefined ? targetPoint : {
+		target: targetElement === undefined ? targetPoint : {
 			cell: edge.target,
-			anchor: anchorFromPoint(targetPoint, targetNode),
+			anchor: anchorFromPoint(targetPoint, targetElement),
 		},
 		vertices: points.slice(1, -1),
+		router: edgeRouter(edge.route_layout),
 		attrs: {
 			line: {
 				stroke,
@@ -844,8 +850,13 @@ function x6Edge(edge: DiagramEdge, nodeById: ReadonlyMap<string, DiagramNode>, t
 				strokeDasharray: edgeDashArray(lineStyle, strokeWidth),
 				targetMarker: edgeTargetMarker(edge, stroke, strokeWidth, theme),
 			},
+			wrap: {
+				stroke: 'transparent',
+				strokeWidth: Math.max(14, strokeWidth + 10),
+				cursor: 'pointer',
+			},
 		},
-		labels: [{
+		labels: label.length === 0 ? [] : [{
 			position: labelPosition(edge.label, sourcePoint),
 			attrs: {
 				rect: {
@@ -977,12 +988,12 @@ function anchorToolArgs(): Record<string, unknown> {
 	};
 }
 
-function anchorFromPoint(point: CanvasPoint, node: DiagramNode): Record<string, unknown> {
+function anchorFromPoint(point: CanvasPoint, element: ConnectableElement): Record<string, unknown> {
 	return {
 		name: 'topLeft',
 		args: {
-			dx: percentage(point.x - node.x, node.width),
-			dy: percentage(point.y - node.y, node.height),
+			dx: percentage(point.x - element.x, element.width),
+			dy: percentage(point.y - element.y, element.height),
 			rotate: true,
 		},
 	};
@@ -1014,6 +1025,35 @@ function orthogonalDisplayPoints(points: readonly CanvasPoint[]): readonly Canva
 	return withoutRedundantPoints(result);
 }
 
+function displayPoints(edge: DiagramEdge, points: readonly CanvasPoint[]): readonly CanvasPoint[] {
+	if (edge.route_layout === 'direct') {
+		return withoutRedundantPoints([points[0], points[points.length - 1]]);
+	}
+	if (edge.route_layout === undefined || edge.route_layout === 'orthogonal') {
+		return orthogonalDisplayPoints(points);
+	}
+
+	return withoutRedundantPoints(points);
+}
+
+function edgeRouter(routeLayout: DiagramEdge['route_layout']): string | Record<string, unknown> | undefined {
+	switch (routeLayout) {
+		case 'orthogonal':
+			return undefined;
+		case 'one_side':
+			return { name: 'oneSide' };
+		case 'manhattan':
+			return { name: 'manhattan' };
+		case 'metro':
+			return { name: 'metro' };
+		case 'entity_relation':
+			return { name: 'er' };
+		case 'direct':
+		case undefined:
+			return undefined;
+	}
+}
+
 function edgeDashArray(lineStyle: EdgeLineStyle | undefined, strokeWidth: number): string | undefined {
 	return lineStyle === 'dotted'
 		? `${strokeWidth} ${strokeWidth * 3}`
@@ -1029,6 +1069,10 @@ function edgeTargetMarker(
 	theme: WebviewTheme,
 ): Record<string, unknown> | undefined {
 	if (stroke === 'none') {
+		return undefined;
+	}
+
+	if (isNoteConnection(edge)) {
 		return undefined;
 	}
 
@@ -1049,6 +1093,10 @@ function edgeTargetMarker(
 		stroke,
 		strokeWidth,
 	};
+}
+
+function isNoteConnection(edge: DiagramEdge): boolean {
+	return edge.ontology_item_type === 'noteConnection';
 }
 
 function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {

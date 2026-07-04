@@ -7,6 +7,7 @@ import {
 	CreateImageUseCase,
 	CreateLabelUseCase,
 	CreateNodeUseCase,
+	CreateNoteConnectionUseCase,
 	CreateNoteUseCase,
 	DeleteEdgeUseCase,
 	DeleteImageUseCase,
@@ -15,6 +16,7 @@ import {
 	DeleteNoteUseCase,
 	SaveDiagramExportUseCase,
 	UpdateEdgeRouteUseCase,
+	UpdateEdgeRouteLayoutUseCase,
 	UpdateElementStyleUseCase,
 	UpdateImageBoundsUseCase,
 	UpdateImageSourceUseCase,
@@ -37,6 +39,7 @@ interface DiagramEditorUseCases {
 	readonly createNode: CreateNodeUseCase;
 	readonly createEdge: CreateEdgeUseCase;
 	readonly createNote: CreateNoteUseCase;
+	readonly createNoteConnection: CreateNoteConnectionUseCase;
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
@@ -45,6 +48,7 @@ interface DiagramEditorUseCases {
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
+	readonly updateEdgeRouteLayout: UpdateEdgeRouteLayoutUseCase;
 	readonly updateElementStyle: UpdateElementStyleUseCase;
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeDataPropertiesVisibility: UpdateNodeDataPropertiesVisibilityUseCase;
@@ -89,6 +93,13 @@ export class DiagramCommandDispatcher {
 					command.updates,
 				));
 				return;
+			case 'updateEdgeRouteLayout':
+				await this.handleResult(this.useCases.updateEdgeRouteLayout.execute(
+					this.repository.load(),
+					command.id,
+					command.routeLayout,
+				));
+				return;
 			case 'updateNodeImage':
 				await this.handleResult(this.useCases.updateNodeImage.execute(
 					this.repository.load(),
@@ -108,6 +119,13 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.text,
 					command.position,
+				));
+				return;
+			case 'createNoteConnection':
+				await this.handleResult(this.useCases.createNoteConnection.execute(
+					this.repository.load(),
+					command.noteId,
+					command.targetId,
 				));
 				return;
 			case 'createImage':
@@ -240,8 +258,12 @@ export class DiagramCommandDispatcher {
 	}
 
 	private async deleteImage(command: Extract<WebviewCommand, { readonly type: 'deleteImage' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const connectedEdgeCount = diagram.edges.filter((edge) => edge.source.value === command.id || edge.target.value === command.id).length;
 		const confirmed = await vscode.window.showWarningMessage(
-			'Delete this image from the diagram?',
+			connectedEdgeCount > 0
+				? `Delete this image and ${connectedEdgeCount} connected edge${connectedEdgeCount === 1 ? '' : 's'} from the diagram?`
+				: 'Delete this image from the diagram?',
 			{ modal: true },
 			'Delete',
 		);
@@ -250,7 +272,7 @@ export class DiagramCommandDispatcher {
 		}
 
 		await this.handleResult(this.useCases.deleteImage.execute(
-			this.repository.load(),
+			diagram,
 			command.id,
 		));
 	}
@@ -292,8 +314,12 @@ export class DiagramCommandDispatcher {
 	}
 
 	private async deleteNote(command: Extract<WebviewCommand, { readonly type: 'deleteNote' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const connectedEdgeCount = diagram.edges.filter((edge) => edge.source.value === command.id || edge.target.value === command.id).length;
 		const confirmed = await vscode.window.showWarningMessage(
-			'Delete this note from the diagram?',
+			connectedEdgeCount > 0
+				? `Delete this note and ${connectedEdgeCount} connected edge${connectedEdgeCount === 1 ? '' : 's'} from the diagram?`
+				: 'Delete this note from the diagram?',
 			{ modal: true },
 			'Delete',
 		);
@@ -302,7 +328,7 @@ export class DiagramCommandDispatcher {
 		}
 
 		await this.handleResult(this.useCases.deleteNote.execute(
-			this.repository.load(),
+			diagram,
 			command.id,
 		));
 	}
@@ -390,6 +416,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createNode: new CreateNodeUseCase(),
 		createEdge: new CreateEdgeUseCase(),
 		createNote: new CreateNoteUseCase(),
+		createNoteConnection: new CreateNoteConnectionUseCase(),
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
@@ -398,6 +425,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
+		updateEdgeRouteLayout: new UpdateEdgeRouteLayoutUseCase(),
 		updateElementStyle: new UpdateElementStyleUseCase(),
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeDataPropertiesVisibility: new UpdateNodeDataPropertiesVisibilityUseCase(),

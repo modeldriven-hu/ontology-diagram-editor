@@ -143,7 +143,7 @@ export function truncateText(options: {
 	return `${options.text.slice(0, lower)}${ellipsis}`;
 }
 
-function measuredTextWidth(options: {
+export function measuredTextWidth(options: {
 	readonly text: string;
 	readonly fontSize: number;
 	readonly fontFamily?: string;

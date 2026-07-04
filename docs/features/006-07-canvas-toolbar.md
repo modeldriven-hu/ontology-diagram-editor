@@ -2,7 +2,8 @@
 
 This specification defines the canvas-level toolbar used for global diagram actions.
 Element inspection, geometry editing, image source editing, and element-level style
-customization are handled by the property panel.
+customization are handled by the property panel. Selected elements may also show a
+small local toolbar for element-specific actions.
 
 # Scope
 
@@ -27,7 +28,6 @@ Version 1 toolbar actions are:
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
 | Fit diagram to view | Fits all rendered content in the visible viewport. |
 | Reset viewport | Resets zoom and pan to the implementation-defined default. |
-| Resize to minimum | Resizes the selected node, note, image, or standalone label to its defined minimum size. |
 | Toggle light/dark mode | Switches the canvas rendering palette between light and dark mode without changing persisted diagram geometry. |
 
 Toolbar buttons shall be disabled or shall show a concise user-visible problem when the
@@ -38,3 +38,18 @@ empty export file.
 
 Version 1 does not use a floating toolbar for element-level style customization.
 Element style overrides are edited in the selected element's property panel.
+
+# Local Element Toolbar
+
+When a selected element has local actions, the canvas may show a small toolbar above
+that element.
+
+Version 1 local toolbar actions are:
+
+| Selection | Actions |
+|-----------|---------|
+| Node | Resize to minimum. |
+| Note | Resize to compact size and connect note. |
+| Image | Resize to minimum. |
+| Label | Resize to minimum. |
+| Edge | Remove edge. |

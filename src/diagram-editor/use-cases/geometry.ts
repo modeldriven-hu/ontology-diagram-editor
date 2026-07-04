@@ -1,10 +1,10 @@
 import { Bounds, DiagramEdge, Point } from '../../documents/odiagram';
-import type { NodeBoundsUpdate } from '../../shared/canvas-geometry';
+import type { BoundsUpdate } from '../../shared/canvas-geometry';
 
 export function recalculateConnectedEdgeEndpoints(
 	edge: DiagramEdge,
-	updateById: ReadonlyMap<string, NodeBoundsUpdate>,
-	boundsByNodeId: ReadonlyMap<string, Bounds>,
+	updateById: ReadonlyMap<string, BoundsUpdate>,
+	boundsByElementId: ReadonlyMap<string, Bounds>,
 ): DiagramEdge {
 	const sourceChanged = updateById.has(edge.source.value);
 	const targetChanged = updateById.has(edge.target.value);
@@ -13,7 +13,7 @@ export function recalculateConnectedEdgeEndpoints(
 	}
 
 	if (edge.source.value === edge.target.value) {
-		const selfBounds = boundsByNodeId.get(edge.source.value);
+		const selfBounds = boundsByElementId.get(edge.source.value);
 		if (selfBounds === undefined) {
 			return edge;
 		}
@@ -33,20 +33,35 @@ export function recalculateConnectedEdgeEndpoints(
 			nextPoints,
 			edge.style,
 			edge.extra,
+			edge.routeLayout,
 		);
 	}
 
 	const nextPoints = [...edge.points];
-	if (sourceChanged) {
-		const sourceBounds = boundsByNodeId.get(edge.source.value);
-		if (sourceBounds !== undefined) {
-			nextPoints[0] = boundaryPoint(sourceBounds, nextPoints[1]);
+	if (isNoteConnection(edge)) {
+		const sourceBounds = boundsByElementId.get(edge.source.value);
+		const targetBounds = boundsByElementId.get(edge.target.value);
+		if (sourceBounds !== undefined && targetBounds !== undefined) {
+			const closestPoints = closestBoundaryPointPair(sourceBounds, targetBounds);
+			if (sourceChanged) {
+				nextPoints[0] = closestPoints.source;
+			}
+			if (targetChanged) {
+				nextPoints[nextPoints.length - 1] = closestPoints.target;
+			}
 		}
-	}
-	if (targetChanged) {
-		const targetBounds = boundsByNodeId.get(edge.target.value);
-		if (targetBounds !== undefined) {
-			nextPoints[nextPoints.length - 1] = boundaryPoint(targetBounds, nextPoints[nextPoints.length - 2]);
+	} else {
+		if (sourceChanged) {
+			const sourceBounds = boundsByElementId.get(edge.source.value);
+			if (sourceBounds !== undefined) {
+				nextPoints[0] = boundaryPoint(sourceBounds, nextPoints[1]);
+			}
+		}
+		if (targetChanged) {
+			const targetBounds = boundsByElementId.get(edge.target.value);
+			if (targetBounds !== undefined) {
+				nextPoints[nextPoints.length - 1] = boundaryPoint(targetBounds, nextPoints[nextPoints.length - 2]);
+			}
 		}
 	}
 
@@ -63,6 +78,7 @@ export function recalculateConnectedEdgeEndpoints(
 		nextPoints,
 		edge.style,
 		edge.extra,
+		edge.routeLayout,
 	);
 }
 
@@ -92,6 +108,54 @@ export function boundaryPoint(bounds: Bounds, toward: Point): Point {
 		roundCoordinate(centerX + dx * scale),
 		roundCoordinate(centerY + dy * scale),
 	);
+}
+
+export function closestBoundaryPointPair(sourceBounds: Bounds, targetBounds: Bounds): {
+	readonly source: Point;
+	readonly target: Point;
+} {
+	const sourceCenter = center(sourceBounds);
+	const targetCenter = center(targetBounds);
+	const sourceRight = sourceBounds.x + sourceBounds.width;
+	const sourceBottom = sourceBounds.y + sourceBounds.height;
+	const targetRight = targetBounds.x + targetBounds.width;
+	const targetBottom = targetBounds.y + targetBounds.height;
+	const horizontalOverlap = sourceBounds.x <= targetRight && targetBounds.x <= sourceRight;
+	const verticalOverlap = sourceBounds.y <= targetBottom && targetBounds.y <= sourceBottom;
+
+	if (horizontalOverlap && sourceBottom <= targetBounds.y) {
+		const x = roundCoordinate(overlapCenter(sourceBounds.x, sourceRight, targetBounds.x, targetRight));
+		return {
+			source: new Point(x, roundCoordinate(sourceBottom)),
+			target: new Point(roundCoordinate(clamp(x, targetBounds.x, targetRight)), roundCoordinate(targetBounds.y)),
+		};
+	}
+	if (horizontalOverlap && targetBottom <= sourceBounds.y) {
+		const x = roundCoordinate(overlapCenter(sourceBounds.x, sourceRight, targetBounds.x, targetRight));
+		return {
+			source: new Point(x, roundCoordinate(sourceBounds.y)),
+			target: new Point(roundCoordinate(clamp(x, targetBounds.x, targetRight)), roundCoordinate(targetBottom)),
+		};
+	}
+	if (verticalOverlap && sourceRight <= targetBounds.x) {
+		const y = roundCoordinate(overlapCenter(sourceBounds.y, sourceBottom, targetBounds.y, targetBottom));
+		return {
+			source: new Point(roundCoordinate(sourceRight), y),
+			target: new Point(roundCoordinate(targetBounds.x), roundCoordinate(clamp(y, targetBounds.y, targetBottom))),
+		};
+	}
+	if (verticalOverlap && targetRight <= sourceBounds.x) {
+		const y = roundCoordinate(overlapCenter(sourceBounds.y, sourceBottom, targetBounds.y, targetBottom));
+		return {
+			source: new Point(roundCoordinate(sourceBounds.x), y),
+			target: new Point(roundCoordinate(targetRight), roundCoordinate(clamp(y, targetBounds.y, targetBottom))),
+		};
+	}
+
+	return {
+		source: boundaryPoint(sourceBounds, targetCenter),
+		target: boundaryPoint(targetBounds, sourceCenter),
+	};
 }
 
 export function nearestBoundaryPoint(bounds: Bounds, point: Point): Point {
@@ -147,4 +211,25 @@ function pointsEqual(left: Point, right: Point): boolean {
 
 function samePoints(left: readonly Point[], right: readonly Point[]): boolean {
 	return left.length === right.length && left.every((point, index) => pointsEqual(point, right[index]));
+}
+
+function center(bounds: Bounds): Point {
+	return new Point(
+		bounds.x + (bounds.width / 2),
+		bounds.y + (bounds.height / 2),
+	);
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value));
+}
+
+function overlapCenter(firstStart: number, firstEnd: number, secondStart: number, secondEnd: number): number {
+	return (Math.max(firstStart, secondStart) + Math.min(firstEnd, secondEnd)) / 2;
+}
+
+function isNoteConnection(edge: DiagramEdge): boolean {
+	return edge.extra.ontology_item_type === 'noteConnection'
+		|| edge.source.value.startsWith('note_')
+		|| edge.target.value.startsWith('note_');
 }

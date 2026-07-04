@@ -5,8 +5,9 @@ editing ontology-backed edges.
 
 # Scope
 
-This specification covers connection-capable ontology item drops, edge previews,
-endpoint behavior, edge label movement, and ontology-to-UML rendering mapping.
+This specification covers connection-capable ontology item drops, note connection
+edges, edge previews, endpoint behavior, edge label movement, and ontology-to-UML
+rendering mapping. It also covers local edge actions shown in the canvas.
 
 # Create Edges From Dragged Ontology Connections
 
@@ -15,10 +16,10 @@ shall create an ontology-backed edge by resolving the relationship source and ta
 from the ontology item metadata included in the `Model tree item dragged` and
 `Model tree item dropped on canvas` payloads.
 
-The canvas shall not support creating a persisted edge without a backing ontology
-relationship. Every persisted edge shall have an `ontology_ref` that identifies a
-connection-capable ontology item from an ontology referenced by the opened
-`.odiagram` file.
+Ontology-backed edges shall have an `ontology_ref` that identifies a
+connection-capable ontology item from an ontology referenced by the opened `.odiagram`
+file. Note connection edges are annotation edges and may use an implementation-defined
+non-ontology reference.
 
 Connection-capable ontology types in version 1 are:
 
@@ -100,6 +101,12 @@ new edge visible and selectable. If the computed position would overlap existing
 content, the implementation shall offset the created node while preserving the relative
 source-to-target direction.
 
+# Local Edge Actions
+
+When an edge is selected, the canvas shall show a local toolbar near the selected edge
+route. The toolbar shall provide a remove-edge action that deletes the selected edge
+without deleting its source or target elements.
+
 When a connection-capable ontology item is dragged onto the canvas, the canvas shall
 display a temporary edge preview.
 
@@ -136,6 +143,17 @@ edge shall:
 
 If the user cancels the workflow, no `.odiagram` edge shall be written.
 
+# Note Connection Edges
+
+The canvas shall support persisted note connection edges between a note and a node,
+note, or standalone image. Note connection edges shall render as dotted lines by
+default and shall not use ontology relationship arrowheads.
+
+When a connected node, note, or image is moved or resized, the canvas shall recalculate
+the corresponding first or last point in the persisted `points` list so the edge remains
+connected to the element boundary. Intermediate route points in an existing diagram
+shall be preserved.
+
 # Edit Edges
 
 The edge route consists of:
@@ -144,17 +162,15 @@ The edge route consists of:
 - Zero or more intermediate break points, stored as intermediate items in `points`.
 - A target endpoint, stored as the last item in `points`.
 
-The source endpoint shall remain associated with the edge `source` node. The target
-endpoint shall remain associated with the edge `target` node.
+The source endpoint shall remain associated with the edge `source` element. The target
+endpoint shall remain associated with the edge `target` element.
 
 In version 1, users shall not manually move edge endpoints, move route
 segments, move individual break points, add break points, or remove break points. Those
 route editing features are excluded from version 1.
 
-When a connected source or target node is moved or resized, the canvas shall recalculate
-the corresponding first or last point in the persisted `points` list so the edge remains
-connected to the node boundary. Intermediate route points in an existing diagram shall
-be preserved.
+The user shall be able to select the edge route layout from the layouts supported by
+the canvas edge renderer, including direct and orthogonal routing.
 
 The user can move the edge label by dragging it, or by selecting the edge label/edge and
 using the arrow keys. Arrow keys shall move the label by one canvas unit; holding

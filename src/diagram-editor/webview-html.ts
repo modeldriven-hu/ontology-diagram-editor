@@ -66,8 +66,6 @@ function webviewBody(
 				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
 				<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="minimizeElementButton" type="button" title="Resize selected element to minimum size" aria-label="Resize selected element to minimum size"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="revealModelTreeItemButton" type="button" title="Select corresponding model-tree item" aria-label="Select corresponding model-tree item"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
@@ -80,6 +78,11 @@ function webviewBody(
 						<button class="note-editor-button" id="cancelNoteButton" type="button">Cancel</button>
 					</div>
 				</form>
+				<div class="local-element-toolbar" id="localElementToolbar" role="toolbar" aria-label="Selected element actions" hidden>
+					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
+					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
+					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
+				</div>
 				<div class="canvas-content" id="canvasContent"></div>
 				<p class="status" id="status"></p>
 			</div>
@@ -213,6 +216,7 @@ function webviewStyles(): string {
 	}
 
 	.canvas-action {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -252,6 +256,68 @@ function webviewStyles(): string {
 		font-weight: 700;
 		line-height: 1;
 		letter-spacing: 0;
+	}
+
+	.local-element-toolbar {
+		position: absolute;
+		z-index: 6;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px;
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 72%, var(--vscode-panel-border));
+		border-radius: 6px;
+		background: color-mix(in srgb, var(--vscode-sideBar-background) 94%, var(--vscode-editor-background));
+		box-shadow: 0 8px 22px rgb(0 0 0 / 22%);
+		transform: translateX(-50%);
+	}
+
+	.local-element-toolbar[hidden] {
+		display: none;
+	}
+
+	.local-element-action {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--vscode-foreground);
+		cursor: pointer;
+	}
+
+	.local-element-action[hidden] {
+		display: none;
+	}
+
+	.local-element-action:hover,
+	.local-element-action:focus-visible,
+	.local-element-action[aria-pressed="true"] {
+		border-color: var(--vscode-focusBorder);
+		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+		outline: none;
+	}
+
+	.local-action-note-badge {
+		position: absolute;
+		right: 1px;
+		bottom: 1px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 11px;
+		height: 11px;
+		border-radius: 50%;
+		background: var(--vscode-focusBorder);
+		color: var(--vscode-editor-background);
+		font-size: 8px;
+		font-weight: 700;
+		line-height: 1;
 	}
 
 	.canvas-action-separator {

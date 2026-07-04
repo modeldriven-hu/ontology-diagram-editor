@@ -61,6 +61,7 @@ export interface DiagramEdge {
 	readonly points: readonly CanvasPoint[];
 	readonly ontology_item_type?: string;
 	readonly style?: DiagramEdgeStyle;
+	readonly route_layout?: 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
 }
 
 export interface DiagramNote {

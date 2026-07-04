@@ -140,7 +140,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 }
 
 function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
-	const points = edge.points.length >= 2 ? edge.points : [];
+	const points = edgeRoutePoints(edge);
 	if (points.length < 2) {
 		return '';
 	}
@@ -155,19 +155,22 @@ function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
 			: '';
 	const marker = lineStyle === 'none' || strokeWidth === 0
 		? ''
+		: isNoteConnection(edge)
+			? ''
 		: edge.ontology_item_type === 'subclassRelationship'
 			? ` marker-end="url(#${edgeMarkerId(edge, 'hollow-triangle')})"`
 			: ` marker-end="url(#${edgeMarkerId(edge, 'open-arrow')})"`;
+	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
 
 	return [
 		`<polyline points="${points.map((point) => `${numberValue(point.x)},${numberValue(point.y)}`).join(' ')}" fill="none" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"${dashArray}${marker}/>`,
-		renderTextBlock({
+		label.length === 0 ? '' : renderTextBlock({
 			id: edge.id,
-			text: edgeDisplayName(edge.ontology_ref),
+			text: label,
 			bounds: {
 				x: edge.label.x,
 				y: edge.label.y,
-				width: Math.max(80, edgeDisplayName(edge.ontology_ref).length * 7),
+				width: Math.max(80, label.length * 7),
 				height: 24,
 			},
 			color: edge.style?.text_color ?? theme.edgeTextColor,
@@ -185,6 +188,9 @@ function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
 function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): readonly string[] {
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	if (edge.style?.line_style === 'none' || strokeWidth === 0) {
+		return [];
+	}
+	if (isNoteConnection(edge)) {
 		return [];
 	}
 
@@ -207,6 +213,10 @@ function edgeStroke(edge: DiagramEdge, theme: WebviewTheme): string {
 
 function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow'): string {
 	return `${marker}_${safeIdentifier(edge.id)}`;
+}
+
+function isNoteConnection(edge: DiagramEdge): boolean {
+	return edge.ontology_item_type === 'noteConnection';
 }
 
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
@@ -468,7 +478,7 @@ function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds |
 }
 
 function edgeExportBounds(edge: DiagramEdge): readonly ExportBounds[] {
-	const pointBounds = edge.points.map((point) => ({
+	const pointBounds = edgeRoutePoints(edge).map((point) => ({
 		x: point.x,
 		y: point.y,
 		width: 1,
@@ -477,13 +487,26 @@ function edgeExportBounds(edge: DiagramEdge): readonly ExportBounds[] {
 
 	return [
 		...pointBounds,
+		...(isNoteConnection(edge) ? [] : [
 		{
 			x: edge.label.x,
 			y: edge.label.y,
 			width: Math.max(80, edgeDisplayName(edge.ontology_ref).length * 7),
 			height: 24,
 		},
+		]),
 	];
+}
+
+function edgeRoutePoints(edge: DiagramEdge): readonly { readonly x: number; readonly y: number }[] {
+	if (edge.points.length < 2) {
+		return [];
+	}
+	if (edge.route_layout === 'direct') {
+		return [edge.points[0], edge.points[edge.points.length - 1]];
+	}
+
+	return edge.points;
 }
 
 function elementBounds(element: ExportBounds): ExportBounds {

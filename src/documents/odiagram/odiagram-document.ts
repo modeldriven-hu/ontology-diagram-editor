@@ -11,6 +11,7 @@ const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
+export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
 
 export class OntologyDiagramValidationError extends Error {
 	public constructor(message: string, public readonly issues: readonly string[] = [message]) {
@@ -34,6 +35,17 @@ export class DiagramIdentifier {
 		}
 
 		return new DiagramIdentifier(value);
+	}
+
+	public static createAny(value: string, kinds: readonly ElementKind[], label: string): DiagramIdentifier {
+		for (const kind of kinds) {
+			const expectedPrefix = `${kind}_`;
+			if (value.startsWith(expectedPrefix)) {
+				return DiagramIdentifier.create(value, kind);
+			}
+		}
+
+		throw new OntologyDiagramValidationError(`${label} identifier must start with one of: ${kinds.map((kind) => `"${kind}_"`).join(', ')}.`);
 	}
 
 	public toString(): string {
@@ -322,14 +334,15 @@ export class DiagramEdge {
 		public readonly points: readonly Point[],
 		public readonly style?: EdgeStyle,
 		public readonly extra: JsonObject = {},
+		public readonly routeLayout?: EdgeRouteLayout,
 	) {
 		if (points.length < 2) {
 			throw new OntologyDiagramValidationError(`Edge "${id}" must contain at least two route points.`);
 		}
 
 		this.id = DiagramIdentifier.create(id, 'edge');
-		this.source = DiagramIdentifier.create(source, 'node');
-		this.target = DiagramIdentifier.create(target, 'node');
+		this.source = DiagramIdentifier.createAny(source, ['node', 'note', 'image'], 'Edge source');
+		this.target = DiagramIdentifier.createAny(target, ['node', 'note', 'image'], 'Edge target');
 		this.ontologyRef = OntologyReference.create(ontologyRef);
 	}
 
@@ -343,6 +356,7 @@ export class DiagramEdge {
 			label: this.label.toPersistenceObject(),
 			points: this.points.map((point) => point.toPersistenceObject()),
 			style: this.style?.toPersistenceObject(),
+			route_layout: this.routeLayout,
 		});
 	}
 }
@@ -548,6 +562,7 @@ const edgeSchema = z.object({
 	label: pointSchema,
 	points: z.array(pointSchema),
 	style: edgeStyleSchema.optional(),
+	route_layout: z.enum(['orthogonal', 'direct', 'one_side', 'manhattan', 'metro', 'entity_relation']).optional(),
 }).passthrough();
 
 const noteSchema = boundsFieldsSchema.extend({
@@ -638,7 +653,8 @@ function parseEdge(value: z.infer<typeof edgeSchema>): DiagramEdge {
 		parsePoint(value.label),
 		value.points.map(parsePoint),
 		value.style ? parseEdgeStyle(value.style) : undefined,
-		getExtraFields(value, ['id', 'source', 'target', 'ontology_ref', 'label', 'points', 'style']),
+		getExtraFields(value, ['id', 'source', 'target', 'ontology_ref', 'label', 'points', 'style', 'route_layout']),
+		value.route_layout,
 	);
 }
 
@@ -749,14 +765,18 @@ function validateUniqueElementIds(document: OntologyDiagramDocument): string[] {
 }
 
 function validateEdgeReferences(document: OntologyDiagramDocument): string[] {
-	const nodeIds = new Set(document.nodes.map((node) => node.id.value));
+	const elementIds = new Set([
+		...document.nodes.map((node) => node.id.value),
+		...document.notes.map((note) => note.id.value),
+		...document.images.map((image) => image.id.value),
+	]);
 	return document.edges.flatMap((edge) => {
 		const issues: string[] = [];
-		if (!nodeIds.has(edge.source.value)) {
-			issues.push(`Edge "${edge.id.value}" references missing source node "${edge.source.value}".`);
+		if (!elementIds.has(edge.source.value)) {
+			issues.push(`Edge "${edge.id.value}" references missing source element "${edge.source.value}".`);
 		}
-		if (!nodeIds.has(edge.target.value)) {
-			issues.push(`Edge "${edge.id.value}" references missing target node "${edge.target.value}".`);
+		if (!elementIds.has(edge.target.value)) {
+			issues.push(`Edge "${edge.id.value}" references missing target element "${edge.target.value}".`);
 		}
 		return issues;
 	});

@@ -1,6 +1,6 @@
 import { minimumNodeHeight, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -308,6 +308,14 @@ export class CanvasPropertyPanel {
 					sectionElement('Connection', [
 						readonlyField('Source', edge.source),
 						readonlyField('Target', edge.target),
+						selectField('Layout', edge.route_layout ?? '', edgeRouteLayoutOptions, (value) => {
+							this.options.registry.updateEdgeRouteLayout(edge.id, value);
+							this.propertyEdited('edge', edge.id, ['route_layout']);
+							this.options.messageBus.publishCommand(new UpdateEdgeRouteLayoutCommand(edge.id, value));
+						}),
+						actionButton('Delete Edge', 'danger', () => {
+							this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
+						}),
 					]),
 				],
 			},
@@ -747,6 +755,7 @@ export class CanvasPropertyPanel {
 		this.propertyEdited('node', node.id, ['width', 'height']);
 		this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
 	}
+
 }
 
 function capitalize(value: string): string {
@@ -767,6 +776,16 @@ const lineStyleOptions = [
 	{ value: 'dashed', label: 'Dashed' },
 	{ value: 'dotted', label: 'Dotted' },
 	{ value: 'none', label: 'None' },
+] as const;
+
+const edgeRouteLayoutOptions = [
+	{ value: '', label: 'Default' },
+	{ value: 'orthogonal', label: 'Orthogonal' },
+	{ value: 'direct', label: 'Direct' },
+	{ value: 'one_side', label: 'One Side' },
+	{ value: 'manhattan', label: 'Manhattan' },
+	{ value: 'metro', label: 'Metro' },
+	{ value: 'entity_relation', label: 'Entity Relation' },
 ] as const;
 
 const defaultFontFamilyOptions = [

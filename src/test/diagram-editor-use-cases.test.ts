@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -107,6 +107,55 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.notification, undefined);
 	});
 
+	test('creates a dotted note connection to a node', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_person', 'ex:Person', new Bounds(240, 0, 100, 50))],
+			[],
+			[new DiagramNote('note_context', new Bounds(0, 0, 140, 80), 'Context')],
+		);
+
+		const result = new CreateNoteConnectionUseCase().execute(diagram, 'note_context', 'node_person');
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.notes.length, 1);
+		assert.strictEqual(result.diagram.edges.length, 1);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'note_context');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_person');
+		assert.strictEqual(result.diagram.edges[0].style?.lineStyle, 'dotted');
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'orthogonal');
+		assert.strictEqual(result.diagram.edges[0].extra.ontology_item_type, 'noteConnection');
+	});
+
+	test('deleting an opposing node removes only the note connection edge', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_person', 'ex:Person', new Bounds(240, 0, 100, 50))],
+			[
+				new DiagramEdge(
+					'edge_noteConnection',
+					'note_context',
+					'node_person',
+					'https://ontology-diagram-editor.local/note-connection',
+					new Point(190, 40),
+					[new Point(140, 40), new Point(240, 25)],
+				),
+			],
+			[new DiagramNote('note_context', new Bounds(0, 0, 140, 80), 'Context')],
+		);
+
+		const result = new DeleteNodeUseCase().execute(diagram, 'node_person');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes, []);
+		assert.deepStrictEqual(result.diagram.edges, []);
+		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_context']);
+	});
+
 	test('deletes an edge from the diagram', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
@@ -133,6 +182,35 @@ suite('Diagram editor use cases', () => {
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_source', 'node_target']);
 		assert.deepStrictEqual(result.diagram.edges, []);
+	});
+
+	test('deletes a note connection edge without deleting either endpoint', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_person', 'ex:Person', new Bounds(240, 0, 100, 50))],
+			[
+				new DiagramEdge(
+					'edge_noteConnection',
+					'note_context',
+					'node_person',
+					'https://ontology-diagram-editor.local/note-connection',
+					new Point(190, 40),
+					[new Point(140, 40), new Point(240, 25)],
+					undefined,
+					{ ontology_item_type: 'noteConnection' },
+				),
+			],
+			[new DiagramNote('note_context', new Bounds(0, 0, 140, 80), 'Context')],
+		);
+
+		const result = new DeleteEdgeUseCase().execute(diagram, 'edge_noteConnection');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges, []);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_person']);
+		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_context']);
 	});
 
 	test('does not change the diagram when deleting a missing edge', () => {
@@ -178,6 +256,95 @@ suite('Diagram editor use cases', () => {
 			x: 150,
 			y: 25,
 		});
+	});
+
+	test('updates note bounds and keeps connected edge endpoints on note boundaries', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_target', 'ex:Target', new Bounds(240, 0, 100, 50))],
+			[
+				new DiagramEdge(
+					'edge_noteConnection',
+					'note_context',
+					'node_target',
+					'https://ontology-diagram-editor.local/note-connection',
+					new Point(190, 40),
+					[new Point(140, 40), new Point(240, 25)],
+				),
+			],
+			[new DiagramNote('note_context', new Bounds(0, 0, 140, 80), 'Context')],
+		);
+
+		const result = new UpdateNoteBoundsUseCase().execute(diagram, [
+			{ id: 'note_context', x: 40, y: 0, width: 140, height: 80 },
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.notes[0].bounds.toPersistenceObject(), {
+			x: 40,
+			y: 0,
+			width: 140,
+			height: 80,
+		});
+		assert.deepStrictEqual(result.diagram.edges[0].points[0].toPersistenceObject(), {
+			x: 180,
+			y: 25,
+		});
+	});
+
+	test('creates note connections between vertically separated notes using the nearest sides', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[],
+			[],
+			[
+				new DiagramNote('note_lower', new Bounds(125, 474, 340, 220), 'Lower note'),
+				new DiagramNote('note_upper', new Bounds(25, 74, 440, 240), 'Upper note'),
+			],
+		);
+
+		const result = new CreateNoteConnectionUseCase().execute(diagram, 'note_lower', 'note_upper');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 295, y: 474 },
+			{ x: 295, y: 314 },
+		]);
+	});
+
+	test('updates edge route layout without changing route points', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+			],
+		);
+
+		const result = new UpdateEdgeRouteLayoutUseCase().execute(diagram, 'edge_relates', 'direct');
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 25 },
+			{ x: 200, y: 25 },
+		]);
 	});
 
 	test('reports invalid note sizes without changing the diagram', () => {

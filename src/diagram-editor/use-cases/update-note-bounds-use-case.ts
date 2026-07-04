@@ -3,6 +3,7 @@ import { minimumNoteHeight, minimumNoteWidth, type NoteBoundsUpdate } from '../.
 import { boundsEqual, toBounds } from './bounds';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
+import { recalculateConnectedEdgeEndpoints } from './geometry';
 
 export class UpdateNoteBoundsUseCase {
 	public execute(
@@ -20,6 +21,11 @@ export class UpdateNoteBoundsUseCase {
 
 		const updateById = new Map(updates.map((update) => [update.id, update]));
 		let changed = false;
+		const boundsByElementId = new Map([
+			...diagram.nodes.map((node) => [node.id.value, node.bounds] as const),
+			...diagram.notes.map((note) => [note.id.value, note.bounds] as const),
+			...diagram.images.map((image) => [image.id.value, image.bounds] as const),
+		]);
 		const nextNotes = diagram.notes.map((note) => {
 			const update = updateById.get(note.id.value);
 			if (update === undefined) {
@@ -32,6 +38,7 @@ export class UpdateNoteBoundsUseCase {
 			}
 
 			changed = true;
+			boundsByElementId.set(note.id.value, nextBounds);
 			return new DiagramNote(
 				note.id.value,
 				nextBounds,
@@ -41,6 +48,8 @@ export class UpdateNoteBoundsUseCase {
 				note.exported,
 			);
 		});
+		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId));
+		changed = changed || nextEdges.some((edge, index) => edge !== diagram.edges[index]);
 
 		if (!changed) {
 			return {};
@@ -49,6 +58,7 @@ export class UpdateNoteBoundsUseCase {
 		return {
 			diagram: cloneDiagram(diagram, {
 				notes: nextNotes,
+				edges: nextEdges,
 			}),
 		};
 	}

@@ -21,7 +21,11 @@ export class UpdateNodeBoundsUseCase {
 
 		const updateById = new Map(updates.map((update) => [update.id, update]));
 		let changed = false;
-		const boundsByNodeId = new Map(diagram.nodes.map((node) => [node.id.value, node.bounds]));
+		const boundsByElementId = new Map([
+			...diagram.nodes.map((node) => [node.id.value, node.bounds] as const),
+			...diagram.notes.map((note) => [note.id.value, note.bounds] as const),
+			...diagram.images.map((image) => [image.id.value, image.bounds] as const),
+		]);
 		const nextNodes = diagram.nodes.map((node) => {
 			const update = updateById.get(node.id.value);
 			if (update === undefined) {
@@ -34,7 +38,7 @@ export class UpdateNodeBoundsUseCase {
 			}
 
 			changed = true;
-			boundsByNodeId.set(node.id.value, nextBounds);
+			boundsByElementId.set(node.id.value, nextBounds);
 			return new DiagramNode(
 				node.id.value,
 				node.ontologyRef.value,
@@ -45,7 +49,7 @@ export class UpdateNodeBoundsUseCase {
 				node.showDataProperties,
 			);
 		});
-		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByNodeId));
+		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId));
 		changed = changed || nextEdges.some((edge, index) => edge !== diagram.edges[index]);
 
 		if (!changed) {

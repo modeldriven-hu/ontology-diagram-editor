@@ -169,4 +169,11 @@ export class CanvasElementRegistry {
 			this.labels.set(id, { ...label, style });
 		}
 	}
+
+	public updateEdgeRouteLayout(id: string, routeLayout: DiagramEdge['route_layout']): void {
+		const edge = this.edges.get(id);
+		if (edge !== undefined) {
+			this.edges.set(id, { ...edge, route_layout: routeLayout });
+		}
+	}
 }

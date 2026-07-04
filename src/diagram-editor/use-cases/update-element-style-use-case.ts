@@ -95,6 +95,7 @@ function updateEdgeStyle(
 			edge.points,
 			nextStyle,
 			edge.extra,
+			edge.routeLayout,
 		);
 	});
 

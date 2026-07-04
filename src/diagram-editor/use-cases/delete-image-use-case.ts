@@ -15,6 +15,7 @@ export class DeleteImageUseCase {
 		return {
 			diagram: cloneDiagram(diagram, {
 				images: nextImages,
+				edges: diagram.edges.filter((edge) => edge.source.value !== id && edge.target.value !== id),
 			}),
 		};
 	}
