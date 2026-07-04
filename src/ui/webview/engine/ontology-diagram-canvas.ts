@@ -1,8 +1,8 @@
-import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -85,6 +85,7 @@ const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElemen
 const localElementToolbar = requiredElement('localElementToolbar');
 const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
+const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
 const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
@@ -161,6 +162,10 @@ minimizeLocalButton.addEventListener('click', () => {
 });
 connectNoteLocalButton.addEventListener('click', () => {
 	toggleNoteConnectionMode();
+});
+optimizeEdgeLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	optimizeSelectedEdgeRoute();
 });
 deleteEdgeLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
@@ -368,6 +373,13 @@ function renderLocalElementToolbarIcons(): void {
 	connectNoteLocalButton.setAttribute('aria-label', 'Connect note');
 	connectNoteLocalButton.setAttribute('aria-pressed', 'false');
 
+	optimizeEdgeLocalButton.replaceChildren(createIconElement(Route, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	optimizeEdgeLocalButton.title = 'Optimize edge path';
+	optimizeEdgeLocalButton.setAttribute('aria-label', 'Optimize edge path');
+
 	deleteEdgeLocalButton.replaceChildren(createIconElement(Trash2, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
@@ -541,6 +553,7 @@ function updateLocalElementToolbarButtons(element: CanvasPropertyElement): void 
 	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 	minimizeLocalButton.hidden = !canResize;
 	connectNoteLocalButton.hidden = element.kind !== 'note';
+	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 	deleteEdgeLocalButton.hidden = element.kind !== 'edge';
 
 	if (element.kind === 'note') {
@@ -631,7 +644,7 @@ function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
 }
 
 function localElementToolbarFallbackWidth(element: CanvasPropertyElement): number {
-	if (element.kind === 'note') {
+	if (element.kind === 'note' || element.kind === 'edge') {
 		return 67;
 	}
 
@@ -652,6 +665,20 @@ function deleteSelectedEdge(): void {
 		localElementToolbar.hidden = true;
 		showStatus('Removing edge.');
 	}
+}
+
+function optimizeSelectedEdgeRoute(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+		showStatus('Select an edge to optimize.');
+		return;
+	}
+
+	messageBus.publishCommand(new OptimizeEdgeRouteCommand(selectedElementId));
+	showStatus('Optimizing edge path.');
 }
 
 function resizeSelectedElementToMinimum(): void {

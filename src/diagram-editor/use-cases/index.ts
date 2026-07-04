@@ -11,6 +11,7 @@ export { DeleteLabelUseCase } from './delete-label-use-case';
 export { DeleteNodeUseCase } from './delete-node-use-case';
 export { DeleteNoteUseCase } from './delete-note-use-case';
 export type { DiagramMutationResult } from './diagram-mutation-result';
+export { OptimizeEdgeRouteUseCase } from './optimize-edge-route-use-case';
 export { SaveDiagramExportUseCase } from './save-diagram-export-use-case';
 export type { DiagramExportSavePort } from './save-diagram-export-use-case';
 export { UpdateImageBoundsUseCase } from './update-image-bounds-use-case';

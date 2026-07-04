@@ -66,6 +66,7 @@ export type WebviewCommand =
 	| DeleteLabelCommand
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
+	| OptimizeEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
 	| UpdateNoteBoundsCommand
 	| UpdateImageBoundsCommand
@@ -123,6 +124,15 @@ export class UpdateEdgeRouteCommand {
 
 	public constructor(updates: readonly EdgeRouteUpdate[]) {
 		this.updates = updates;
+	}
+}
+
+export class OptimizeEdgeRouteCommand {
+	public readonly type = 'optimizeEdgeRoute';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
 	}
 }
 

@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { ArrangeDiagramUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { ArrangeDiagramUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -573,6 +573,76 @@ suite('Diagram editor use cases', () => {
 		});
 		assert.strictEqual(result.diagram.edges[0].source.value, 'node_source');
 		assert.strictEqual(result.diagram.edges[0].target.value, 'node_target');
+	});
+
+	test('optimizes stale edge routes from current endpoint bounds', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 100, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+			],
+		);
+
+		const result = new OptimizeEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 50 },
+			{ x: 150, y: 50 },
+			{ x: 150, y: 100 },
+			{ x: 200, y: 100 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 150,
+			y: 75,
+		});
+	});
+
+	test('optimizes router-backed edge layouts by clearing intermediate points', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 100, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(125, 300), new Point(1, 1)],
+					undefined,
+					{},
+					'manhattan',
+				),
+			],
+		);
+
+		const result = new OptimizeEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 50 },
+			{ x: 200, y: 100 },
+		]);
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'manhattan');
 	});
 
 	test('reports invalid edge routes without changing the diagram', () => {
