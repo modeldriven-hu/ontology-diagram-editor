@@ -52,6 +52,7 @@ export interface OntologyItemMetadata {
 	readonly assertedClassReferences?: readonly string[];
 	readonly domainReferences?: readonly string[];
 	readonly rangeReferences?: readonly string[];
+	readonly comments?: readonly string[];
 	readonly subclassReference?: string;
 	readonly superclassReference?: string;
 }
@@ -65,6 +66,7 @@ export interface LoadedOntology {
 
 const rdfType = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const rdfsClass = 'http://www.w3.org/2000/01/rdf-schema#Class';
+const rdfsComment = 'http://www.w3.org/2000/01/rdf-schema#comment';
 const rdfsDatatype = 'http://www.w3.org/2000/01/rdf-schema#Datatype';
 const rdfsDomain = 'http://www.w3.org/2000/01/rdf-schema#domain';
 const rdfsLabel = 'http://www.w3.org/2000/01/rdf-schema#label';
@@ -154,6 +156,7 @@ function createOntologyItems(
 ): readonly OntologyItem[] {
 	const subjectsByType = new Map<string, Set<string>>();
 	const labels = new Map<string, Set<string>>();
+	const comments = new Map<string, Set<string>>();
 	const domains = new Map<string, Set<string>>();
 	const ranges = new Map<string, Set<string>>();
 	const superclasses = new Map<string, Set<string>>();
@@ -176,6 +179,8 @@ function createOntologyItems(
 			}
 		} else if (predicate === rdfsLabel && quad.object.termType === 'Literal') {
 			addMapValue(labels, subject, quad.object.value);
+		} else if (predicate === rdfsComment && quad.object.termType === 'Literal') {
+			addMapValue(comments, subject, quad.object.value);
 		} else if (predicate === rdfsDomain) {
 			addMapValue(domains, subject, object);
 		} else if (predicate === rdfsRange) {
@@ -192,24 +197,28 @@ function createOntologyItems(
 		...createEntityItems('class', [owlClass, rdfsClass], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 			superclassReferences: valuesFor(superclasses, iri),
 			equivalentClassReferences: valuesFor(equivalentClasses, iri),
 		})),
 		...createEntityItems('objectProperty', [owlObjectProperty], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
 		...createEntityItems('dataProperty', [owlDatatypeProperty], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
 		...createEntityItems('annotationProperty', [owlAnnotationProperty], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
@@ -217,11 +226,13 @@ function createOntologyItems(
 		...createEntityItems('individual', [owlNamedIndividual], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 			assertedClassReferences: valuesFor(classAssertions, iri),
 		})),
 		...createEntityItems('datatype', [rdfsDatatype], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
+			comments: valuesFor(comments, iri),
 		})),
 	];
 

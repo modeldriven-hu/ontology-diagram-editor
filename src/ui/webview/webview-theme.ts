@@ -103,10 +103,10 @@ const darkThemeDefaults: ThemeModeDefaults = {
 	editorForeground: '#F9FAFB',
 	nodeBackground: '#1F2937',
 	nodeBorder: '#4B5563',
-	nodeCornerRadius: 8,
+	nodeCornerRadius: 0,
 	noteBackground: '#3F371A',
 	noteBorder: '#A16207',
-	noteCornerRadius: 6,
+	noteCornerRadius: 0,
 	noteFoldBackground: '#5A4A1F',
 	noteForeground: '#FDE68A',
 };

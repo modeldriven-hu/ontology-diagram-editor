@@ -9,6 +9,7 @@ import { actionButton, checkboxField, colorField, imageField, numberField, optio
 import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { availableNodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
+import { ontologyCommentsForReference } from './ontology-comments';
 import type { WebviewTheme } from '../webview-theme';
 
 interface CanvasPropertyPanelOptions {
@@ -248,6 +249,9 @@ export class CanvasPropertyPanel {
 					identitySection,
 					sectionElement('Ontology', [
 						readonlyField('Ref', node.ontology_ref),
+						...this.commentFields(node.ontology_ref),
+					]),
+					sectionElement('Data Properties', [
 						readonlyField('Data Properties', String(dataPropertyAttributes.length)),
 						checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
 							if (value) {
@@ -299,6 +303,7 @@ export class CanvasPropertyPanel {
 					sectionElement('Ontology', [
 						readonlyField('Ref', edge.ontology_ref),
 						readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
+						...this.commentFields(edge.ontology_ref),
 					]),
 					sectionElement('Connection', [
 						readonlyField('Source', edge.source),
@@ -699,6 +704,15 @@ export class CanvasPropertyPanel {
 	private updateElementContent(update: Parameters<DiagramCanvasEngine['updateElementContent']>[0]): void {
 		this.options.registry.updateContent(update);
 		this.options.canvas.updateElementContent(update);
+	}
+
+	private commentFields(ontologyRef: string): HTMLElement[] {
+		const comments = ontologyCommentsForReference(ontologyRef, this.options.payload);
+		if (comments.length === 0) {
+			return [];
+		}
+
+		return [readonlyField(comments.length === 1 ? 'Comment' : 'Comments', comments.join('\n\n'))];
 	}
 
 	private resizeNodeToFitDataProperties(node: DiagramNode, attributes: readonly { readonly text: string }[]): void {

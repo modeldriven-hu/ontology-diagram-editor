@@ -664,6 +664,7 @@ function webviewStyles(): string {
 
 	.property-value {
 		overflow-wrap: anywhere;
+		white-space: pre-wrap;
 		font-size: 12px;
 	}
 
@@ -780,6 +781,14 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 							displayLabel: item.displayLabel,
 							domainReferences: item.metadata.domainReferences ?? [],
 							rangeReferences: item.metadata.rangeReferences ?? [],
+						})),
+				),
+				comments: loadedOntologies.flatMap((ontology) =>
+					ontology.items
+						.filter((item) => (item.metadata.comments ?? []).length > 0)
+						.map((item) => ({
+							reference: item.reference,
+							comments: item.metadata.comments ?? [],
 						})),
 				),
 			},
