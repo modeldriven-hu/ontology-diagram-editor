@@ -51,6 +51,8 @@ export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePa
 
 export type WebviewCommand =
 	| ArrangeDiagramCommand
+	| UndoDiagramCommand
+	| RedoDiagramCommand
 	| CreateNodeCommand
 	| CreateNoteCommand
 	| CreateNoteConnectionCommand
@@ -82,6 +84,14 @@ export type WebviewCommand =
 
 export class ArrangeDiagramCommand {
 	public readonly type = 'arrangeDiagram';
+}
+
+export class UndoDiagramCommand {
+	public readonly type = 'undoDiagram';
+}
+
+export class RedoDiagramCommand {
+	public readonly type = 'redoDiagram';
 }
 
 export class CreateNodeCommand {

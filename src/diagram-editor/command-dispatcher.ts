@@ -85,6 +85,12 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 				));
 				return;
+			case 'undoDiagram':
+				await this.undoOrRedo('undo');
+				return;
+			case 'redoDiagram':
+				await this.undoOrRedo('redo');
+				return;
 			case 'createNode':
 				await this.createNode(command);
 				return;
@@ -239,6 +245,11 @@ export class DiagramCommandDispatcher {
 		if (!await this.revealModelTreeItem(diagramElementId)) {
 			await vscode.window.showInformationMessage('No corresponding ontology item was found in the model tree.');
 		}
+	}
+
+	private async undoOrRedo(command: 'undo' | 'redo'): Promise<void> {
+		await vscode.commands.executeCommand(command);
+		await this.repository.saveCurrentDocument();
 	}
 
 	private async createNode(command: Extract<WebviewCommand, { readonly type: 'createNode' }>): Promise<void> {

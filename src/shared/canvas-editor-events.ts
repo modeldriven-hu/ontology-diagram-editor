@@ -7,6 +7,8 @@ export type CanvasEditorEvent =
 	| CanvasSelectionChangedEvent
 	| CanvasViewportChangedEvent
 	| CanvasDragCompletedEvent
+	| CanvasUndoRequestedEvent
+	| CanvasRedoRequestedEvent
 	| CanvasPropertyEditedEvent
 	| CanvasPropertyPanelVisibilityChangedEvent;
 
@@ -87,6 +89,28 @@ export class CanvasDragCompletedEvent {
 		this.elementType = options.elementType;
 		this.dragKind = options.dragKind;
 		this.changedBounds = options.changedBounds;
+	}
+}
+
+export class CanvasUndoRequestedEvent {
+	public readonly type = 'canvasUndoRequested';
+	public readonly diagramFilePath?: string;
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
+	}
+}
+
+export class CanvasRedoRequestedEvent {
+	public readonly type = 'canvasRedoRequested';
+	public readonly diagramFilePath?: string;
+
+	public constructor(options: {
+		readonly diagramFilePath?: string;
+	}) {
+		this.diagramFilePath = options.diagramFilePath;
 	}
 }
 

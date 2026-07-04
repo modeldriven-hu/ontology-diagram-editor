@@ -1,8 +1,8 @@
-import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
-import { CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
+import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RevealModelTreeItemCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -67,6 +67,8 @@ const status = requiredElement('status');
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
 const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
+const undoDiagramButton = requiredElement('undoDiagramButton') as HTMLButtonElement;
+const redoDiagramButton = requiredElement('redoDiagramButton') as HTMLButtonElement;
 const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
 const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
 const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
@@ -138,6 +140,7 @@ renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderLocalElementToolbarIcons();
+renderUndoRedoToolbarIcons();
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
 renderArrangeDiagramToolbarIcon();
 renderViewportToolbarIcons();
@@ -166,6 +169,14 @@ deleteEdgeLocalButton.addEventListener('click', () => {
 addImageButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
+});
+undoDiagramButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	requestDiagramUndo();
+});
+redoDiagramButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	requestDiagramRedo();
 });
 exportSvgButton.addEventListener('click', () => {
 	const command = createSvgExportCommand(webviewConfig.payload, theme);
@@ -217,6 +228,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 registerNoteEditHandlers();
+registerUndoRedoHandlers();
 registerKeyboardNudgeHandlers();
 registerDeleteHandlers();
 
@@ -404,6 +416,22 @@ function renderViewportToolbarIcons(): void {
 		class: 'canvas-action-icon',
 	}));
 	renderThemeModeButton();
+}
+
+function renderUndoRedoToolbarIcons(): void {
+	undoDiagramButton.replaceChildren(createIconElement(Undo2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	undoDiagramButton.title = 'Undo diagram edit';
+	undoDiagramButton.setAttribute('aria-label', 'Undo diagram edit');
+
+	redoDiagramButton.replaceChildren(createIconElement(Redo2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	redoDiagramButton.title = 'Redo diagram edit';
+	redoDiagramButton.setAttribute('aria-label', 'Redo diagram edit');
 }
 
 function renderArrangeDiagramToolbarIcon(): void {
@@ -1161,6 +1189,60 @@ function editLabel(id: string): boolean {
 	return true;
 }
 
+function registerUndoRedoHandlers(): void {
+	document.addEventListener('keydown', (event) => {
+		if (noteEditorController.isOpen() || isTextEditingTarget(event.target)) {
+			return;
+		}
+
+		const action = undoRedoAction(event);
+		if (action === undefined) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		if (action === 'undo') {
+			requestDiagramUndo();
+		} else {
+			requestDiagramRedo();
+		}
+	});
+}
+
+function requestDiagramUndo(): void {
+	messageBus.publishEvent(new CanvasUndoRequestedEvent({
+		diagramFilePath: webviewConfig.payload.file?.fsPath,
+	}));
+	messageBus.publishCommand(new UndoDiagramCommand());
+	showStatus('Undoing diagram edit.');
+}
+
+function requestDiagramRedo(): void {
+	messageBus.publishEvent(new CanvasRedoRequestedEvent({
+		diagramFilePath: webviewConfig.payload.file?.fsPath,
+	}));
+	messageBus.publishCommand(new RedoDiagramCommand());
+	showStatus('Redoing diagram edit.');
+}
+
+function undoRedoAction(event: KeyboardEvent): 'undo' | 'redo' | undefined {
+	const key = event.key.toLowerCase();
+	const commandModifier = event.metaKey || event.ctrlKey;
+	if (!commandModifier || event.altKey) {
+		return undefined;
+	}
+
+	if (key === 'z') {
+		return event.shiftKey ? 'redo' : 'undo';
+	}
+	if (key === 'y' && event.ctrlKey && !event.metaKey && !event.shiftKey) {
+		return 'redo';
+	}
+
+	return undefined;
+}
+
 function registerKeyboardNudgeHandlers(): void {
 	document.addEventListener('keydown', (event) => {
 		if (noteEditorController.isOpen() || isKeyboardInputTarget(event.target)) {
@@ -1235,6 +1317,13 @@ function registerDeleteHandlers(): void {
 function isKeyboardInputTarget(target: EventTarget | null): boolean {
 	return target instanceof HTMLButtonElement
 		|| target instanceof HTMLTextAreaElement
+		|| target instanceof HTMLInputElement
+		|| target instanceof HTMLSelectElement
+		|| (target instanceof HTMLElement && target.isContentEditable);
+}
+
+function isTextEditingTarget(target: EventTarget | null): boolean {
+	return target instanceof HTMLTextAreaElement
 		|| target instanceof HTMLInputElement
 		|| target instanceof HTMLSelectElement
 		|| (target instanceof HTMLElement && target.isContentEditable);

@@ -25,4 +25,10 @@ export class DiagramDocumentRepository {
 
 		await this.document.save();
 	}
+
+	public async saveCurrentDocument(): Promise<void> {
+		if (this.document.isDirty) {
+			await this.document.save();
+		}
+	}
 }

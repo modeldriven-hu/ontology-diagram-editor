@@ -58,6 +58,9 @@ function webviewBody(
 				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<button class="canvas-action" id="undoDiagramButton" type="button" title="Undo diagram edit" aria-label="Undo diagram edit"></button>
+				<button class="canvas-action" id="redoDiagramButton" type="button" title="Redo diagram edit" aria-label="Redo diagram edit"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
@@ -208,9 +211,9 @@ function webviewStyles(): string {
 		z-index: 5;
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
+		gap: 2px;
 		margin: 0;
-		padding: 4px;
+		padding: 3px;
 		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, var(--vscode-editor-background));
@@ -222,8 +225,8 @@ function webviewStyles(): string {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 30px;
-		height: 30px;
+		width: 28px;
+		height: 28px;
 		padding: 0;
 		border: 1px solid transparent;
 		border-radius: 4px;
@@ -252,8 +255,8 @@ function webviewStyles(): string {
 	}
 
 	.canvas-action-icon {
-		width: 19px;
-		height: 19px;
+		width: 18px;
+		height: 18px;
 		stroke-width: 1.9;
 	}
 
@@ -335,8 +338,8 @@ function webviewStyles(): string {
 
 	.canvas-action-separator {
 		width: 2px;
-		height: 24px;
-		margin: 0 4px;
+		height: 22px;
+		margin: 0 2px;
 		border-radius: 1px;
 		background: color-mix(in srgb, var(--vscode-panel-border) 92%, var(--vscode-editor-foreground));
 	}

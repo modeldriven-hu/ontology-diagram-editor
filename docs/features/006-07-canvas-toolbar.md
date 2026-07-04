@@ -22,6 +22,8 @@ Version 1 toolbar actions are:
 | Add note | Opens the note text entry flow and creates a note. |
 | Add label | Opens the label text entry flow and creates a standalone label. |
 | Add image | Opens the image picker and creates a standalone image. |
+| Undo | Requests undo for the current `.odiagram` document edit. |
+| Redo | Requests redo for the current `.odiagram` document edit. |
 | Export SVG | Saves the diagram as an SVG export. |
 | Export PNG | Saves the diagram as a PNG export. |
 | Arrange diagram | Automatically positions ontology-backed nodes and reroutes connected edges. |
@@ -36,8 +38,8 @@ action cannot be completed. For example, exporting an empty diagram shall not cr
 empty export file.
 
 Toolbar action groups shall be visually separated where this improves scanning. In
-version 1, creation, export, layout, viewport, model-tree reveal, and theme-mode actions
-are separate toolbar groups.
+version 1, creation, edit history, export, layout, viewport, model-tree reveal, and
+theme-mode actions are separate toolbar groups.
 
 # Arrange Diagram
 
