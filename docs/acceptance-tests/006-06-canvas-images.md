@@ -13,6 +13,14 @@
 - Given an image resize handle is dragged, when the resize completes, then dimensions and any affected top-left coordinate are updated.
 - Given a resize would create non-positive or unusably small dimensions, when completed, then the action is rejected and the document remains unchanged.
 
+## Borders And Shadows
+
+- Given an image is selected, when the user edits border type, weight, or color, then the image `style.border` map is persisted.
+- Given an image is selected, when the user enables or disables drop shadow, then the image `style.shadow` field is persisted.
+- Given an image has no border or shadow override, when the canvas or export renderer draws it, then the image is shown without border and without drop shadow.
+- Given an image has persisted border or shadow overrides, when the canvas or export renderer draws it, then those overrides are used.
+- Given an image style is cleared, when the diagram is persisted, then the image falls back to no border and no drop shadow.
+
 ## Delete Images
 
 - Given an image is selected, when the user requests deletion, then the editor asks for confirmation before changing the document.

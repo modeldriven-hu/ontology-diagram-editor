@@ -704,6 +704,8 @@ suite('Diagram editor use cases', () => {
 			width: 240,
 			height: 160,
 		});
+		assert.strictEqual(result.diagram.images[0].style, undefined);
+		assert.strictEqual(result.diagram.images[0].toPersistenceObject().style, undefined);
 	});
 
 	test('updates image bounds', () => {
@@ -946,6 +948,31 @@ suite('Diagram editor use cases', () => {
 			font: {
 				italic: true,
 			},
+		});
+	});
+
+	test('updates image border and shadow style overrides', () => {
+		const diagram = diagramWithImages([
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+		]);
+
+		const result = new UpdateElementStyleUseCase().execute(diagram, 'image', 'image_logo', {
+			border: {
+				type: 'dotted',
+				weight: 3,
+				color: '#CC5500',
+			},
+			shadow: true,
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.images[0].style?.toPersistenceObject(), {
+			border: {
+				type: 'dotted',
+				weight: 3,
+				color: '#CC5500',
+			},
+			shadow: true,
 		});
 	});
 

@@ -108,7 +108,7 @@ Positioned elements shall store their location and size using these numeric fiel
 
 ## Style Override
 
-Nodes, notes, and labels may define a `style` map. Edges may define an edge-specific
+Nodes, notes, images, and labels may define a `style` map. Edges may define an edge-specific
 `style` map.
 
 Supported common style fields are:
@@ -122,8 +122,9 @@ Supported common style fields are:
 | `corner_radius` | number | Rounded corner radius in diagram canvas units. |
 | `shadow` | boolean | Whether the element draws a drop shadow. |
 
-Nodes and notes may use all common style fields. In version 1, standalone labels may use
-only `text_color` and `font`; labels shall not draw a background or border.
+Nodes and notes may use all common style fields. In version 1, standalone images may use
+the common `border` and `shadow` style fields. Standalone labels may use only
+`text_color` and `font`; labels shall not draw a background or border.
 
 The `font` map may contain:
 

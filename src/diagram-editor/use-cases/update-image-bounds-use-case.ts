@@ -43,6 +43,7 @@ export class UpdateImageBoundsUseCase {
 				image.id.value,
 				nextBounds,
 				image.source,
+				image.style,
 				image.extra,
 			);
 		});

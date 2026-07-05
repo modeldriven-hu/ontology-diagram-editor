@@ -352,10 +352,12 @@ function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {
 function renderImage(image: DiagramImage, theme: WebviewTheme, imageHrefMode: ImageHrefMode): string {
 	const bounds = elementBounds(image);
 	const href = imageHrefMode === 'webview' ? image.webview_src : image.source;
+	const border = borderStyle(image.style, theme.nodeBorder, 0);
 
 	return [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="${escapeAttribute(theme.canvasBackground)}" stroke="${escapeAttribute(theme.nodeBorder)}" stroke-width="1"${theme.elementShadow ? ' filter="url(#shadow)"' : ''}/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="${escapeAttribute(theme.canvasBackground)}"${shadowAttribute(image.style, false)}/>`,
 		`<image href="${escapeAttribute(href)}" x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" preserveAspectRatio="xMidYMid meet"/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="none" ${borderAttributes(border)}/>`,
 	].join('\n');
 }
 

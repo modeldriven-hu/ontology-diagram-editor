@@ -83,6 +83,7 @@ export interface DiagramImage {
 	readonly height: number;
 	readonly source: string;
 	readonly webview_src: string;
+	readonly style?: DiagramElementStyle;
 }
 
 export interface DiagramLabel {

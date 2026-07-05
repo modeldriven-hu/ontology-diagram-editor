@@ -9,7 +9,7 @@ export interface ModelTreeItemDropPayload {
 	readonly ontologyItemMetadata?: unknown;
 }
 
-export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'label';
+export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label';
 export type DiagramThemeMode = 'light' | 'dark';
 
 export interface FontStylePatch {

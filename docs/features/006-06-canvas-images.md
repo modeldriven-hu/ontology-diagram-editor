@@ -5,7 +5,7 @@ This specification defines canvas behavior for standalone images.
 # Scope
 
 This specification covers adding images, moving images, resizing images, deleting
-images, and persisting image sources.
+images, persisting image sources, and editing image borders and shadows.
 
 # Add Images
 
@@ -22,6 +22,7 @@ The new image shall:
 - Store default width and height selected by the implementation or derived from the image
   dimensions.
 - Store the embedded data URI image source as `source`.
+- Use the default image appearance, which has no border and no drop shadow.
 
 Relative file path image sources are valid `.odiagram` values for compatibility and
 typed/property-panel editing, but the add-image command shall not create external file
@@ -49,6 +50,19 @@ image handles usable.
 
 When an image is selected, the local element toolbar shall provide a resize-to-minimum
 action.
+
+# Image Borders And Shadows
+
+Standalone images shall support the same border override fields as nodes: border type,
+border weight, and border color. Standalone images shall also support enabling or
+disabling drop shadow.
+
+If no image border or shadow override is persisted, the renderer shall use the default
+image appearance: no border and no drop shadow.
+
+Image border edits shall be persisted in the image `style.border` map. Image drop shadow
+edits shall be persisted in the image `style.shadow` field. Both shall apply to canvas
+rendering and diagram exports.
 
 # Delete Images
 
