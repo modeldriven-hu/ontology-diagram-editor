@@ -102,6 +102,10 @@ The model tree is refreshed when:
 - An ontology file referenced by the `.odiagram` file changes.
 - An ontology is added or removed through the model tree toolbar.
 
+When a referenced ontology file is saved in the built-in text editor, the model tree
+shall reload the referenced ontology files and any open diagram editor for the current
+`.odiagram` file shall refresh its ontology-derived canvas data.
+
 The refresh must preserve the current selection and expanded state when the same nodes
 still exist after the refresh.
 
@@ -121,6 +125,22 @@ The model tree emits the following events:
 | Model tree item dragged | The user drags an ontology item node | Source ontology file path, ontology item type, ontology item reference, display label, ontology item metadata |
 | Ontology added | An ontology file is added to the `.odiagram` file | Added ontology file path |
 | Ontology removed | An ontology file is removed from the `.odiagram` file | Removed ontology file path, removed diagram node identifiers, removed diagram edge identifiers |
+
+## Open ontology source
+
+The model tree shall provide an action to open a referenced ontology file in the built-in
+Visual Studio Code text editor.
+
+When invoked on an ontology file node, the source ontology file is opened without
+changing the `.odiagram` document.
+
+When invoked on an ontology item node, the source ontology file is opened and the editor
+reveals the best available source location for that item. The implementation should
+prefer exact compact IRI or full IRI matches and may fall back to local-name matches when
+the source syntax does not expose the compact IRI text directly.
+
+If the ontology file can be opened but no source location can be found for the item, the
+file remains open and the user is shown a concise informational message.
 
 ## Selection in model tree
 

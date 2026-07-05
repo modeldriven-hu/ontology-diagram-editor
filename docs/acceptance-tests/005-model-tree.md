@@ -20,6 +20,17 @@
 - Given a user drags an ontology item node, when dragging starts, then `Model tree item dragged` is emitted with the ontology item payload.
 - Given a group, ontology file, or diagram node is shown, when the user attempts to drag it, then it is not draggable.
 
+## Open Ontology Source
+
+- Given a referenced ontology file node is selected, when the user invokes Open Ontology File, then the ontology file opens in the built-in text editor.
+- Given an ontology item node is selected, when the user invokes Open Ontology Source, then the ontology file opens and reveals the best available source location for that item.
+- Given an ontology item source location cannot be found, when Open Ontology Source runs, then the ontology file still opens and the user receives a concise informational message.
+
+## Refresh On Ontology Save
+
+- Given an open `.odiagram` references an ontology file, when that ontology file is saved in the built-in text editor, then the model tree reloads the referenced ontology data.
+- Given a diagram editor is open for the current `.odiagram`, when a referenced ontology file is saved, then the diagram editor refreshes ontology-derived canvas data.
+
 ## Add And Remove Ontologies
 
 - Given a `.odiagram` file is open, when the user adds a supported ontology file, then the relative ontology path is appended to `ontologies`, the file is loaded, and the tree refreshes.
