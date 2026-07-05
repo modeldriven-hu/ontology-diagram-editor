@@ -139,19 +139,14 @@ The selection event shall include:
 Selecting a group node emits a selection event for the group, but it does not select all
 children in the group.
 
-When the user selects an ontology item in the model tree, the canvas should select
-the corresponding diagram element when exactly one rendered node or edge in the opened
-`.odiagram` file references that ontology item. If multiple diagram elements reference
-the same ontology item, the canvas may leave the canvas selection unchanged or offer a
-way to choose among matching elements.
+When the user selects an ontology item in the model tree, the model tree shall emit the
+selection event with enough information for canvas features to react. Version 1 does
+not require automatic canvas selection changes from model-tree selection.
 
-In the minimum viable product, node creation prevents duplicate ontology-backed nodes by
-default, so selecting a node-capable ontology item should normally select at most one
-canvas node.
-
-When the user selects an ontology-backed node or edge on the canvas, the model tree
-should select the corresponding ontology item when it is present in the loaded model
-tree.
+When the user selects an ontology-backed node or edge on the canvas and invokes the
+canvas action to select the corresponding model-tree item, the model tree shall reveal
+and select the matching ontology item when it is present in the loaded model tree. If no
+matching item is found, the canvas shall show a concise user-visible message.
 
 ## Drag item
 

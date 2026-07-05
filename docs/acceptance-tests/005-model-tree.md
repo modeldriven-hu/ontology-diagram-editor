@@ -15,8 +15,8 @@
 
 ## Selection And Drag
 
-- Given a user selects an ontology item, when exactly one matching canvas element exists, then the canvas selection updates to that element.
-- Given a user selects an ontology-backed canvas element, when the item exists in the model tree, then the model tree selects the corresponding ontology item.
+- Given a user selects an ontology item, when the selection event is emitted, then it includes the selected node kind, ontology item type, ontology item reference, display label, and runtime metadata.
+- Given a user selects an ontology-backed canvas element and invokes Select corresponding model-tree item, when the item exists in the model tree, then the model tree selects the corresponding ontology item.
 - Given a user drags an ontology item node, when dragging starts, then `Model tree item dragged` is emitted with the ontology item payload.
 - Given a group, ontology file, or diagram node is shown, when the user attempts to drag it, then it is not draggable.
 

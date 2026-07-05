@@ -19,6 +19,9 @@
 - Given the user confirms note deletion, when persistence completes, then the note is removed from the `.odiagram` `notes` section.
 - Given the user cancels note deletion, when the confirmation closes, then the document remains unchanged.
 
-## Standalone Annotation
+## Note Connections And Export
 
-- Given a note is selected, when version 1 note controls are shown, then no note-connection editing controls are available.
+- Given a note is selected, when the local toolbar is shown, then a connect-note action is available.
+- Given a note is connected to another element, when the opposing element is deleted, then the connecting edge is removed and the note remains.
+- Given Include in Export is disabled for a note, when persistence completes, then the note stores `export: false`.
+- Given Include in Export is enabled again, when persistence completes, then the serialized note omits `export`.

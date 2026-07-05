@@ -12,6 +12,9 @@
 - Given text exceeds node or note bounds, when rendering runs, then text wraps and overflow is clipped or elided deterministically.
 - Given an edge with route points, when rendering runs, then straight segments are drawn between consecutive points and the edge label appears at the persisted label point.
 - Given the same element category contains multiple items, when rendering runs, then items are drawn in `.odiagram` order.
+- Given a node has `show_data_properties: true`, when matching ontology data properties are loaded, then the node renders a data-property attribute section.
+- Given a note has `export: false`, when the interactive canvas renders, then the note remains visible with a non-intrusive no-export indicator.
+- Given a note connection edge renders, when the scene is drawn, then it has no ontology arrowhead and no edge label by default.
 
 ## Degraded And Fatal Errors
 

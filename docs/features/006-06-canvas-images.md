@@ -56,4 +56,5 @@ The user can delete a selected image from the canvas.
 
 When the user requests image deletion, the editor shall ask for confirmation before
 modifying the `.odiagram` document. If the user confirms, the image shall be removed
-from the `images` section. If the user cancels, the document shall remain unchanged.
+from the `images` section and connected edges shall be removed from the `edges` section.
+If the user cancels, the document shall remain unchanged.

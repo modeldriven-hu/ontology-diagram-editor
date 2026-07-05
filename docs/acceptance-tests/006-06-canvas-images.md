@@ -17,4 +17,5 @@
 
 - Given an image is selected, when the user requests deletion, then the editor asks for confirmation before changing the document.
 - Given the user confirms image deletion, when persistence completes, then the image is removed from the `.odiagram` `images` section.
+- Given the deleted image has connected edges, when image deletion is persisted, then those edges are removed from the `.odiagram` `edges` section.
 - Given the user cancels image deletion, when the confirmation closes, then the document remains unchanged.

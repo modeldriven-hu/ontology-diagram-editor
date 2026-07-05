@@ -57,10 +57,24 @@ Note connection edges shall:
 - Use a note, node, or image identifier for each endpoint.
 - Render as dotted edges by default.
 - Support the edge route layout values supported by the canvas edge renderer.
+- Use an implementation-defined note-connection `ontology_ref` and mark the edge as a
+  note connection for rendering.
 
 Deleting the opposing connected element shall remove only the connecting edge and shall
 not delete the note. Deleting the note itself shall remove the note and its connected
 edges.
+
+# Export Visibility
+
+Notes are included in diagram exports by default.
+
+The property panel shall provide an Include in Export control for the selected note.
+When the control is disabled, the note shall persist `export: false` and SVG or PNG
+exports shall omit the note. When the control is enabled again, the `export` field shall
+be removed or otherwise interpreted as `true`.
+
+Excluding a note from export shall not hide it from the interactive canvas and shall not
+remove any note connection edges from the diagram.
 
 # Resize Notes
 

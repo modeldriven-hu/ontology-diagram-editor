@@ -14,6 +14,10 @@
 - Given an edge references a missing source or target node, when validation runs, then validation reports an error.
 - Given bounds contain non-positive `width` or `height`, when validation runs, then validation reports an error.
 - Given an edge has fewer than two route points, when validation runs, then validation reports an error.
+- Given `metadata.theme_mode` is present, when validation runs, then only `light` and `dark` are accepted.
+- Given `route_layout` is present on an edge, when validation runs, then only version 1 route layout values are accepted.
+- Given `show_data_properties: true` is present on a node, when the file is parsed and serialized, then the field is preserved.
+- Given `export: false` is present on a note, when the file is parsed and serialized, then the field is preserved.
 
 ## Templates And References
 

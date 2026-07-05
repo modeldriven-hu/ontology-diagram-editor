@@ -5,7 +5,7 @@
 - Given a `.odiagram` file is opened, when the canvas renders it, then each rendered item has a mapping to its persisted element identifier.
 - Given degraded rendering warnings exist, when the canvas renders valid independent elements, then the warnings are exposed to the user.
 - Given the user clicks a diagram element, when selection changes, then the element shows a visible selection outline and `Canvas selection changed` is emitted.
-- Given another extension surface selects an existing diagram element, when the canvas receives that selection, then the canvas selection updates and reveals the element if needed.
+- Given the same diagram rerenders and the selected element still exists, when rendering completes, then the canvas restores that selection.
 
 ## Text Editing
 

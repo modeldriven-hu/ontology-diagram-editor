@@ -27,6 +27,8 @@ The renderer receives:
 - The parsed `.odiagram` document.
 - Loaded ontology metadata for ontology files referenced by the `.odiagram` file.
 - The active theme, if `metadata.theme_file` is present and can be loaded.
+- The selected theme mode from `metadata.theme_mode`, if present; otherwise an
+  implementation-defined light or dark preference.
 - Renderer internal defaults.
 - The webview drawing surface.
 
@@ -96,6 +98,9 @@ an element-level style overrides them.
 
 The canvas background shall use the active theme's `canvas.bg_color` value for the
 selected light or dark mode when present.
+
+The selected light or dark mode shall affect built-in defaults and mode-specific theme
+overrides. Switching modes shall not change element coordinates or dimensions.
 
 If no theme file is referenced, if the referenced theme file is missing, or if the theme
 cannot be parsed, the renderer shall use internal defaults and any element-level style
@@ -171,6 +176,12 @@ Implementations may reserve part of the node interior for the image or render th
 as a background with suitable opacity. The chosen behavior shall be consistent within a
 renderer.
 
+If the node has `show_data_properties: true`, the renderer shall display available data
+properties whose domain matches the node ontology reference. The renderer shall keep the
+primary node label visible and render matching data properties in a separate attribute
+area. If the attribute area cannot show every data property, it shall show a
+deterministic overflow indicator rather than resizing the node during rendering.
+
 # Edges
 
 Each item in the `.odiagram` `edges` section shall render as a routed line following the
@@ -193,6 +204,9 @@ The edge label shall render at the persisted `label` point. The label point repr
 the top-left position of the label text box. The label shall use the edge label font and
 `text_color`.
 
+Note connection edges shall render without ontology relationship arrowheads and without
+an edge label by default.
+
 # Notes
 
 Each item in the `.odiagram` `notes` section shall render as a rectangular annotation at
@@ -200,6 +214,9 @@ its persisted `x`, `y`, `width`, and `height`.
 
 The note fill shall use `bg_color`. The note border shall use the effective `border`
 style. The note text shall use the note font and `text_color`.
+
+If a note has `export: false`, the interactive canvas shall still render the note and
+should show a non-intrusive indicator that the note is excluded from exports.
 
 Note text shall support plain text with preserved newlines. The following newline
 sequences shall be treated as line breaks:

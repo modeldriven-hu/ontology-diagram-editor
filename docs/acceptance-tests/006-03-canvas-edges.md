@@ -7,7 +7,7 @@
 - Given both endpoint nodes are missing, when the edge is created, then the source node is placed left of the drop point and the target node right of the drop point.
 - Given an endpoint is missing or ambiguous, when the relationship is dropped, then the drop is rejected and the `.odiagram` file is unchanged.
 - Given more than one existing node matches a resolved endpoint, when the relationship is dropped, then the drop is rejected and the user sees a clear endpoint-duplicate message.
-- Given an edge with the same `ontology_ref`, `source`, and `target` already exists, when the same relationship is dropped, then the existing edge is selected and revealed.
+- Given an edge with the same `ontology_ref`, `source`, and `target` already exists, when the same relationship is dropped, then the user sees a duplicate-edge message and no duplicate is written.
 
 ## Preview And Persistence
 
@@ -19,7 +19,15 @@
 
 - Given a connected source or target node moves or resizes, when the diagram is persisted, then the first or last edge point is recalculated and intermediate points are preserved.
 - Given the user moves an edge label, when the drag completes, then the persisted edge `label` point is updated.
-- Given the user attempts to move endpoints, route segments, or break points in version 1, when the action is attempted, then the route is not manually edited.
+- Given the user edits an edge route with canvas route handles, when the edit completes, then persisted route `points` are updated and `source` and `target` identifiers are unchanged.
+- Given the user selects an edge route layout in the property panel, when the edit commits, then `route_layout` is updated and route `points` are preserved.
+- Given the user chooses optimize edge path, when the edge has stale route points, then the route is recalculated from current endpoint bounds.
+
+## Note Connections
+
+- Given a note is selected, when the user chooses Connect Note and selects a node, image, or another note, then a dotted note connection edge is persisted.
+- Given the same two elements are already connected, when the user tries to create the note connection again, then the action is rejected and the `.odiagram` file is unchanged.
+- Given a note connection edge is deleted, when persistence completes, then neither endpoint element is deleted.
 
 ## UML Mapping
 

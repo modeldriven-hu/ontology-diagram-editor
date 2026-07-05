@@ -17,8 +17,8 @@ Element-specific creation, movement, resizing, and editing behavior is defined i
 | `006-05-canvas-labels.md` | Adding, editing, moving, resizing, and deleting standalone labels. |
 | `006-06-canvas-images.md` | Adding, moving, resizing, and sourcing standalone images. |
 
-Edge-specific behavior is defined in `006-03-canvas-edges.md`. Floating toolbar behavior
-is defined in `006-07-canvas-toolbar.md`. Bottom property panel behavior is defined in
+Edge-specific behavior is defined in `006-03-canvas-edges.md`. Canvas and local toolbar behavior
+is defined in `006-07-canvas-toolbar.md`. Side property panel behavior is defined in
 `006-10-canvas-property-panel.md`. Persistence behavior is defined in
 `006-09-canvas-persistence.md`.
 
@@ -52,9 +52,8 @@ Version 1 shall support single selection.
 
 Selecting an element shall emit a `Canvas selection changed` event.
 
-If another part of the extension selects a diagram element, the canvas shall update its
-selection to match when the selected element exists in the opened `.odiagram` file. The
-canvas shall reveal the selected element when it is outside the current viewport.
+The canvas shall preserve the current selection across rerenders when the selected
+element still exists in the opened `.odiagram` file.
 
 ## Edit text on canvas
 
@@ -67,7 +66,7 @@ While on-canvas text editing is active:
 
 - Keyboard input shall edit the text field and shall not trigger canvas deletion,
   movement, edge creation, toolbar commands, or other canvas shortcuts.
-- The floating toolbar shall not intercept text editing shortcuts.
+- Canvas and local toolbar controls shall not intercept text editing shortcuts.
 - In-progress text changes shall not rewrite the `.odiagram` file on every keystroke.
 
 For standalone labels, pressing `Enter` shall commit the edit. For notes, pressing
@@ -84,19 +83,17 @@ change as one logical edit.
 The user can pan and zoom the canvas viewport without changing persisted diagram
 coordinates.
 
-The canvas shall provide commands for:
+The canvas shall provide actions for:
 
 - Zoom in.
 - Zoom out.
 - Fit diagram to view.
 - Reset viewport.
-- Reveal selected element.
 
-The canvas shall expose these commands through the Visual Studio Code command palette
-and through visible canvas controls.
+The canvas shall expose these actions through visible canvas controls.
 
-Panning and zooming shall emit `Canvas viewport changed` events. Fitting, resetting, and
-revealing the selected element shall also update the viewport and emit the same event.
+Panning and zooming shall emit `Canvas viewport changed` events. Fitting and resetting
+shall also update the viewport and emit the same event.
 
 Viewport changes shall not request persistence and shall not affect undo or redo for
 the `.odiagram` document.

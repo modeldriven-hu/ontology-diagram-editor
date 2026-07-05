@@ -2,15 +2,16 @@
 
 ## Visibility And Selection
 
-- Given the canvas view is open, when the property panel is expanded, then it is docked to the bottom and does not permanently block work on the selected element.
-- Given the user resizes or collapses the panel, when the `.odiagram` file is saved, then panel height and collapsed state are not persisted.
+- Given the canvas view is open, when the property panel is expanded, then it is docked to the side and does not permanently block work on the selected element.
+- Given the user resizes or collapses the panel, when the `.odiagram` file is saved, then panel width and collapsed state are not persisted.
 - Given no element is selected, when the panel is shown, then it displays read-only diagram context.
 - Given one element is selected, when the panel updates, then it shows the element type, read-only identifier, and supported fields for that element type.
 
 ## Editable Fields
 
-- Given a node is selected, when the panel is shown, then `x`, `y`, `width`, `height`, and `image` are editable.
-- Given an edge is selected, when the panel is shown, then edge fields are inspection-only and endpoints, route points, and label position are not editable.
+- Given a node is selected, when the panel is shown, then `x`, `y`, `width`, `height`, `image`, and `show_data_properties` are editable.
+- Given an edge is selected, when the panel is shown, then route layout is editable and endpoints, route points, and label position are not editable.
+- Given a note is selected, when the panel is shown, then `text`, geometry, and Include in Export are editable.
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.
 - Given a node image or standalone image source is edited, when a local file is selected, then the selected image bytes are embedded as a `data:image/...` URI.
 - Given a data URI image source is entered, when validation succeeds, then it is persisted.

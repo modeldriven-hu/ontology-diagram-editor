@@ -54,15 +54,16 @@ The panel shall expose these non-style editable fields in version 1:
 
 | Element type | Editable fields |
 |--------------|-----------------|
-| Node | `x`, `y`, `width`, `height`, `image`. |
-| Edge | None. |
-| Note | `text`, `x`, `y`, `width`, `height`. |
+| Node | `x`, `y`, `width`, `height`, `image`, `show_data_properties`. |
+| Edge | `route_layout`; delete edge action. |
+| Note | `text`, `x`, `y`, `width`, `height`, `export`. |
 | Label | `text`, `x`, `y`, `width`, `height`. |
 | Image | `source`, `x`, `y`, `width`, `height`. |
 
-Edge properties are inspection-only. Edge endpoints, route `points`, and label position
-shall not be edited through property panel fields. Edge label position shall be edited
-through canvas gestures.
+Edge endpoints, route `points`, and label position shall not be edited through property
+panel fields. Edge label position shall be edited through canvas gestures. The edge
+`route_layout` field may be edited through the property panel because it controls route
+interpretation rather than structural endpoints.
 
 Node `image` fields and standalone image `source` fields shall use the same image
 source rules. The property panel shall provide a file picker for choosing a local image
@@ -74,10 +75,16 @@ The panel shall display effective read-only values when a field is derived from 
 ontology, renderer, or active theme rather than stored directly on the element.
 
 The panel shall not expose direct editing for element identifiers, ontology references,
-edge endpoints, or edge route `points` and edge label position in
-version 1. Those values are structural and shall be edited through canvas gestures or
-model tree actions. Note connection fields are not part of the version 1 `.odiagram`
-file format.
+edge endpoints, edge route `points`, or edge label position in version 1. Those values
+are structural and shall be edited through canvas gestures or model tree actions.
+
+For nodes, the panel shall show the number of available data properties whose domain
+matches the node ontology reference and shall allow toggling `show_data_properties`.
+When toggling the field on, the panel may resize the node to fit the displayed data
+properties.
+
+For notes, the panel shall allow toggling whether the selected note is included in
+diagram exports. Excluded notes shall persist `export: false`.
 
 The panel shall also expose element-level style override fields for styled elements:
 

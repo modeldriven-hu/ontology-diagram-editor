@@ -27,8 +27,8 @@ Node-capable ontology types in version 1 are:
 In version 1, each ontology item shall have at most one
 ontology-backed node on the canvas. If the user drops a node-capable ontology item
 that already has a corresponding node in the opened `.odiagram` file, the canvas shall
-select and reveal the existing node instead of creating a duplicate. No `.odiagram`
-change shall be written for that drop.
+show a concise message instead of creating a duplicate. No `.odiagram` change shall be
+written for that drop.
 
 The new node shall:
 
@@ -80,3 +80,24 @@ node text and handles usable.
 
 When a node is resized, connected edge endpoints shall be recalculated so they remain on
 the node boundary.
+
+# Show Data Properties
+
+For class nodes, the property panel shall show the number of available data properties
+whose domain matches the node's ontology reference. Matching shall compare ontology
+references using the diagram namespace map so compact and expanded references can match.
+
+The user shall be able to toggle whether those data properties are shown inside the
+node. Enabling the toggle shall persist `show_data_properties: true` on the node.
+Disabling the toggle shall remove the persisted field or otherwise make the effective
+value `false`.
+
+When data properties are shown, the node shall render a header area for the ontology
+display name and an attribute area containing sorted data-property labels. Attribute
+text should include the range display name when a range is available, for example
+`age: integer`.
+
+When the toggle is enabled from the property panel, the canvas may grow the node to fit
+the available data properties while preserving the node position. If all data-property
+rows still cannot fit in the node bounds, the renderer shall show a deterministic
+overflow indicator rather than changing persisted geometry during rendering.

@@ -24,13 +24,14 @@ Version 1 toolbar actions are:
 | Add image | Opens the image picker and creates a standalone image. |
 | Undo | Requests undo for the current `.odiagram` document edit. |
 | Redo | Requests redo for the current `.odiagram` document edit. |
-| Export SVG | Saves the diagram as an SVG export. |
-| Export PNG | Saves the diagram as a PNG export. |
+| Export SVG | Saves the diagram as an SVG export, as defined in `006-11-canvas-export.md`. |
+| Export PNG | Saves the diagram as a PNG export, as defined in `006-11-canvas-export.md`. |
 | Arrange diagram | Automatically positions ontology-backed nodes and reroutes connected edges. |
 | Zoom out | Decreases canvas zoom without changing persisted coordinates. |
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
 | Fit diagram to view | Fits all rendered content in the visible viewport. |
 | Reset viewport | Resets zoom and pan to the implementation-defined default. |
+| Select corresponding model-tree item | Reveals the selected ontology-backed node or edge in the model tree when a matching item exists. |
 | Toggle light/dark mode | Switches the canvas rendering palette between light and dark mode without changing persisted diagram geometry. |
 
 Toolbar buttons shall be disabled or shall show a concise user-visible problem when the
@@ -59,10 +60,19 @@ Arranging the diagram shall:
 If the diagram has no ontology-backed nodes, the toolbar action shall be disabled or show
 a concise user-visible problem without changing the `.odiagram` document.
 
+# Theme Mode
+
+The theme-mode action shall toggle between light and dark render modes. The canvas shall
+rerender using the selected mode while preserving the selected element where practical.
+
+Changing the mode shall persist the selected value to `metadata.theme_mode` in the
+opened `.odiagram` file. The action shall not edit the referenced `.otheme` file.
+
 # Style Editing
 
-Version 1 does not use a floating toolbar for element-level style customization.
-Element style overrides are edited in the selected element's property panel.
+Version 1 does not use the canvas toolbar or local element toolbar for element-level
+style customization. Element style overrides are edited in the selected element's
+property panel.
 
 # Local Element Toolbar
 
@@ -77,4 +87,6 @@ Version 1 local toolbar actions are:
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |
-| Edge | Remove edge. |
+| Edge | Optimize edge path and remove edge. |
+
+The local toolbar shall be hidden while on-canvas note or label text editing is active.

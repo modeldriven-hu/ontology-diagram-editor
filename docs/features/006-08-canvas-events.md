@@ -40,8 +40,8 @@ DOM state.
 | Canvas image source changed | An image source is changed | Diagram file path, image identifier, source |
 | Canvas text edited | A note or label text value changes | Diagram file path, element identifier, element type, text |
 | Canvas style changed | A canvas control changes an element-level style | Diagram file path, element identifier, element type, changed style fields |
-| Canvas property panel visibility changed | The bottom property panel is opened, closed, collapsed, expanded, or resized | Diagram file path, visible state, collapsed state, panel height |
-| Canvas property edited | A bottom property panel field changes a persisted element property | Diagram file path, element identifier, element type, changed fields |
+| Canvas property panel visibility changed | The side property panel is initialized, collapsed, or expanded | Diagram file path, visible state, collapsed state, panel height |
+| Canvas property edited | A property panel field changes a persisted element property | Diagram file path, element identifier, element type, changed fields |
 | Canvas elements deleted | One or more elements are removed from the diagram | Diagram file path, removed element identifiers, affected edge identifiers |
 | Canvas undo requested | The user invokes undo from a canvas shortcut or control | Diagram file path |
 | Canvas redo requested | The user invokes redo from a canvas shortcut or control | Diagram file path |

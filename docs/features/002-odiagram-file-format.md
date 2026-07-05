@@ -253,10 +253,15 @@ Each node shall contain:
 | `height` | number | Yes | Node height. |
 | `style` | map | No | Node style override. |
 | `image` | image source | No | Optional image displayed on the node. |
+| `show_data_properties` | boolean | No | Whether available data properties whose domain matches this node are shown inside the node. |
 
 The referenced ontology item is the ontology item represented by the node. Canvas
 behavior specifications define which ontology item types can be created or rendered as
 nodes in a given version.
+
+If `show_data_properties` is omitted or `false`, the renderer shall not show the node's
+data-property attribute section. Writers should omit the field when the effective value
+is `false`.
 
 # Edges
 
@@ -273,7 +278,7 @@ Each edge shall contain:
 | `label` | point | Yes | Label position. |
 | `points` | list of points | Yes | Edge route coordinates. |
 | `style` | map | No | Edge style override. |
-| `route_layout` | string | No | Preferred route layout, such as `orthogonal` or `direct`. |
+| `route_layout` | string | No | Preferred route layout. |
 
 `source` and `target` shall reference existing nodes, notes, or images.
 
@@ -285,6 +290,20 @@ Version 1 also supports note connection edges whose endpoints include a note and
 other endpoint is a node, note, or image. Note connection edges may use an
 implementation-defined absolute `ontology_ref` and shall render as dotted annotation
 edges by default.
+
+Version 1 supports these `route_layout` values:
+
+| Value | Meaning |
+|-------|---------|
+| `orthogonal` | Render an orthogonal route using persisted points and inserted right-angle display bends where needed. |
+| `direct` | Render the route as a straight source-to-target line using the first and last persisted points. |
+| `one_side` | Use the canvas engine's one-side router. |
+| `manhattan` | Use the canvas engine's Manhattan router. |
+| `metro` | Use the canvas engine's metro router. |
+| `entity_relation` | Use the canvas engine's entity-relationship router. |
+
+If `route_layout` is omitted, the renderer shall use its default route behavior for the
+edge.
 
 Subclass relationship edges shall use `rdfs:subClassOf` as `ontology_ref`; the concrete
 subclass and superclass are identified by the edge `source` and `target` nodes. When the
@@ -322,10 +341,15 @@ Each note shall contain:
 | `height` | number | Yes | Note height. |
 | `text` | string | Yes | Note content. |
 | `style` | map | No | Note style override. |
+| `export` | boolean | No | Whether the note is included in diagram exports. |
 
 Version 1 notes may be connected to nodes, notes, or images by edges. A note remains a
 separate element; deleting an opposing connected element removes the connecting edge but
 does not remove the note.
+
+If `export` is omitted or `true`, the note is included in SVG and PNG exports. Writers
+should omit the field when the effective value is `true`; they shall persist
+`export: false` only when the note is intentionally excluded from exports.
 
 # Images
 
@@ -380,6 +404,8 @@ A conforming reader shall validate at least the following rules:
 - Every edge has at least two route points.
 - Every label `style` map, when present, contains only label-supported style fields.
 - Every ontology path and relative image path resolves relative to the `.odiagram` file.
+- Every `metadata.theme_mode`, when present, is either `light` or `dark`.
+- Every edge `route_layout`, when present, is one of the version 1 route layout values.
 
 A reader may still open a file with validation errors in a degraded mode, but writers
 shall not knowingly persist invalid `.odiagram` content.
@@ -411,6 +437,7 @@ nodes:
     y: 120
     width: 160
     height: 80
+    show_data_properties: true
     style:
       bg_color: "#E6F7FF"
 
@@ -440,6 +467,7 @@ notes:
     width: 220
     height: 80
     text: "Membership is modeled as an object property."
+    export: false
 
 images:
   - id: "image_1"

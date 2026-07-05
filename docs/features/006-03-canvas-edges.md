@@ -76,8 +76,8 @@ and the canvas shall show a clear message that the endpoint appears more than on
 the canvas.
 
 If an edge with the same `ontology_ref`, `source`, and `target` already exists, the
-canvas shall select and reveal the existing edge instead of creating a duplicate. No
-`.odiagram` change shall be written for that drop.
+canvas shall show a concise message instead of creating a duplicate. No `.odiagram`
+change shall be written for that drop.
 
 For subclass relationship edges, duplicate detection shall use `rdfs:subClassOf` as the
 `ontology_ref` together with the resolved subclass `source` node and superclass `target`
@@ -98,14 +98,18 @@ In version 1, missing endpoint nodes shall be placed deterministically:
 
 The implementation shall use consistent horizontal and vertical spacing that leaves the
 new edge visible and selectable. If the computed position would overlap existing canvas
-content, the implementation shall offset the created node while preserving the relative
+content, the implementation may offset the created node while preserving the relative
 source-to-target direction.
 
 # Local Edge Actions
 
 When an edge is selected, the canvas shall show a local toolbar near the selected edge
-route. The toolbar shall provide a remove-edge action that deletes the selected edge
-without deleting its source or target elements.
+route. The toolbar shall provide:
+
+- A remove-edge action that deletes the selected edge without deleting its source or
+  target elements.
+- An optimize-edge-path action that recalculates the persisted route from the current
+  endpoint bounds and updates the edge label to a route midpoint.
 
 When a connection-capable ontology item is dragged onto the canvas, the canvas shall
 display a temporary edge preview.
@@ -149,6 +153,11 @@ The canvas shall support persisted note connection edges between a note and a no
 note, or standalone image. Note connection edges shall render as dotted lines by
 default and shall not use ontology relationship arrowheads.
 
+The user shall create a note connection by selecting a note, choosing the local connect
+note action, and then selecting a node, image, or another note. Creating a duplicate
+connection between the same two elements shall be rejected without modifying the
+`.odiagram` document.
+
 When a connected node, note, or image is moved or resized, the canvas shall recalculate
 the corresponding first or last point in the persisted `points` list so the edge remains
 connected to the element boundary. Intermediate route points in an existing diagram
@@ -165,12 +174,25 @@ The edge route consists of:
 The source endpoint shall remain associated with the edge `source` element. The target
 endpoint shall remain associated with the edge `target` element.
 
-In version 1, users shall not manually move edge endpoints, move route
-segments, move individual break points, add break points, or remove break points. Those
-route editing features are excluded from version 1.
+The canvas may expose route handles for moving edge anchors, route segments, or
+intermediate break points. Completing a route edit shall update the persisted `points`
+list and the persisted `label` point when it changes. Route edits shall not change the
+edge `source` or `target` identifiers. The persisted first and last points shall remain
+snapped to the current source and target element boundaries.
 
-The user shall be able to select the edge route layout from the layouts supported by
-the canvas edge renderer, including direct and orthogonal routing.
+The user shall be able to select the edge route layout from the property panel. Version
+1 route layout choices are default, orthogonal, direct, one side, Manhattan, metro, and
+entity relation.
+
+Changing the route layout shall update only the persisted `route_layout` field and
+shall not rewrite the persisted route points. Rendering shall interpret the stored
+points according to the selected route layout.
+
+The optimize-edge-path action shall recalculate stale route points from the current
+source and target element bounds. For default or orthogonal routes it shall create an
+orthogonal route when the endpoints are not horizontally or vertically aligned. For
+router-backed layouts, it shall keep the selected layout and reduce persisted points to
+the current source and target anchors so the canvas router can compute display bends.
 
 The user can move the edge label by dragging it, or by selecting the edge label/edge and
 using the arrow keys. Arrow keys shall move the label by one canvas unit; holding

@@ -25,10 +25,11 @@ Canvas behavior is split into these feature specifications:
 | `006-04-canvas-notes.md` | Adding, editing, moving, and resizing notes. |
 | `006-05-canvas-labels.md` | Adding, editing, and moving standalone labels. |
 | `006-06-canvas-images.md` | Adding, moving, resizing, and sourcing standalone images. |
-| `006-07-canvas-toolbar.md` | Floating toolbar behavior and element-level style customization. |
+| `006-07-canvas-toolbar.md` | Canvas toolbar and local selected-element toolbar behavior. |
 | `006-08-canvas-events.md` | Canvas event architecture and event payloads. |
 | `006-09-canvas-persistence.md` | Saving canvas edits to `.odiagram`, batching gesture changes, preserving unknown fields, and persistence failures. |
-| `006-10-canvas-property-panel.md` | Bottom property panel behavior for inspecting and editing selected element properties. |
+| `006-10-canvas-property-panel.md` | Side property panel behavior for inspecting and editing selected element properties. |
+| `006-11-canvas-export.md` | SVG and PNG export behavior from the canvas toolbar. |
 
 # Concepts
 
@@ -43,7 +44,8 @@ The canvas operates on persisted `.odiagram` elements:
 | Label | `labels` | Standalone text placed on the canvas. |
 
 The canvas shall not persist editor-only state such as hover state, drag previews,
-selection handles, temporary connection previews, or floating toolbar visibility.
+selection handles, temporary connection previews, local toolbar visibility, property
+panel size, or viewport position.
 
 # Shared Requirements
 
@@ -72,9 +74,15 @@ The minimum viable product shall support:
 - Editing note and label text.
 - Moving edge label positions and keeping edge endpoints connected when nodes move or
   resize.
-- Customizing element-level style through the floating toolbar.
+- Showing class data properties inside a selected node when enabled through the
+  property panel.
+- Connecting notes to nodes, images, or other notes with persisted annotation edges.
+- Customizing element-level style through the property panel.
 - Inspecting selected elements and editing supported non-style fields through the
   property panel.
+- Switching between light and dark theme modes and persisting the selected mode in the
+  `.odiagram` metadata.
+- Exporting non-empty diagrams as SVG and PNG files.
 - Persisting completed edits back to the opened `.odiagram` document.
 - Grouping each completed user gesture into one undoable and redoable edit where the
   Visual Studio Code document model allows it.
@@ -107,15 +115,16 @@ not be persisted to the `.odiagram` file.
 When rerendering the same diagram after document, ontology, theme, or image updates, the
 canvas shall preserve the user's viewport state.
 
-When the selected element is outside the visible viewport because of a selection change
-from another UI surface, the canvas shall provide a way to reveal the selected element.
+When diagram content is outside the visible viewport, the canvas shall provide a way to
+fit all rendered content into view.
 
-# Canvas Commands
+# Canvas Actions
 
-The canvas shall expose common actions through Visual Studio Code commands so they can
-be reached from the command palette and keybindings.
+The extension shall expose the create-new-diagram workflow as a Visual Studio Code
+command. Canvas-local actions shall be available through visible webview controls,
+keyboard shortcuts where supported, and webview commands handled by the extension host.
 
-Version 1 shall define commands for:
+Version 1 shall define actions for:
 
 - Create new diagram.
 - Add note.
@@ -124,20 +133,24 @@ Version 1 shall define commands for:
 - Delete selected element.
 - Undo canvas edit.
 - Redo canvas edit.
+- Export SVG.
+- Export PNG.
 - Zoom in.
 - Zoom out.
 - Fit diagram to view.
 - Reset viewport.
-- Reveal selected element.
+- Select corresponding model-tree item.
 - Toggle property panel.
+- Toggle light/dark mode.
 
 The create new diagram command shall ask the user for a target `.odiagram` path and
 create a valid empty diagram document using the `.odiagram` file format specification.
 After creation, the extension shall open the new file in the canvas view.
 
-Commands that cannot currently run shall be disabled or shall fail without changing the
-`.odiagram` document. Examples include deleting when no element is selected, revealing a
-missing selected element, or adding an image when no `.odiagram` file is open.
+Actions that cannot currently run shall be disabled or shall fail without changing the
+`.odiagram` document. Examples include deleting when no element is selected, selecting a
+model-tree item for a canvas element with no matching ontology item, or adding an image
+when no `.odiagram` file is open.
 
 # Validation And Error Presentation
 
