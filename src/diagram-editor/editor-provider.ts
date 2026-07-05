@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
+import type { ModelTreeItemDraggedEvent, ReferencedOntologySavedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
@@ -15,6 +15,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
+		private readonly onDidSaveReferencedOntology: vscode.Event<ReferencedOntologySavedEvent>,
 	) {}
 
 	public async resolveCustomTextEditor(
@@ -48,6 +49,11 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				void updateWebview();
 			}
 		});
+		const ontologySaveDisposable = this.onDidSaveReferencedOntology((event) => {
+			if (event.diagramUri.toString() === document.uri.toString()) {
+				void updateWebview();
+			}
+		});
 		const repository = new DiagramDocumentRepository(document);
 		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem, this.revealModelTreeItem);
 		let dispatchQueue = Promise.resolve();
@@ -75,6 +81,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
+			ontologySaveDisposable.dispose();
 			commandDisposable.dispose();
 			void this.onDidCloseDiagram(document);
 		});

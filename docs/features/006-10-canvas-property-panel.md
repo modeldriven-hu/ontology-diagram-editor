@@ -94,7 +94,7 @@ The panel shall also expose element-level style override fields for styled eleme
 | Edge | Line color, line style, line weight, label text color, font family, font size, bold, italic. |
 | Note | Background color, text color, font family, font size, bold, italic, border type, border weight, border color, corner radius, drop shadow. |
 | Label | Text color, font family, font size, bold, italic. |
-| Image | None. |
+| Image | Border type, border weight, border color, drop shadow. |
 
 Style edits shall update only the selected element's `style` map in the `.odiagram`
 file. The property panel shall not modify the active `.otheme` file.

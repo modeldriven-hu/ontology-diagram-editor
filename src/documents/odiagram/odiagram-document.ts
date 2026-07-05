@@ -397,6 +397,7 @@ export class DiagramImage {
 		id: string,
 		bounds: Bounds,
 		public readonly source: string,
+		public readonly style?: CommonStyle,
 		public readonly extra: JsonObject = {},
 	) {
 		this.id = DiagramIdentifier.create(id, 'image');
@@ -405,12 +406,13 @@ export class DiagramImage {
 	}
 
 	public toPersistenceObject(): JsonObject {
-		return {
+		return omitUndefined({
 			...this.extra,
 			id: this.id.value,
 			...this.bounds.toPersistenceObject(),
 			source: this.source,
-		};
+			style: this.style?.toPersistenceObject(),
+		});
 	}
 }
 
@@ -575,7 +577,8 @@ const noteSchema = boundsFieldsSchema.extend({
 const imageSchema = boundsFieldsSchema.extend({
 	id: z.string(),
 	source: z.string(),
-});
+	style: commonStyleSchema.optional(),
+}).passthrough();
 
 const labelSchema = boundsFieldsSchema.extend({
 	id: z.string(),
@@ -674,7 +677,8 @@ function parseImage(value: z.infer<typeof imageSchema>): DiagramImage {
 		value.id,
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.source,
-		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'source']),
+		value.style ? parseCommonStyle(value.style) : undefined,
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'source', 'style']),
 	);
 }
 

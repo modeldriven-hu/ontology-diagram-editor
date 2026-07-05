@@ -450,6 +450,13 @@ export class CanvasPropertyPanel {
 					})),
 				],
 			},
+			{
+				id: 'style',
+				label: 'Style',
+				sections: [
+					this.imageStyleSection(image.id, image.style),
+				],
+			},
 		];
 	}
 
@@ -605,6 +612,34 @@ export class CanvasPropertyPanel {
 			}),
 			optionalNumberComboField('Corner Radius', style?.corner_radius, standardCornerRadii, (value) => {
 				commit(cleanCommonStyle({ ...patch(), corner_radius: value }));
+			}),
+			selectField('Drop Shadow', shadowValue(style?.shadow), shadowOptions, (value) => {
+				commit(cleanCommonStyle({ ...patch(), shadow: value === undefined ? undefined : value === 'true' }));
+			}),
+			actionButton('Clear Style', 'secondary', () => {
+				commit(undefined);
+			}),
+		]);
+	}
+
+	private imageStyleSection(id: string, style: DiagramElementStyle | undefined): HTMLElement {
+		const commit = (nextStyle: CommonStylePatch | undefined): void => {
+			this.updateElementStyle('image', id, nextStyle);
+		};
+		const patch = (): CommonStylePatch => cloneCommonStyle(style);
+
+		return sectionElement('Style', [
+			selectField('Border', style?.border?.type ?? '', borderTypeOptions, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, type: value } }));
+			}),
+			optionalNumberField('Border Weight', style?.border?.weight, (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, weight: value } }));
+			}),
+			colorField('Border Color', style?.border?.color ?? '', (value) => {
+				const next = patch();
+				commit(cleanCommonStyle({ ...next, border: { ...next.border, color: blankToUndefined(value) } }));
 			}),
 			selectField('Drop Shadow', shadowValue(style?.shadow), shadowOptions, (value) => {
 				commit(cleanCommonStyle({ ...patch(), shadow: value === undefined ? undefined : value === 'true' }));

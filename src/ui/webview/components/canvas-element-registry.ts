@@ -164,6 +164,14 @@ export class CanvasElementRegistry {
 			return;
 		}
 
+		if (elementType === 'image') {
+			const image = this.images.get(id);
+			if (image !== undefined) {
+				this.images.set(id, { ...image, style });
+			}
+			return;
+		}
+
 		const label = this.labels.get(id);
 		if (label !== undefined) {
 			this.labels.set(id, { ...label, style });

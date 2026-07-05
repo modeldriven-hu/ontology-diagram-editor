@@ -17,11 +17,14 @@ import {
 	loadReferencedOntologies,
 } from './ontology-model';
 import { getOntologyItemIcon } from './ontology-item-icons';
+import { findOntologySourceRange } from './ontology-source-navigation';
 
 export const modelTreeViewId = 'ontology-diagram-editor.modelTree';
 export const refreshModelTreeCommand = 'ontology-diagram-editor.modelTree.refresh';
 export const addOntologyCommand = 'ontology-diagram-editor.modelTree.addOntology';
 export const removeOntologyCommand = 'ontology-diagram-editor.modelTree.removeOntology';
+export const openOntologyFileCommand = 'ontology-diagram-editor.modelTree.openOntologyFile';
+export const openOntologySourceCommand = 'ontology-diagram-editor.modelTree.openOntologySource';
 
 type ModelTreeNode = DiagramTreeNode | OntologyFileTreeNode | OntologyGroupTreeNode | OntologyItemTreeNode | ErrorTreeNode;
 type NodeKind = 'diagram' | 'ontologyFile' | 'ontologyGroup' | 'ontologyItem' | 'error';
@@ -76,6 +79,11 @@ export interface ModelTreeItemDraggedEvent {
 	readonly ontologyItemMetadata: unknown;
 }
 
+export interface ReferencedOntologySavedEvent {
+	readonly diagramUri: vscode.Uri;
+	readonly ontologyUri: vscode.Uri;
+}
+
 export const modelTreeDragMimeType = 'application/vnd.code.tree.ontology-diagram-editor.model-tree';
 
 export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode.TreeDragAndDropController<ModelTreeNode>, vscode.Disposable {
@@ -85,15 +93,18 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<ModelTreeNode | undefined>();
 	private readonly onDidChangeSelectionEmitter = new vscode.EventEmitter<ModelTreeSelectionEvent>();
 	private readonly onDidDragItemEmitter = new vscode.EventEmitter<ModelTreeItemDraggedEvent>();
+	private readonly onDidSaveReferencedOntologyEmitter = new vscode.EventEmitter<ReferencedOntologySavedEvent>();
 	private readonly disposables: vscode.Disposable[] = [
 		this.onDidChangeTreeDataEmitter,
 		this.onDidChangeSelectionEmitter,
 		this.onDidDragItemEmitter,
+		this.onDidSaveReferencedOntologyEmitter,
 	];
 
 	public readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 	public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 	public readonly onDidDragItem = this.onDidDragItemEmitter.event;
+	public readonly onDidSaveReferencedOntology = this.onDidSaveReferencedOntologyEmitter.event;
 
 	private treeView?: vscode.TreeView<ModelTreeNode>;
 	private diagramDocument?: vscode.TextDocument;
@@ -121,6 +132,12 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		const removeDisposable = vscode.commands.registerCommand(removeOntologyCommand, async (node?: ModelTreeNode) => {
 			await this.removeOntology(node);
 		});
+		const openOntologyFileDisposable = vscode.commands.registerCommand(openOntologyFileCommand, async (node?: ModelTreeNode) => {
+			await this.openOntologyFile(node);
+		});
+		const openOntologySourceDisposable = vscode.commands.registerCommand(openOntologySourceCommand, async (node?: ModelTreeNode) => {
+			await this.openOntologySource(node);
+		});
 		const selectionDisposable = this.treeView.onDidChangeSelection((event) => {
 			this.selectedNode = event.selection[0];
 			this.updateSelectionContext();
@@ -132,14 +149,20 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				await this.refresh();
 			}
 		});
+		const ontologySaveDisposable = vscode.workspace.onDidSaveTextDocument(async (document) => {
+			await this.handleSavedTextDocument(document);
+		});
 
 		this.disposables.push(
 			this.treeView,
 			refreshDisposable,
 			addDisposable,
 			removeDisposable,
+			openOntologyFileDisposable,
+			openOntologySourceDisposable,
 			selectionDisposable,
 			documentChangeDisposable,
+			ontologySaveDisposable,
 		);
 		context.subscriptions.push(this);
 		this.updateDiagramContext();
@@ -322,6 +345,83 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	public dispose(): void {
 		for (const disposable of this.disposables) {
 			disposable.dispose();
+		}
+	}
+
+	private async handleSavedTextDocument(document: vscode.TextDocument): Promise<void> {
+		const diagramDocument = this.diagramDocument;
+		if (diagramDocument === undefined || !this.isReferencedOntologyDocument(document)) {
+			return;
+		}
+
+		await this.refresh();
+		this.onDidSaveReferencedOntologyEmitter.fire({
+			diagramUri: diagramDocument.uri,
+			ontologyUri: document.uri,
+		});
+	}
+
+	private isReferencedOntologyDocument(document: vscode.TextDocument): boolean {
+		if (document.uri.scheme !== 'file') {
+			return false;
+		}
+
+		const documentPath = normalizeAbsolutePath(document.uri.fsPath);
+		return this.loadedOntologies.some((ontology) => normalizeAbsolutePath(ontology.absolutePath) === documentPath);
+	}
+
+	private async openOntologyFile(node?: ModelTreeNode): Promise<void> {
+		const ontologyNode = node?.kind === 'ontologyFile'
+			? node
+			: this.selectedNode?.kind === 'ontologyFile'
+				? this.selectedNode
+				: undefined;
+		if (ontologyNode === undefined) {
+			return;
+		}
+
+		const document = await this.openTextDocument(ontologyNode.ontology.absolutePath);
+		if (document !== undefined) {
+			await vscode.window.showTextDocument(document, { preview: false });
+		}
+	}
+
+	private async openOntologySource(node?: ModelTreeNode): Promise<void> {
+		const itemNode = node?.kind === 'ontologyItem'
+			? node
+			: this.selectedNode?.kind === 'ontologyItem'
+				? this.selectedNode
+				: undefined;
+		if (itemNode === undefined) {
+			return;
+		}
+
+		const document = await this.openTextDocument(itemNode.ontology.absolutePath);
+		if (document === undefined) {
+			return;
+		}
+
+		const sourceRange = findOntologySourceRange(document.getText(), itemNode.item);
+		if (sourceRange === undefined) {
+			await vscode.window.showTextDocument(document, { preview: false });
+			await vscode.window.showInformationMessage(`Opened "${itemNode.ontology.relativePath}", but no source location was found for "${itemNode.item.displayLabel}".`);
+			return;
+		}
+
+		const selection = new vscode.Selection(
+			document.positionAt(sourceRange.startOffset),
+			document.positionAt(sourceRange.endOffset),
+		);
+		const editor = await vscode.window.showTextDocument(document, { preview: false, selection });
+		editor.revealRange(selection, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+	}
+
+	private async openTextDocument(absolutePath: string): Promise<vscode.TextDocument | undefined> {
+		try {
+			return await vscode.workspace.openTextDocument(vscode.Uri.file(absolutePath));
+		} catch (error) {
+			await vscode.window.showErrorMessage(`Could not open ontology file "${absolutePath}": ${error instanceof Error ? error.message : String(error)}`);
+			return undefined;
 		}
 	}
 
@@ -653,6 +753,10 @@ function dragPayloadForItemNode(node: OntologyItemTreeNode): ModelTreeItemDragge
 
 function normalizePath(value: string): string {
 	return value.replaceAll('\\', '/');
+}
+
+function normalizeAbsolutePath(value: string): string {
+	return normalizePath(path.resolve(value));
 }
 
 function ontologyReferencesEqual(left: string, right: string, namespaces: ReadonlyMap<string, string>): boolean {

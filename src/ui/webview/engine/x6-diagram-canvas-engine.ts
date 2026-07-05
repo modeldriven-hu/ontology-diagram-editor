@@ -1259,21 +1259,28 @@ function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string, unkno
 		markup: [
 			{ tagName: 'rect', selector: 'body' },
 			{ tagName: 'image', selector: 'image' },
+			{ tagName: 'rect', selector: 'border' },
 		],
 		attrs: {
 			body: {
 				refWidth: '100%',
 				refHeight: '100%',
 				fill: theme.canvasBackground,
-				stroke: theme.nodeBorder,
-				strokeWidth: 1,
-				filter: theme.elementShadow ? `drop-shadow(3px 3px 2px ${theme.shadowColor})` : 'none',
+				stroke: 'none',
+				strokeWidth: 0,
+				filter: shadowFilter(image.style, false, theme),
 			},
 			image: {
 				refWidth: '100%',
 				refHeight: '100%',
 				'xlink:href': image.webview_src,
 				preserveAspectRatio: 'xMidYMid meet',
+			},
+			border: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: 'transparent',
+				...borderAttrs(image.style?.border, theme.nodeBorder, 0),
 			},
 		},
 		zIndex: 10,

@@ -42,6 +42,16 @@
         "command": "ontology-diagram-editor.modelTree.removeOntology",
         "title": "Remove Ontology",
         "icon": "$(remove)"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.openOntologyFile",
+        "title": "Open Ontology File",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.openOntologySource",
+        "title": "Open Ontology Source",
+        "icon": "$(go-to-file)"
       }
     ],
     "viewsContainers": {
@@ -75,6 +85,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "ontology-diagram-editor.modelTree.openOntologyFile",
+          "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyFile",
+          "group": "navigation"
+        },
+        {
+          "command": "ontology-diagram-editor.modelTree.openOntologySource",
+          "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyItem",
+          "group": "navigation"
+        },
         {
           "command": "ontology-diagram-editor.modelTree.removeOntology",
           "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyFile",

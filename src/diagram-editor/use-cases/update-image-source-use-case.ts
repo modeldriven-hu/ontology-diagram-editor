@@ -20,6 +20,7 @@ export class UpdateImageSourceUseCase {
 					image.id.value,
 					image.bounds,
 					source,
+					image.style,
 					image.extra,
 				);
 			});

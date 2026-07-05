@@ -15,6 +15,7 @@
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.
 - Given a node image or standalone image source is edited, when a local file is selected, then the selected image bytes are embedded as a `data:image/...` URI.
 - Given a data URI image source is entered, when validation succeeds, then it is persisted.
+- Given an image is selected, when the Style tab is shown, then image border type, border weight, border color, and drop shadow are editable.
 
 ## Validation And Persistence
 

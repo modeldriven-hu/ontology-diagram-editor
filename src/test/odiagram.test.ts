@@ -246,6 +246,50 @@ edges: []
 		});
 	});
 
+	test('parses and serializes image border and shadow style overrides', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Styled image"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes: []
+edges: []
+images:
+  - id: "image_logo"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    source: "images/logo.png"
+    style:
+      border:
+        type: dashed
+        weight: 2
+        color: "#336699"
+      shadow: true
+`);
+
+		assert.strictEqual(document.images[0].style?.border?.type, 'dashed');
+		assert.strictEqual(document.images[0].style?.shadow, true);
+		assert.deepStrictEqual(document.images[0].style?.toPersistenceObject(), {
+			border: {
+				type: 'dashed',
+				weight: 2,
+				color: '#336699',
+			},
+			shadow: true,
+		});
+		const serialized = stringifyOntologyDiagramYaml(document);
+		assert.match(serialized, /style:/);
+		assert.match(serialized, /border:/);
+		assert.match(serialized, /type: dashed/);
+		assert.match(serialized, /shadow: true/);
+	});
+
 	test('preserves unknown fields when serializing parsed YAML', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
