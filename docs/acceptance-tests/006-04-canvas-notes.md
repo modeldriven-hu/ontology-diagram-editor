@@ -4,6 +4,8 @@
 
 - Given the add-note command runs, when the user enters note content, then a `note_` element is added to the `.odiagram` `notes` section.
 - Given a note is created, when it is persisted, then it stores `id`, `x`, `y`, `width`, `height`, and `text`, and omits `style` unless customized.
+- Given an ontology-backed node with a comment is selected, when Create note from ontology comment runs, then a compact-sized note is created with text matching the comment and a note connection is created to the node.
+- Given nearby canvas space is occupied, when Create note from ontology comment runs, then the new note is placed near the node without overlapping existing positioned elements when such a location is available.
 - Given the user edits note text, when the edit commits, then the persisted `text` field is updated.
 - Given note text contains supported basic HTML, when rendered, then supported formatting appears and unsupported or unsafe markup is sanitized by rendering rules.
 

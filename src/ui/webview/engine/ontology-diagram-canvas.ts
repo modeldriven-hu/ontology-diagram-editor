@@ -1,8 +1,9 @@
-import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
+import { ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -13,7 +14,8 @@ import { measuredTextWidth, nodeDataPropertyAttributes, ontologyDisplayName, req
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
-import type { DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { ontologyCommentsForReference } from '../components/ontology-comments';
+import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 
@@ -50,10 +52,6 @@ const maximumZoom = 3;
 const defaultCanvasWidth = 1800;
 const defaultCanvasHeight = 1200;
 const viewportPadding = 80;
-const noteContentHorizontalPadding = 24;
-const noteContentVerticalPadding = 24;
-const noteCompactMaximumWidth = 320;
-const noteLineHeightFactor = 1.25;
 
 if (config === undefined) {
 	throw new Error('Missing ontology diagram webview configuration.');
@@ -84,6 +82,7 @@ const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
 const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
 const localElementToolbar = requiredElement('localElementToolbar');
 const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
+const createCommentNoteLocalButton = requiredElement('createCommentNoteLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
@@ -159,6 +158,10 @@ noteEditorController.register();
 minimizeLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	resizeSelectedElementToMinimum();
+});
+createCommentNoteLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	createCommentNoteFromSelectedNode();
 });
 connectNoteLocalButton.addEventListener('click', () => {
 	toggleNoteConnectionMode();
@@ -362,6 +365,13 @@ function renderLocalElementToolbarIcons(): void {
 	minimizeLocalButton.title = 'Resize to minimum size';
 	minimizeLocalButton.setAttribute('aria-label', 'Resize to minimum size');
 
+	createCommentNoteLocalButton.replaceChildren(createIconElement(StickyNotePlus, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	createCommentNoteLocalButton.title = 'Create note from ontology comment';
+	createCommentNoteLocalButton.setAttribute('aria-label', 'Create note from ontology comment');
+
 	const badge = document.createElement('span');
 	badge.className = 'local-action-note-badge';
 	badge.textContent = 'N';
@@ -552,9 +562,21 @@ function hasLocalElementToolbarActions(element: CanvasPropertyElement): boolean 
 function updateLocalElementToolbarButtons(element: CanvasPropertyElement): void {
 	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 	minimizeLocalButton.hidden = !canResize;
+	createCommentNoteLocalButton.hidden = element.kind !== 'node';
 	connectNoteLocalButton.hidden = element.kind !== 'note';
 	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 	deleteEdgeLocalButton.hidden = element.kind !== 'edge';
+
+	if (element.kind === 'node') {
+		const hasComments = commentTextForNode(element.value).trim().length > 0;
+		createCommentNoteLocalButton.disabled = !hasComments;
+		createCommentNoteLocalButton.title = hasComments
+			? 'Create note from ontology comment'
+			: 'No ontology comment available';
+		createCommentNoteLocalButton.setAttribute('aria-label', createCommentNoteLocalButton.title);
+	} else {
+		createCommentNoteLocalButton.disabled = false;
+	}
 
 	if (element.kind === 'note') {
 		minimizeLocalButton.title = 'Resize note to compact size';
@@ -644,7 +666,7 @@ function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
 }
 
 function localElementToolbarFallbackWidth(element: CanvasPropertyElement): number {
-	if (element.kind === 'note' || element.kind === 'edge') {
+	if (element.kind === 'node' || element.kind === 'note' || element.kind === 'edge') {
 		return 67;
 	}
 
@@ -679,6 +701,30 @@ function optimizeSelectedEdgeRoute(): void {
 
 	messageBus.publishCommand(new OptimizeEdgeRouteCommand(selectedElementId));
 	showStatus('Optimizing edge path.');
+}
+
+function createCommentNoteFromSelectedNode(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'node') {
+		showStatus('Select a node with an ontology comment.');
+		return;
+	}
+
+	const comment = commentTextForNode(selectedElement.value);
+	if (comment.trim().length === 0) {
+		showStatus('Selected node has no ontology comment.');
+		return;
+	}
+
+	messageBus.publishCommand(new CreateCommentNoteCommand(selectedElementId, comment));
+	showStatus('Creating note from ontology comment.');
+}
+
+function commentTextForNode(node: DiagramNode): string {
+	return ontologyCommentsForReference(node.ontology_ref, webviewConfig.payload).join('\n\n');
 }
 
 function resizeSelectedElementToMinimum(): void {
@@ -742,28 +788,18 @@ function requiredNoteSize(note: DiagramNote): { readonly width: number; readonly
 	const fontSize = note.style?.font?.size ?? theme.fontSize;
 	const fontFamily = note.style?.font?.family ?? theme.fontFamily;
 	const visibleText = visibleNoteText(note.text);
-	const explicitLines = normalizeLineEndings(visibleText).split('\n');
-	const widestLine = Math.max(0, ...explicitLines.map((line) => measuredNoteTextWidth({
-		note,
-		text: line,
+	return requiredCompactNoteSize({
+		text: visibleText,
+		minimumWidth: minimumNoteWidth,
+		minimumHeight: minimumNoteHeight,
 		fontSize,
-		fontFamily,
-	})));
-	const width = Math.ceil(Math.max(
-		minimumNoteWidth,
-		Math.min(noteCompactMaximumWidth, widestLine + noteContentHorizontalPadding),
-	));
-	const contentWidth = Math.max(1, width - noteContentHorizontalPadding);
-	const visualLineCount = explicitLines
-		.map((line) => wrappedNoteLineCount({ note, line, fontSize, fontFamily, contentWidth }))
-		.reduce((sum, lineCount) => sum + lineCount, 0);
-	const lineHeight = Math.ceil(fontSize * noteLineHeightFactor);
-	const height = Math.ceil(Math.max(
-		minimumNoteHeight,
-		(visualLineCount * lineHeight) + noteContentVerticalPadding,
-	));
-
-	return { width, height };
+		measureTextWidth: (text) => measuredNoteTextWidth({
+			note,
+			text,
+			fontSize,
+			fontFamily,
+		}),
+	});
 }
 
 function visibleNoteText(value: string): string {
@@ -803,71 +839,6 @@ function renderedNoteText(node: ChildNode): string {
 
 function isNoteBlockElement(tagName: string): boolean {
 	return tagName === 'div' || tagName === 'p' || tagName === 'li' || tagName === 'ul' || tagName === 'ol';
-}
-
-function normalizeLineEndings(value: string): string {
-	return value.replace(/\r\n?/gu, '\n');
-}
-
-function wrappedNoteLineCount(options: {
-	readonly note: DiagramNote;
-	readonly line: string;
-	readonly fontSize: number;
-	readonly fontFamily: string;
-	readonly contentWidth: number;
-}): number {
-	const words = options.line.trim().split(/\s+/u).filter((word) => word.length > 0);
-	if (words.length === 0) {
-		return 1;
-	}
-
-	let lineCount = 1;
-	let currentLine = '';
-	for (const word of words) {
-		const candidate = currentLine.length === 0 ? word : `${currentLine} ${word}`;
-		if (measuredNoteTextWidth({ ...options, text: candidate }) <= options.contentWidth) {
-			currentLine = candidate;
-			continue;
-		}
-
-		if (currentLine.length > 0) {
-			lineCount += 1;
-			currentLine = '';
-		}
-
-		currentLine = word;
-		while (currentLine.length > 1 && measuredNoteTextWidth({ ...options, text: currentLine }) > options.contentWidth) {
-			const breakIndex = Math.min(
-				currentLine.length - 1,
-				maximumFittingNotePrefixLength({ ...options, text: currentLine }),
-			);
-			lineCount += 1;
-			currentLine = currentLine.slice(breakIndex);
-		}
-	}
-
-	return lineCount;
-}
-
-function maximumFittingNotePrefixLength(options: {
-	readonly note: DiagramNote;
-	readonly text: string;
-	readonly fontSize: number;
-	readonly fontFamily: string;
-	readonly contentWidth: number;
-}): number {
-	let lower = 1;
-	let upper = options.text.length;
-	while (lower < upper) {
-		const middle = Math.ceil((lower + upper) / 2);
-		if (measuredNoteTextWidth({ ...options, text: options.text.slice(0, middle) }) <= options.contentWidth) {
-			lower = middle;
-		} else {
-			upper = middle - 1;
-		}
-	}
-
-	return Math.max(1, lower);
 }
 
 function measuredNoteTextWidth(options: {

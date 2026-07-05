@@ -55,6 +55,7 @@ export type WebviewCommand =
 	| RedoDiagramCommand
 	| CreateNodeCommand
 	| CreateNoteCommand
+	| CreateCommentNoteCommand
 	| CreateNoteConnectionCommand
 	| CreateImageCommand
 	| CreateLabelCommand
@@ -155,6 +156,17 @@ export class CreateNoteCommand {
 	public constructor(text: string, position: CanvasPoint) {
 		this.text = text;
 		this.position = position;
+	}
+}
+
+export class CreateCommentNoteCommand {
+	public readonly type = 'createCommentNote';
+	public readonly nodeId: string;
+	public readonly comment: string;
+
+	public constructor(nodeId: string, comment: string) {
+		this.nodeId = nodeId;
+		this.comment = comment;
 	}
 }
 

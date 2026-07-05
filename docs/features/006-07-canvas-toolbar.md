@@ -83,7 +83,7 @@ Version 1 local toolbar actions are:
 
 | Selection | Actions |
 |-----------|---------|
-| Node | Resize to minimum. |
+| Node | Resize to minimum; create note from ontology comment when a comment is available. |
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |

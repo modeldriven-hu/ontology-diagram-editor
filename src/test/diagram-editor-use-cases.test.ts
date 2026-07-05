@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { ArrangeDiagramUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -127,6 +127,63 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].style?.lineStyle, 'dotted');
 		assert.strictEqual(result.diagram.edges[0].routeLayout, 'orthogonal');
 		assert.strictEqual(result.diagram.edges[0].extra.ontology_item_type, 'noteConnection');
+	});
+
+	test('creates a connected note from a node comment', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(100, 100, 160, 80)),
+		]);
+
+		const result = new CreateCommentNoteUseCase().execute(
+			diagram,
+			'node_person',
+			'A person represented in the ontology.',
+		);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.notes.length, 1);
+		assert.strictEqual(result.diagram.notes[0].text, 'A person represented in the ontology.');
+		assert.strictEqual(result.diagram.notes[0].id.value, 'note_item1');
+		assert.deepStrictEqual(result.diagram.notes[0].bounds.toPersistenceObject(), {
+			x: 288,
+			y: 100,
+			width: 294,
+			height: 64,
+		});
+		assert.strictEqual(result.diagram.edges.length, 1);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'note_item1');
+		assert.strictEqual(result.diagram.edges[0].target.value, 'node_person');
+		assert.strictEqual(result.diagram.edges[0].style?.lineStyle, 'dotted');
+		assert.strictEqual(result.diagram.edges[0].extra.ontology_item_type, 'noteConnection');
+	});
+
+	test('places node comment notes without overlapping occupied elements', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_person', 'ex:Person', new Bounds(100, 100, 160, 80))],
+			[],
+			[
+				new DiagramNote('note_item1', new Bounds(288, 100, 220, 120), 'Existing right note'),
+				new DiagramNote('note_item2', new Bounds(0, 100, 72, 120), 'Existing left note'),
+			],
+		);
+
+		const result = new CreateCommentNoteUseCase().execute(diagram, 'node_person', 'Ontology comment.');
+
+		assert.ok(result.diagram);
+		const createdNote = result.diagram.notes.find((note) => note.id.value === 'note_item3');
+		assert.ok(createdNote);
+		assert.deepStrictEqual(createdNote.bounds.toPersistenceObject(), {
+			x: 100,
+			y: 208,
+			width: 148,
+			height: 64,
+		});
+		assert.strictEqual(overlaps(createdNote.bounds, diagram.nodes[0].bounds), false);
+		assert.strictEqual(overlaps(createdNote.bounds, diagram.notes[0].bounds), false);
+		assert.strictEqual(overlaps(createdNote.bounds, diagram.notes[1].bounds), false);
 	});
 
 	test('deleting an opposing node removes only the note connection edge', () => {
@@ -1245,4 +1302,11 @@ function diagramWithLabels(labels: readonly DiagramLabel[]): OntologyDiagramDocu
 		[],
 		labels,
 	);
+}
+
+function overlaps(left: Bounds, right: Bounds): boolean {
+	return left.x < right.x + right.width
+		&& left.x + left.width > right.x
+		&& left.y < right.y + right.height
+		&& left.y + left.height > right.y;
 }

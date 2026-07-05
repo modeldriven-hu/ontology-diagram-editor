@@ -20,6 +20,20 @@ section. The new note shall:
 - Store the user-entered note content as `text`.
 - Omit `style` unless the user customizes the note.
 
+When a selected ontology-backed node has one or more ontology comments, the local node
+toolbar shall provide a command to create a note from those comments. The created note
+shall:
+
+- Use a generated unique `id` using the `note_` prefix.
+- Store the ontology comment text in the note `text` field.
+- Use the same compact-size behavior as the local note toolbar.
+- Be placed near the source node without overlapping existing nodes, notes, images, or
+  labels when a non-overlapping location is available.
+- Be connected to the source node using the note connection behavior defined below.
+
+If the selected node has no ontology comment, the command shall be disabled or show a
+concise user-visible problem without changing the `.odiagram` document.
+
 # Edit Note Text
 
 The user shall be able to edit the note text after creation.

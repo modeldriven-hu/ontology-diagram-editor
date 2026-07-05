@@ -5,6 +5,7 @@ import { readFile } from 'fs/promises';
 import {
 	ArrangeDiagramUseCase,
 	CreateEdgeUseCase,
+	CreateCommentNoteUseCase,
 	CreateImageUseCase,
 	CreateLabelUseCase,
 	CreateNodeUseCase,
@@ -41,6 +42,7 @@ interface DiagramEditorUseCases {
 	readonly arrangeDiagram: ArrangeDiagramUseCase;
 	readonly createNode: CreateNodeUseCase;
 	readonly createEdge: CreateEdgeUseCase;
+	readonly createCommentNote: CreateCommentNoteUseCase;
 	readonly createNote: CreateNoteUseCase;
 	readonly createNoteConnection: CreateNoteConnectionUseCase;
 	readonly createImage: CreateImageUseCase;
@@ -140,6 +142,13 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.text,
 					command.position,
+				));
+				return;
+			case 'createCommentNote':
+				await this.handleResult(this.useCases.createCommentNote.execute(
+					this.repository.load(),
+					command.nodeId,
+					command.comment,
 				));
 				return;
 			case 'createNoteConnection':
@@ -442,6 +451,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		arrangeDiagram: new ArrangeDiagramUseCase(),
 		createNode: new CreateNodeUseCase(),
 		createEdge: new CreateEdgeUseCase(),
+		createCommentNote: new CreateCommentNoteUseCase(),
 		createNote: new CreateNoteUseCase(),
 		createNoteConnection: new CreateNoteConnectionUseCase(),
 		createImage: new CreateImageUseCase(),

@@ -85,6 +85,7 @@ function webviewBody(
 				</form>
 				<div class="local-element-toolbar" id="localElementToolbar" role="toolbar" aria-label="Selected element actions" hidden>
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
+					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
 					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
@@ -318,6 +319,17 @@ function webviewStyles(): string {
 		border-color: var(--vscode-focusBorder);
 		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
 		outline: none;
+	}
+
+	.local-element-action:disabled {
+		color: var(--vscode-disabledForeground);
+		cursor: default;
+		opacity: 0.62;
+	}
+
+	.local-element-action:disabled:hover {
+		border-color: transparent;
+		background: transparent;
 	}
 
 	.local-action-note-badge {
