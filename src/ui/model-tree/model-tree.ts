@@ -12,9 +12,11 @@ import {
 	LoadedOntology,
 	OntologyItem,
 	OntologyItemType,
+	findOntologyImportPaths,
 	getOntologyItemTypeLabel,
 	getOntologyItemTypeOrder,
 	loadReferencedOntologies,
+	ontologyFileExtensions,
 } from './ontology-model';
 import { getOntologyItemIcon } from './ontology-item-icons';
 import { findOntologySourceRange } from './ontology-source-navigation';
@@ -437,7 +439,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			canSelectFolders: false,
 			canSelectMany: false,
 			filters: {
-				'Ontology files': ['ttl', 'rdf', 'owl', 'xml', 'jsonld', 'nt'],
+				'Ontology files': [...ontologyFileExtensions],
 			},
 			openLabel: 'Add Ontology',
 			title: 'Add Ontology',
@@ -455,9 +457,20 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			return;
 		}
 
+		const discoveredImportPaths = await this.findOntologyImports(ontologyUri.fsPath);
+		const existingOntologyPaths = new Set(diagram.ontologies.map((ontology) => normalizePath(ontology.path)));
+		const addedImportPaths = uniqueStrings(discoveredImportPaths
+			.map((ontologyPath) => path.relative(path.dirname(document.uri.fsPath), ontologyPath).replaceAll('\\', '/'))
+			.filter((ontologyPath) => normalizePath(ontologyPath) !== normalizePath(relativePath))
+			.filter((ontologyPath) => !existingOntologyPaths.has(normalizePath(ontologyPath))));
+
 		const candidateDiagram = new OntologyDiagramDocument(
 			diagram.metadata,
-			[...diagram.ontologies, new OntologyFileReference(relativePath)],
+			[
+				...diagram.ontologies,
+				...addedImportPaths.map((ontologyPath) => new OntologyFileReference(ontologyPath)),
+				new OntologyFileReference(relativePath),
+			],
 			diagram.namespaces,
 			diagram.nodes,
 			diagram.edges,
@@ -467,15 +480,22 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			diagram.extra,
 		);
 		const loaded = await loadReferencedOntologies(document.uri.fsPath, candidateDiagram);
-		const added = loaded.find((ontology) => normalizePath(ontology.relativePath) === normalizePath(relativePath));
-		if (added?.error !== undefined) {
-			vscode.window.showErrorMessage(`Could not load ontology "${relativePath}": ${added.error}`);
+		const newOntologyPaths = new Set([...addedImportPaths, relativePath].map(normalizePath));
+		const failed = loaded.find((ontology) => newOntologyPaths.has(normalizePath(ontology.relativePath)) && ontology.error !== undefined);
+		if (failed?.error !== undefined) {
+			vscode.window.showErrorMessage(`Could not load ontology "${failed.relativePath}": ${failed.error}`);
 			return;
 		}
 
 		await this.replaceDocumentContent(candidateDiagram);
 		await this.refresh();
 		await this.revealOntology(relativePath);
+	}
+
+	private async findOntologyImports(selectedOntologyPath: string): Promise<readonly string[]> {
+		const ontologyFileGlob = `**/*.{${ontologyFileExtensions.join(',')}}`;
+		const workspaceOntologyUris = await vscode.workspace.findFiles(ontologyFileGlob, '**/{node_modules,out,dist}/**');
+		return findOntologyImportPaths(selectedOntologyPath, workspaceOntologyUris.map((uri) => uri.fsPath));
 	}
 
 	private async removeOntology(node?: ModelTreeNode): Promise<void> {
