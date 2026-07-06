@@ -1,16 +1,16 @@
-import { GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, MoveHorizontal, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { AlignSubclassEndpointsCommand, ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, ShowRelatedElementsCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { AlignSubclassEndpointsCommand, ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { CanvasPropertyPanel } from '../components/canvas-property-panel';
-import { measuredTextWidth, nodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
+import { measuredTextWidth, nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
@@ -98,6 +98,7 @@ const showRelatedElementsLocalButton = requiredElement('showRelatedElementsLocal
 const alignSubclassEndpointsLocalButton = requiredElement('alignSubclassEndpointsLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
+const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') as HTMLButtonElement;
 const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
@@ -106,7 +107,7 @@ const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
-let theme = readTheme(themeMode);
+let theme = readTheme(themeMode, webviewConfig.payload.theme);
 let pendingNoteConnectionSourceId: string | undefined;
 let localToolbarOffset: CanvasPoint = {
 	x: vscode.getState()?.localToolbarOffsetX ?? 0,
@@ -198,6 +199,10 @@ optimizeEdgeLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	optimizeSelectedEdgeRoute();
 });
+straightenEdgeLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	straightenSelectedEdgeRoute();
+});
 resetEdgeLabelLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	resetSelectedEdgeLabel();
@@ -264,6 +269,8 @@ new CanvasDropController({
 	payload: webviewConfig.payload,
 	modelTreeDragMimeType: webviewConfig.modelTreeDragMimeType,
 	messageBus,
+	getTheme: () => theme,
+	getZoom: () => canvas.zoom(),
 	showStatus,
 }).register();
 geometryPersistence.register();
@@ -448,6 +455,13 @@ function renderLocalElementToolbarIcons(): void {
 	}));
 	optimizeEdgeLocalButton.title = 'Optimize edge path';
 	optimizeEdgeLocalButton.setAttribute('aria-label', 'Optimize edge path');
+
+	straightenEdgeLocalButton.replaceChildren(createIconElement(MoveHorizontal, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	straightenEdgeLocalButton.title = 'Straighten edge';
+	straightenEdgeLocalButton.setAttribute('aria-label', 'Straighten edge');
 
 	resetEdgeLabelLocalButton.replaceChildren(createIconElement(RotateCcw, {
 		'aria-hidden': 'true',
@@ -668,6 +682,7 @@ function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): 
 	alignSubclassEndpointsLocalButton.hidden = element.kind !== 'nodeSelection';
 	connectNoteLocalButton.hidden = element.kind !== 'note';
 	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
+	straightenEdgeLocalButton.hidden = element.kind !== 'edge';
 	resetEdgeLabelLocalButton.hidden = element.kind !== 'edge';
 	deleteEdgeLocalButton.hidden = element.kind !== 'edge';
 
@@ -1010,6 +1025,20 @@ function optimizeSelectedEdgeRoute(): void {
 	showStatus('Optimizing edge path.');
 }
 
+function straightenSelectedEdgeRoute(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+		showStatus('Select an edge to straighten.');
+		return;
+	}
+
+	messageBus.publishCommand(new StraightenEdgeRouteCommand(selectedElementId));
+	showStatus('Straightening edge.');
+}
+
 function resetSelectedEdgeLabel(): void {
 	const selectedElementId = canvas.selectedElementId();
 	const selectedElement = selectedElementId === undefined
@@ -1123,20 +1152,16 @@ function resizeSelectedElementToMinimum(): void {
 
 function minimumSizeForElement(element: ReturnType<CanvasElementRegistry['element']>): { readonly width: number; readonly height: number } | undefined {
 	if (element?.kind === 'node') {
-		const attributes = nodeDataPropertyAttributes(element.value, webviewConfig.payload);
-		if (attributes.length === 0) {
-			return { width: minimumNodeWidth, height: minimumNodeHeight };
-		}
-
-		const fontSize = element.value.style?.font?.size ?? theme.fontSize;
+		const attributes = nodeCompartmentAttributes(element.value, webviewConfig.payload);
+		const fontSize = element.value.style?.font?.size ?? theme.nodeFontSize;
 		return {
 			width: requiredNodeWidthForDataProperties({
-				title: ontologyDisplayName(element.value.ontology_ref),
+				title: nodeTitleText(element.value, webviewConfig.payload),
 				attributes,
 				fontSize,
-				fontFamily: element.value.style?.font?.family ?? theme.fontFamily,
-				titleBold: element.value.style?.font?.bold,
-				attributeItalic: element.value.style?.font?.italic,
+				fontFamily: element.value.style?.font?.family ?? theme.nodeFontFamily,
+				titleBold: element.value.style?.font?.bold ?? theme.nodeFontBold,
+				attributeItalic: element.value.style?.font?.italic ?? theme.nodeFontItalic,
 				minimumWidth: minimumNodeWidth,
 			}),
 			height: requiredNodeHeightForDataProperties({
@@ -1261,7 +1286,7 @@ function renderThemeModeButton(): void {
 function toggleThemeMode(): void {
 	const selectedElementId = canvas.selectedElementId();
 	themeMode = themeMode === 'dark' ? 'light' : 'dark';
-	theme = readTheme(themeMode);
+	theme = readTheme(themeMode, webviewConfig.payload.theme);
 	updateWebviewState({ themeMode });
 	applyCanvasTheme(theme);
 	renderThemeModeButton();

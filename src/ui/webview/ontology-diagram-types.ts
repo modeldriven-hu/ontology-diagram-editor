@@ -1,4 +1,5 @@
 import type { CanvasPoint } from '../../shared/canvas-geometry';
+import type { WebviewThemeOverrideMap } from './webview-theme';
 
 export interface DiagramPayload {
 	readonly file?: {
@@ -21,9 +22,12 @@ export interface DiagramPayload {
 		readonly labels?: readonly DiagramLabel[];
 	};
 	readonly ontology?: {
+		readonly items?: readonly DiagramOntologyItem[];
 		readonly data_properties?: readonly DiagramDataProperty[];
+		readonly individuals?: readonly DiagramOntologyIndividual[];
 		readonly comments?: readonly DiagramOntologyComment[];
 	};
+	readonly theme?: WebviewThemeOverrideMap;
 	readonly error?: string;
 }
 
@@ -37,7 +41,15 @@ export interface DiagramNode {
 	readonly ontology_item_type?: string;
 	readonly image?: string;
 	readonly show_data_properties?: boolean;
+	readonly show_type?: boolean;
+	readonly show_property_values?: boolean;
 	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramOntologyItem {
+	readonly reference: string;
+	readonly displayLabel: string;
+	readonly type: string;
 }
 
 export interface DiagramDataProperty {
@@ -45,6 +57,21 @@ export interface DiagramDataProperty {
 	readonly displayLabel: string;
 	readonly domainReferences: readonly string[];
 	readonly rangeReferences: readonly string[];
+}
+
+export interface DiagramOntologyIndividual {
+	readonly reference: string;
+	readonly displayLabel: string;
+	readonly assertedClassReferences: readonly string[];
+	readonly propertyAssertions: readonly DiagramPropertyAssertion[];
+}
+
+export interface DiagramPropertyAssertion {
+	readonly propertyReference: string;
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly datatypeReference?: string;
+	readonly language?: string;
 }
 
 export interface DiagramOntologyComment {

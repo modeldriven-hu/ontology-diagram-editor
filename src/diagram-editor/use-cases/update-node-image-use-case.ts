@@ -25,6 +25,8 @@ export class UpdateNodeImageUseCase {
 					nextImage,
 					node.extra,
 					node.showDataProperties,
+					node.showType,
+					node.showPropertyValues,
 				);
 			});
 

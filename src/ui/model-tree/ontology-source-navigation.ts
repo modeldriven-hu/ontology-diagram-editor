@@ -39,6 +39,14 @@ function sourceCandidatesForItem(item: OntologyItem): readonly SourceCandidate[]
 		return builder.toCandidates();
 	}
 
+	if (item.type === 'objectPropertyAssertion') {
+		builder.addReference(item.metadata.sourceOntologyRef);
+		builder.addReference(item.metadata.edgeOntologyRef);
+		builder.addReference(item.reference);
+		builder.addReference(item.metadata.targetOntologyRef);
+		return builder.toCandidates();
+	}
+
 	builder.addReference(item.reference);
 	builder.addReference(item.metadata.iri);
 

@@ -1,6 +1,6 @@
-import { minimumNodeHeight, type BoundsUpdate } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -8,7 +8,7 @@ import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField } from './canvas-property-fields';
 import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { availableNodeDataPropertyAttributes, ontologyDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
+import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
 import { ontologyCommentsForReference } from './ontology-comments';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -256,6 +256,7 @@ export class CanvasPropertyPanel {
 
 	private nodeTabs(node: DiagramNode, identitySection: HTMLElement): readonly PropertyTab[] {
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
+		const propertyValueAttributes = availableNodePropertyValueAttributes(node, this.options.payload);
 		return [
 			{
 				id: 'details',
@@ -266,16 +267,39 @@ export class CanvasPropertyPanel {
 						readonlyField('Ref', node.ontology_ref),
 						...this.commentFields(node.ontology_ref),
 					]),
-					sectionElement('Data Properties', [
-						readonlyField('Data Properties', String(dataPropertyAttributes.length)),
-						checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
-							if (value) {
-								this.resizeNodeToFitDataProperties(node, dataPropertyAttributes);
-							}
-							this.propertyEdited('node', node.id, ['show_data_properties']);
-							this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
-						}),
+					...(node.ontology_item_type === 'individual' ? [] : [
+						sectionElement('Data Properties', [
+							readonlyField('Data Properties', String(dataPropertyAttributes.length)),
+							checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
+								if (value) {
+									this.resizeNodeToFitDetails({ ...node, show_data_properties: value }, dataPropertyAttributes);
+								}
+								this.propertyEdited('node', node.id, ['show_data_properties']);
+								this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
+							}),
+						]),
 					]),
+					...(node.ontology_item_type === 'individual' ? [
+						sectionElement('Instance', [
+							readonlyField('Property Values', String(propertyValueAttributes.length)),
+							checkboxField('Show Type', node.show_type !== false, (value) => {
+								const nextNode = { ...node, show_type: value };
+								if (value) {
+									this.resizeNodeToFitDetails(nextNode, node.show_property_values === true ? propertyValueAttributes : []);
+								}
+								this.propertyEdited('node', node.id, ['show_type']);
+								this.options.messageBus.publishCommand(new UpdateNodeTypeVisibilityCommand(node.id, value));
+							}),
+							checkboxField('Show Property Values', node.show_property_values === true, (value) => {
+								const nextNode = { ...node, show_property_values: value };
+								if (value) {
+									this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
+								}
+								this.propertyEdited('node', node.id, ['show_property_values']);
+								this.options.messageBus.publishCommand(new UpdateNodePropertyValuesVisibilityCommand(node.id, value));
+							}),
+						]),
+					] : []),
 					sectionElement('Image', [
 						imageField('Image', node.image ?? '', (value) => {
 							const image = value.trim() === '' ? undefined : value;
@@ -295,7 +319,7 @@ export class CanvasPropertyPanel {
 					sectionElement('Geometry', this.geometryFields(node, (update) => {
 						this.propertyEdited('node', node.id, ['x', 'y', 'width', 'height']);
 						this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
-					})),
+					}, minimumNodeWidth, minimumNodeHeight)),
 				],
 			},
 			{
@@ -388,7 +412,7 @@ export class CanvasPropertyPanel {
 					sectionElement('Geometry', this.geometryFields(note, (update) => {
 						this.propertyEdited('note', note.id, ['x', 'y', 'width', 'height']);
 						this.options.messageBus.publishCommand(new UpdateNoteBoundsCommand([update]));
-					})),
+					}, minimumNoteWidth, minimumNoteHeight)),
 				],
 			},
 			{
@@ -424,7 +448,7 @@ export class CanvasPropertyPanel {
 					sectionElement('Geometry', this.geometryFields(label, (update) => {
 						this.propertyEdited('label', label.id, ['x', 'y', 'width', 'height']);
 						this.options.messageBus.publishCommand(new UpdateLabelBoundsCommand([update]));
-					})),
+					}, minimumLabelWidth, minimumLabelHeight)),
 				],
 			},
 			{
@@ -462,7 +486,7 @@ export class CanvasPropertyPanel {
 					sectionElement('Geometry', this.geometryFields(image, (update) => {
 						this.propertyEdited('image', image.id, ['x', 'y', 'width', 'height']);
 						this.options.messageBus.publishCommand(new UpdateImageBoundsCommand([update]));
-					})),
+					}, minimumImageWidth, minimumImageHeight)),
 				],
 			},
 			{
@@ -552,12 +576,16 @@ export class CanvasPropertyPanel {
 	private geometryFields(
 		element: { readonly id: string; readonly x: number; readonly y: number; readonly width: number; readonly height: number },
 		commit: (update: BoundsUpdate) => void,
+		minimumWidth: number,
+		minimumHeight: number,
 	): HTMLElement[] {
 		let x = element.x;
 		let y = element.y;
 		let width = element.width;
 		let height = element.height;
 		const send = (): void => {
+			width = Math.max(minimumWidth, width);
+			height = Math.max(minimumHeight, height);
 			const update = { id: element.id, x, y, width, height };
 			this.options.registry.updateBounds(update);
 			this.options.canvas.restoreBounds([update]);
@@ -773,15 +801,16 @@ export class CanvasPropertyPanel {
 		return [readonlyField(comments.length === 1 ? 'Comment' : 'Comments', comments.join('\n\n'))];
 	}
 
-	private resizeNodeToFitDataProperties(node: DiagramNode, attributes: readonly { readonly text: string }[]): void {
-		const fontSize = node.style?.font?.size ?? this.options.getTheme().fontSize;
+	private resizeNodeToFitDetails(node: DiagramNode, attributes: readonly { readonly text: string }[]): void {
+		const theme = this.options.getTheme();
+		const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 		const requiredWidth = requiredNodeWidthForDataProperties({
-			title: ontologyDisplayName(node.ontology_ref),
+			title: nodeTitleText(node, this.options.payload),
 			attributes,
 			fontSize,
-			fontFamily: node.style?.font?.family ?? this.options.getTheme().fontFamily,
-			titleBold: node.style?.font?.bold,
-			attributeItalic: node.style?.font?.italic,
+			fontFamily: node.style?.font?.family ?? theme.nodeFontFamily,
+			titleBold: node.style?.font?.bold ?? theme.nodeFontBold,
+			attributeItalic: node.style?.font?.italic ?? theme.nodeFontItalic,
 			minimumWidth: node.width,
 		});
 		const requiredHeight = requiredNodeHeightForDataProperties({

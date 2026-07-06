@@ -13,6 +13,10 @@ export interface WebviewTheme {
 	readonly nodeBackground: string;
 	readonly nodeBorder: string;
 	readonly nodeCornerRadius: number;
+	readonly nodeFontBold: boolean;
+	readonly nodeFontFamily: string;
+	readonly nodeFontItalic: boolean;
+	readonly nodeFontSize: number;
 	readonly noteBackground: string;
 	readonly noteBorder: string;
 	readonly noteCornerRadius: number;
@@ -23,11 +27,23 @@ export interface WebviewTheme {
 
 export type WebviewThemeMode = 'light' | 'dark';
 
-export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode()): WebviewTheme {
+export interface WebviewThemeOverrides {
+	readonly nodeFontBold?: boolean;
+	readonly nodeFontFamily?: string;
+	readonly nodeFontItalic?: boolean;
+	readonly nodeFontSize?: number;
+}
+
+export type WebviewThemeOverrideMap = Partial<Record<WebviewThemeMode, WebviewThemeOverrides>>;
+
+export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode(), overrides?: WebviewThemeOverrideMap): WebviewTheme {
 	const styles = getComputedStyle(document.body);
 	const background = cssVariable(styles, '--vscode-editor-background', '#1f1f1f');
 	const widgetBackground = cssVariable(styles, '--vscode-editorWidget-background', background);
 	const modeDefaults = mode === 'dark' ? darkThemeDefaults : lightThemeDefaults;
+	const modeOverrides = overrides?.[mode];
+	const defaultFontFamily = cssVariable(styles, '--vscode-font-family', 'sans-serif');
+	const defaultFontSize = Number.parseInt(cssVariable(styles, '--vscode-font-size', '13'), 10) || 13;
 
 	return {
 		canvasBackground: modeDefaults.canvasBackground,
@@ -38,12 +54,16 @@ export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode()): 
 		editorBackground: modeDefaults.editorBackground,
 		editorForeground: modeDefaults.editorForeground,
 		focusBorder: cssVariable(styles, '--vscode-focusBorder', '#007fd4'),
-		fontFamily: cssVariable(styles, '--vscode-font-family', 'sans-serif'),
-		fontSize: Number.parseInt(cssVariable(styles, '--vscode-font-size', '13'), 10) || 13,
+		fontFamily: defaultFontFamily,
+		fontSize: defaultFontSize,
 		iconBackground: mixColorFallback(widgetBackground, background),
 		nodeBackground: modeDefaults.nodeBackground,
 		nodeBorder: modeDefaults.nodeBorder,
 		nodeCornerRadius: modeDefaults.nodeCornerRadius,
+		nodeFontBold: modeOverrides?.nodeFontBold ?? false,
+		nodeFontFamily: modeOverrides?.nodeFontFamily ?? defaultFontFamily,
+		nodeFontItalic: modeOverrides?.nodeFontItalic ?? false,
+		nodeFontSize: modeOverrides?.nodeFontSize ?? defaultFontSize,
 		noteBackground: modeDefaults.noteBackground,
 		noteBorder: modeDefaults.noteBorder,
 		noteCornerRadius: modeDefaults.noteCornerRadius,

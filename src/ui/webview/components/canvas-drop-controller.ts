@@ -1,8 +1,10 @@
-import type { CanvasPoint } from '../../../shared/canvas-geometry';
+import { minimumNodeHeight, minimumNodeWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { CreateNodeCommand, type ModelTreeItemDropPayload } from '../../../shared/webview-commands';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
+import { nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import type { DiagramNode, DiagramPayload } from '../ontology-diagram-types';
+import type { WebviewTheme } from '../webview-theme';
 
 interface CanvasDropControllerOptions {
 	readonly scrollElement: HTMLElement;
@@ -10,6 +12,8 @@ interface CanvasDropControllerOptions {
 	readonly payload: DiagramPayload;
 	readonly modelTreeDragMimeType: string;
 	readonly messageBus: CanvasMessageBus;
+	readonly getTheme: () => WebviewTheme;
+	readonly getZoom: () => number;
 	readonly showStatus: (message: string) => void;
 }
 
@@ -103,53 +107,59 @@ export class CanvasDropController {
 			this.options.messageBus.publishCommand(new CreateNodeCommand({
 				payload: dragPayload,
 				position: this.dropPosition(event),
+				size: dragPayload === undefined ? undefined : nodeSizeForDragPayload(this.options.payload, dragPayload, this.options.getTheme()),
 			}));
 		});
 	}
 
 	private renderPreview(preview: EdgePreview): void {
 		const svg = this.previewSvg();
+		const zoom = normalizedZoom(this.options.getZoom());
 		svg.replaceChildren();
 		svg.classList.toggle('invalid', !preview.valid);
 		this.resizePreview(svg);
 
 		if (!preview.valid) {
+			const position = scaledPoint(preview.position, zoom);
 			svg.append(
 				svgElement('circle', {
-					cx: preview.position.x,
-					cy: preview.position.y,
+					cx: position.x,
+					cy: position.y,
 					r: 14,
 					class: 'edge-drop-preview-invalid-marker',
 				}),
-				svgText(preview.position.x + 22, preview.position.y + 5, preview.message, 'edge-drop-preview-status'),
+				svgText(position.x + 22, position.y + 5, preview.message, 'edge-drop-preview-status'),
 			);
 			return;
 		}
 
 		const markerId = `edge-drop-preview-marker-${preview.edgeKind}`;
+		const points = preview.points.map((point) => scaledPoint(point, zoom));
 		svg.append(svgDefinitions(markerId, preview.edgeKind));
 		svg.append(svgElement('polyline', {
-			points: preview.points.map((point) => `${point.x},${point.y}`).join(' '),
+			points: points.map((point) => `${point.x},${point.y}`).join(' '),
 			class: 'edge-drop-preview-route',
 			'marker-end': `url(#${markerId})`,
 		}));
 		for (const node of preview.createdNodes) {
+			const bounds = scaledBounds(node, zoom);
 			svg.append(
 				svgElement('rect', {
-					x: node.x,
-					y: node.y,
-					width: node.width,
-					height: node.height,
+					x: bounds.x,
+					y: bounds.y,
+					width: bounds.width,
+					height: bounds.height,
 					rx: 8,
 					ry: 8,
 					class: 'edge-drop-preview-node',
 				}),
-				svgText(node.x + node.width / 2, node.y + node.height / 2 + 4, edgeDisplayName(node.ontologyRef), 'edge-drop-preview-node-label'),
+				svgText(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 4, edgeDisplayName(node.ontologyRef), 'edge-drop-preview-node-label'),
 			);
 		}
+		const label = scaledPoint(preview.label, zoom);
 		svg.append(svgText(
-			preview.label.x,
-			preview.label.y - 8,
+			label.x,
+			label.y - 8,
 			previewText(preview),
 			'edge-drop-preview-label',
 		));
@@ -184,10 +194,11 @@ export class CanvasDropController {
 
 	private dropPosition(event: DragEvent): CanvasPoint {
 		const rect = this.options.contentElement.getBoundingClientRect();
+		const zoom = normalizedZoom(this.options.getZoom());
 
 		return {
-			x: Math.max(0, event.clientX - rect.left),
-			y: Math.max(0, event.clientY - rect.top),
+			x: Math.max(0, (event.clientX - rect.left) / zoom),
+			y: Math.max(0, (event.clientY - rect.top) / zoom),
 		};
 	}
 
@@ -251,6 +262,43 @@ function edgePreview(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayl
 	};
 }
 
+function nodeSizeForDragPayload(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayload, theme: WebviewTheme): { readonly width: number; readonly height: number } | undefined {
+	if (isConnectionCapableOntologyItem(dragPayload.ontologyItemType)) {
+		return undefined;
+	}
+
+	const previewNode: DiagramNode = {
+		id: 'preview_node',
+		ontology_ref: dragPayload.ontologyItemReference,
+		x: 0,
+		y: 0,
+		width: minimumNodeWidth,
+		height: minimumNodeHeight,
+		ontology_item_type: dragPayload.ontologyItemType,
+		show_type: dragPayload.ontologyItemType === 'individual' ? true : undefined,
+		show_property_values: dragPayload.ontologyItemType === 'individual' ? true : undefined,
+	};
+	const attributes = nodeCompartmentAttributes(previewNode, payload);
+	const fontSize = theme.nodeFontSize;
+
+	return {
+		width: requiredNodeWidthForDataProperties({
+			title: nodeTitleText(previewNode, payload),
+			attributes,
+			fontSize,
+			fontFamily: theme.nodeFontFamily,
+			titleBold: theme.nodeFontBold,
+			attributeItalic: theme.nodeFontItalic,
+			minimumWidth: minimumNodeWidth,
+		}),
+		height: requiredNodeHeightForDataProperties({
+			attributeCount: attributes.length,
+			fontSize,
+			minimumHeight: minimumNodeHeight,
+		}),
+	};
+}
+
 function resolvePreviewEndpoints(payload: ModelTreeItemDropPayload): ResolvedEdgePreview | 'ambiguous' | undefined {
 	const metadata = payload.ontologyItemMetadata;
 	if (!isObject(metadata)) {
@@ -281,6 +329,15 @@ function resolvePreviewEndpoints(payload: ModelTreeItemDropPayload): ResolvedEdg
 			stringValue(metadata.subclassReference),
 			stringValue(metadata.superclassReference),
 			'generalization',
+		);
+	}
+
+	if (payload.ontologyItemType === 'objectPropertyAssertion') {
+		return resolvedPropertyPreview(
+			stringValue(metadata.edgeOntologyRef) ?? payload.ontologyItemReference,
+			stringValue(metadata.sourceOntologyRef),
+			stringValue(metadata.targetOntologyRef),
+			'association',
 		);
 	}
 
@@ -554,11 +611,35 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isConnectionCapableOntologyItem(type: string): boolean {
-	return type === 'objectProperty' || type === 'dataProperty' || type === 'subclassRelationship';
+	return type === 'objectProperty'
+		|| type === 'dataProperty'
+		|| type === 'subclassRelationship'
+		|| type === 'objectPropertyAssertion';
 }
 
 function roundCoordinate(value: number): number {
 	return Math.max(0, Math.round(value));
+}
+
+function normalizedZoom(value: number): number {
+	return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+function scaledPoint(point: CanvasPoint, zoom: number): CanvasPoint {
+	return {
+		x: point.x * zoom,
+		y: point.y * zoom,
+	};
+}
+
+function scaledBounds(bounds: BoundsPreview, zoom: number): BoundsPreview {
+	return {
+		...bounds,
+		x: bounds.x * zoom,
+		y: bounds.y * zoom,
+		width: bounds.width * zoom,
+		height: bounds.height * zoom,
+	};
 }
 
 function ontologyReferencesEqual(left: string, right: string, namespaces: Readonly<Record<string, string>>): boolean {

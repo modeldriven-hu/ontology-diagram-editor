@@ -5,7 +5,7 @@ import { defaultNodeHeight, defaultNodeWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { nextElementId } from './element-id';
 import { boundaryPoint, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
-import { expandedOntologyReference, namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
+import { expandedOntologyReference, namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
 
 interface RelatedEdgeCandidate {
 	readonly payload: ModelTreeItemDropPayload;
@@ -17,7 +17,7 @@ interface RelatedEdgeCandidate {
 
 interface DiscoveredReference {
 	readonly reference: string;
-	readonly nodeType: 'class' | 'datatype';
+	readonly nodeType: ResolvedEdgeEndpointNodeType;
 	readonly depth: number;
 	readonly side: ExpansionSide;
 	readonly order: number;
@@ -232,7 +232,7 @@ function discoverReference(options: {
 	readonly nextFrontier: Set<string>;
 	readonly key: string;
 	readonly reference: string;
-	readonly nodeType: 'class' | 'datatype';
+	readonly nodeType: ResolvedEdgeEndpointNodeType;
 	readonly depth: number;
 	readonly side: ExpansionSide;
 	readonly order: number;
@@ -325,6 +325,9 @@ function createMissingNodes(
 			undefined,
 			undefined,
 			nodeExtraFields(reference),
+			undefined,
+			reference.nodeType === 'individual' ? true : undefined,
+			reference.nodeType === 'individual' ? true : undefined,
 		));
 		existing.nodesByKey.set(key, created[created.length - 1]);
 	}

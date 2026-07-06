@@ -71,6 +71,7 @@ export type WebviewCommand =
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
 	| OptimizeEdgeRouteCommand
+	| StraightenEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
 	| ShowRelatedElementsCommand
 	| UpdateNoteBoundsCommand
@@ -78,6 +79,8 @@ export type WebviewCommand =
 	| UpdateLabelBoundsCommand
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
+	| UpdateNodeTypeVisibilityCommand
+	| UpdateNodePropertyValuesVisibilityCommand
 	| UpdateNoteExportVisibilityCommand
 	| UpdateImageSourceCommand
 	| PickNodeImageCommand
@@ -113,13 +116,22 @@ export class CreateNodeCommand {
 	public readonly type = 'createNode';
 	public readonly payload?: ModelTreeItemDropPayload;
 	public readonly position: CanvasPoint;
+	public readonly size?: {
+		readonly width: number;
+		readonly height: number;
+	};
 
 	public constructor(options: {
 		readonly payload?: ModelTreeItemDropPayload;
 		readonly position: CanvasPoint;
+		readonly size?: {
+			readonly width: number;
+			readonly height: number;
+		};
 	}) {
 		this.payload = options.payload;
 		this.position = options.position;
+		this.size = options.size;
 	}
 }
 
@@ -163,6 +175,15 @@ export class UpdateEdgeRouteCommand {
 
 export class OptimizeEdgeRouteCommand {
 	public readonly type = 'optimizeEdgeRoute';
+	public readonly id: string;
+
+	public constructor(id: string) {
+		this.id = id;
+	}
+}
+
+export class StraightenEdgeRouteCommand {
+	public readonly type = 'straightenEdgeRoute';
 	public readonly id: string;
 
 	public constructor(id: string) {
@@ -363,6 +384,28 @@ export class UpdateNodeDataPropertiesVisibilityCommand {
 	public constructor(id: string, showDataProperties: boolean) {
 		this.id = id;
 		this.showDataProperties = showDataProperties;
+	}
+}
+
+export class UpdateNodeTypeVisibilityCommand {
+	public readonly type = 'updateNodeTypeVisibility';
+	public readonly id: string;
+	public readonly showType: boolean;
+
+	public constructor(id: string, showType: boolean) {
+		this.id = id;
+		this.showType = showType;
+	}
+}
+
+export class UpdateNodePropertyValuesVisibilityCommand {
+	public readonly type = 'updateNodePropertyValuesVisibility';
+	public readonly id: string;
+	public readonly showPropertyValues: boolean;
+
+	public constructor(id: string, showPropertyValues: boolean) {
+		this.id = id;
+		this.showPropertyValues = showPropertyValues;
 	}
 }
 

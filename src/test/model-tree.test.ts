@@ -76,6 +76,35 @@ suite('Model tree', () => {
 		assert.ok(String(item.tooltip).includes('Domain: Requirement (ex:Requirement)'));
 		assert.ok(String(item.tooltip).includes('Range: Literal (rdfs:Literal)'));
 	});
+
+	test('shows object property assertion endpoints in tree description', () => {
+		const requirement = ontologyItem('individual', 'ex:REQ-001', 'REQ-001');
+		const service = ontologyItem('class', 'ex:AuthenticationService', 'AuthenticationService');
+		const appliesTo = ontologyItem('objectPropertyAssertion', 'req:appliesTo', 'REQ-001 appliesTo AuthenticationService', {
+			edgeOntologyRef: 'req:appliesTo',
+			sourceOntologyRef: 'ex:REQ-001',
+			targetOntologyRef: 'ex:AuthenticationService',
+			targetNodeType: 'class',
+		});
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [requirement, service, appliesTo],
+		};
+
+		const item = new ModelTree().getTreeItem({
+			kind: 'ontologyItem',
+			id: 'item:req:appliesTo:REQ-001',
+			label: appliesTo.displayLabel,
+			ontology,
+			item: appliesTo,
+		} as Parameters<ModelTree['getTreeItem']>[0]);
+
+		assert.strictEqual(item.description, '(REQ-001, AuthenticationService)');
+		assert.ok(String(item.tooltip).includes('Reference: req:appliesTo'));
+		assert.ok(String(item.tooltip).includes('Source: REQ-001 (ex:REQ-001)'));
+		assert.ok(String(item.tooltip).includes('Target: AuthenticationService (ex:AuthenticationService)'));
+	});
 });
 
 function ontologyItem(

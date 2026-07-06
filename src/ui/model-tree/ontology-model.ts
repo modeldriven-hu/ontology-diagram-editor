@@ -7,6 +7,8 @@ import { OntologyDiagramDocument } from '../../documents/odiagram';
 interface RdfTerm {
 	readonly termType: string;
 	readonly value: string;
+	readonly datatype?: RdfTerm;
+	readonly language?: string;
 }
 
 interface RdfQuad {
@@ -35,6 +37,7 @@ const rdfParser = (require('rdf-parse') as { readonly rdfParser: RdfParser }).rd
 export type OntologyItemType =
 	| 'class'
 	| 'objectProperty'
+	| 'objectPropertyAssertion'
 	| 'dataProperty'
 	| 'annotationProperty'
 	| 'subclassRelationship'
@@ -56,11 +59,24 @@ export interface OntologyItemMetadata {
 	readonly superclassReferences?: readonly string[];
 	readonly equivalentClassReferences?: readonly string[];
 	readonly assertedClassReferences?: readonly string[];
+	readonly propertyAssertions?: readonly OntologyPropertyAssertion[];
 	readonly domainReferences?: readonly string[];
 	readonly rangeReferences?: readonly string[];
 	readonly comments?: readonly string[];
 	readonly subclassReference?: string;
 	readonly superclassReference?: string;
+	readonly edgeOntologyRef?: string;
+	readonly sourceOntologyRef?: string;
+	readonly targetOntologyRef?: string;
+	readonly targetNodeType?: 'class' | 'datatype' | 'individual';
+}
+
+export interface OntologyPropertyAssertion {
+	readonly propertyReference: string;
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly datatypeReference?: string;
+	readonly language?: string;
 }
 
 export interface LoadedOntology {
@@ -120,6 +136,7 @@ const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 const itemTypeLabels: Record<OntologyItemType, string> = {
 	class: 'Classes',
 	objectProperty: 'Object properties',
+	objectPropertyAssertion: 'Object property assertions',
 	dataProperty: 'Data properties',
 	annotationProperty: 'Annotation properties',
 	subclassRelationship: 'Subclass relationships',
@@ -134,6 +151,7 @@ const itemTypeOrder: readonly OntologyItemType[] = [
 	'annotationProperty',
 	'subclassRelationship',
 	'individual',
+	'objectPropertyAssertion',
 	'datatype',
 ];
 
@@ -368,6 +386,7 @@ function createOntologyItems(
 	const superclasses = new Map<string, Set<string>>();
 	const equivalentClasses = new Map<string, Set<string>>();
 	const classAssertions = new Map<string, Set<string>>();
+	const propertyAssertions = new Map<string, OntologyPropertyAssertion[]>();
 	const subclassRelationships: SubclassRelationship[] = [];
 
 	for (const quad of quads) {
@@ -396,10 +415,15 @@ function createOntologyItems(
 			subclassRelationships.push({ subclassReference: subject, superclassReference: object });
 		} else if (predicate === owlEquivalentClass) {
 			addMapValue(equivalentClasses, subject, object);
+		} else {
+			const assertion = createPropertyAssertion(predicate, quad.object);
+			if (assertion !== undefined) {
+				addArrayMapValue(propertyAssertions, subject, assertion);
+			}
 		}
 	}
 
-	const individualIris = createIndividualIris(subjectsByType, classAssertions);
+	const individualIris = createIndividualIris(subjectsByType, classAssertions, propertyAssertions);
 	const items = [
 		...createEntityItems('class', [owlClass, rdfsClass], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
@@ -441,7 +465,9 @@ function createOntologyItems(
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
 			assertedClassReferences: valuesFor(classAssertions, iri),
+			propertyAssertions: arrayValuesFor(propertyAssertions, iri),
 		})),
+		...createObjectPropertyAssertionItems(sourceOntologyPath, individualIris, propertyAssertions, labels, namespaces, subjectsByType, classAssertions),
 		...createEntityItems('datatype', [rdfsDatatype], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
@@ -455,6 +481,7 @@ function createOntologyItems(
 function createIndividualIris(
 	subjectsByType: ReadonlyMap<string, ReadonlySet<string>>,
 	classAssertions: ReadonlyMap<string, ReadonlySet<string>>,
+	propertyAssertions: ReadonlyMap<string, readonly OntologyPropertyAssertion[]>,
 ): readonly string[] {
 	const ontologyEntityIris = new Set([
 		...valuesFor(subjectsByType, owlClass),
@@ -466,10 +493,15 @@ function createIndividualIris(
 	]);
 	const classAssertionIris = [...classAssertions.keys()]
 		.filter((iri) => !ontologyEntityIris.has(iri));
+	const resourceAssertionSubjectIris = [...propertyAssertions.entries()]
+		.filter(([, assertions]) => assertions.some((assertion) => assertion.valueType === 'resource'))
+		.map(([iri]) => iri)
+		.filter((iri) => !ontologyEntityIris.has(iri));
 
 	return uniqueStrings([
 		...valuesFor(subjectsByType, owlNamedIndividual),
 		...classAssertionIris,
+		...resourceAssertionSubjectIris,
 	]);
 }
 
@@ -502,6 +534,106 @@ function createItemsFromIris(
 		sourceOntologyPath,
 		metadata: createMetadata(iri),
 	}));
+}
+
+function createPropertyAssertion(propertyReference: string, object: RdfTerm): OntologyPropertyAssertion | undefined {
+	if (object.termType === 'NamedNode') {
+		return {
+			propertyReference,
+			value: object.value,
+			valueType: 'resource',
+		};
+	}
+
+	if (object.termType === 'Literal') {
+		return {
+			propertyReference,
+			value: object.value,
+			valueType: 'literal',
+			datatypeReference: object.datatype?.value,
+			language: object.language === undefined || object.language.length === 0 ? undefined : object.language,
+		};
+	}
+
+	return undefined;
+}
+
+function createObjectPropertyAssertionItems(
+	sourceOntologyPath: string,
+	individualIris: readonly string[],
+	propertyAssertions: ReadonlyMap<string, readonly OntologyPropertyAssertion[]>,
+	labels: ReadonlyMap<string, ReadonlySet<string>>,
+	namespaces: ReadonlyMap<string, string>,
+	subjectsByType: ReadonlyMap<string, ReadonlySet<string>>,
+	classAssertions: ReadonlyMap<string, ReadonlySet<string>>,
+): readonly OntologyItem[] {
+	const individualIriSet = new Set(individualIris);
+	return individualIris.flatMap((sourceIri) =>
+		arrayValuesFor(propertyAssertions, sourceIri)
+			.filter((assertion) => assertion.valueType === 'resource')
+			.filter((assertion) => individualIriSet.has(sourceIri))
+			.map((assertion) => createObjectPropertyAssertionItem(
+				sourceOntologyPath,
+				sourceIri,
+				assertion.propertyReference,
+				assertion.value,
+				labels,
+				namespaces,
+				subjectsByType,
+				classAssertions,
+			)),
+	);
+}
+
+function createObjectPropertyAssertionItem(
+	sourceOntologyPath: string,
+	sourceIri: string,
+	propertyReference: string,
+	targetIri: string,
+	labels: ReadonlyMap<string, ReadonlySet<string>>,
+	namespaces: ReadonlyMap<string, string>,
+	subjectsByType: ReadonlyMap<string, ReadonlySet<string>>,
+	classAssertions: ReadonlyMap<string, ReadonlySet<string>>,
+): OntologyItem {
+	const sourceLabel = displayLabel(sourceIri, labels, namespaces);
+	const propertyLabel = valuesFor(labels, propertyReference)[0] ?? localName(propertyReference);
+	const targetLabel = displayLabel(targetIri, labels, namespaces);
+	const edgeOntologyRef = compactIri(propertyReference, namespaces);
+	const sourceOntologyRef = compactIri(sourceIri, namespaces);
+	const targetOntologyRef = compactIri(targetIri, namespaces);
+
+	return {
+		type: 'objectPropertyAssertion',
+		reference: edgeOntologyRef,
+		displayLabel: `${sourceLabel} ${propertyLabel} ${targetLabel}`,
+		sourceOntologyPath,
+		metadata: {
+			relationshipReference: edgeOntologyRef,
+			displayLabels: [],
+			edgeOntologyRef,
+			sourceOntologyRef,
+			targetOntologyRef,
+			targetNodeType: ontologyNodeType(targetIri, subjectsByType, classAssertions),
+		},
+	};
+}
+
+function ontologyNodeType(
+	iri: string,
+	subjectsByType: ReadonlyMap<string, ReadonlySet<string>>,
+	classAssertions: ReadonlyMap<string, ReadonlySet<string>>,
+): 'class' | 'datatype' | 'individual' {
+	if (valuesFor(subjectsByType, owlClass).includes(iri) || valuesFor(subjectsByType, rdfsClass).includes(iri)) {
+		return 'class';
+	}
+	if (valuesFor(subjectsByType, rdfsDatatype).includes(iri)) {
+		return 'datatype';
+	}
+	if (valuesFor(subjectsByType, owlNamedIndividual).includes(iri) || classAssertions.has(iri)) {
+		return 'individual';
+	}
+
+	return 'individual';
 }
 
 function createSubclassRelationship(
@@ -562,7 +694,17 @@ function addMapValue(map: Map<string, Set<string>>, key: string, value: string):
 	map.set(key, values);
 }
 
+function addArrayMapValue<T>(map: Map<string, T[]>, key: string, value: T): void {
+	const values = map.get(key) ?? [];
+	values.push(value);
+	map.set(key, values);
+}
+
 function valuesFor(map: ReadonlyMap<string, ReadonlySet<string>>, key: string): readonly string[] {
+	return [...(map.get(key) ?? [])];
+}
+
+function arrayValuesFor<T>(map: ReadonlyMap<string, readonly T[]>, key: string): readonly T[] {
 	return [...(map.get(key) ?? [])];
 }
 

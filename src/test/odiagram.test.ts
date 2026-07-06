@@ -88,11 +88,17 @@ nodes:
     width: 160
     height: 80
     show_data_properties: true
+    show_type: false
+    show_property_values: true
 edges: []
 `);
 
 		assert.strictEqual(document.nodes[0].showDataProperties, true);
+		assert.strictEqual(document.nodes[0].showType, false);
+		assert.strictEqual(document.nodes[0].showPropertyValues, true);
 		assert.match(stringifyOntologyDiagramYaml(document), /show_data_properties: true/);
+		assert.match(stringifyOntologyDiagramYaml(document), /show_type: false/);
+		assert.match(stringifyOntologyDiagramYaml(document), /show_property_values: true/);
 	});
 
 	test('parses and serializes note export visibility', () => {

@@ -24,7 +24,8 @@
 - Given a node is selected, when the user chooses Show related elements and selects a depth, then related object property, data property, and subclass relationship endpoints up to that depth are added without duplicating existing nodes or edges.
 - Given a note is selected, when the local toolbar appears, then Resize to compact size and Connect Note are available.
 - Given an image or label is selected, when the local toolbar appears, then Resize to minimum is available.
-- Given an edge is selected, when the local toolbar appears, then Optimize edge path and Remove edge are available.
+- Given an edge is selected, when the local toolbar appears, then Optimize edge path, Straighten edge, and Remove edge are available.
+- Given an edge is selected, when the user chooses Straighten edge, then the persisted route is rewritten as a horizontal or vertical two-point line and the edge label is moved to the new route midpoint.
 - Given note or label text editing is active, when the user edits text, then the local toolbar is hidden.
 
 ## Style Editing Boundary

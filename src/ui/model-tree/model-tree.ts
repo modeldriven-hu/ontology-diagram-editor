@@ -341,6 +341,19 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				&& ontologyReferencesEqual(item.metadata.superclassReference ?? '', target.ontologyRef.value, diagram.namespaces));
 		}
 
+		if (edge.extra.ontology_item_type === 'objectPropertyAssertion') {
+			const source = diagram.nodes.find((candidate) => candidate.id.value === edge.source.value);
+			const target = diagram.nodes.find((candidate) => candidate.id.value === edge.target.value);
+			if (source === undefined || target === undefined) {
+				return false;
+			}
+
+			return this.revealOntologyItem((item) => item.type === 'objectPropertyAssertion'
+				&& ontologyReferencesEqual(item.reference, edge.ontologyRef.value, diagram.namespaces)
+				&& ontologyReferencesEqual(item.metadata.sourceOntologyRef ?? '', source.ontologyRef.value, diagram.namespaces)
+				&& ontologyReferencesEqual(item.metadata.targetOntologyRef ?? '', target.ontologyRef.value, diagram.namespaces));
+		}
+
 		return this.revealOntologyItem((item) => ontologyReferencesEqual(item.reference, edge.ontologyRef.value, diagram.namespaces));
 	}
 
@@ -741,6 +754,10 @@ function ontologyItemDescription(
 		return endpointTupleDescription(item, ontology, namespaces);
 	}
 
+	if (item.type === 'objectPropertyAssertion') {
+		return assertionTupleDescription(item, ontology, namespaces);
+	}
+
 	return item.reference === label ? undefined : item.reference;
 }
 
@@ -783,7 +800,24 @@ function ontologyItemEndpointTooltipLines(
 		];
 	}
 
+	if (item.type === 'objectPropertyAssertion') {
+		return [
+			...endpointTooltipLines('Source', optionalReference(item.metadata.sourceOntologyRef), ontology, namespaces),
+			...endpointTooltipLines('Target', optionalReference(item.metadata.targetOntologyRef), ontology, namespaces),
+		];
+	}
+
 	return [];
+}
+
+function assertionTupleDescription(item: OntologyItem, ontology: LoadedOntology, namespaces: ReadonlyMap<string, string>): string | undefined {
+	const source = endpointDisplayNames(optionalReference(item.metadata.sourceOntologyRef), ontology, namespaces);
+	const target = endpointDisplayNames(optionalReference(item.metadata.targetOntologyRef), ontology, namespaces);
+	if (source === undefined && target === undefined) {
+		return undefined;
+	}
+
+	return `(${source ?? '?'}, ${target ?? '?'})`;
 }
 
 function endpointTooltipLines(

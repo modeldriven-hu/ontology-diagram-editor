@@ -2,7 +2,7 @@ import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { nodeDataPropertyAttributes, nodeDataPropertyLayout, ontologyDisplayName, truncateText } from './node-data-properties';
+import { nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText } from './node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -221,9 +221,12 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
 	const border = borderStyle(node.style, theme.nodeBorder, 1);
-	const fontSize = node.style?.font?.size ?? theme.fontSize;
+	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
+	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
+	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
+	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const bounds = elementBounds(node);
-	const attributes = nodeDataPropertyAttributes(node, payload);
+	const attributes = nodeCompartmentAttributes(node, payload);
 	const hasAttributes = attributes.length > 0;
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: bounds.height,
@@ -235,8 +238,8 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 			text: attribute.text,
 			width: bounds.width - 20,
 			fontSize: layout.attributeFontSize,
-			fontFamily: node.style?.font?.family ?? theme.fontFamily,
-			italic: node.style?.font?.italic,
+			fontFamily,
+			italic: fontItalic,
 		})),
 		...(layout.showOverflowIndicator ? ['...'] : []),
 	];
@@ -245,13 +248,13 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,
-			text: ontologyDisplayName(node.ontology_ref),
+			text: nodeTitleText(node, payload),
 			bounds: hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds,
 			color: node.style?.text_color ?? theme.editorForeground,
-			fontFamily: node.style?.font?.family ?? theme.fontFamily,
+			fontFamily,
 			fontSize,
-			bold: node.style?.font?.bold,
-			italic: node.style?.font?.italic,
+			bold: fontBold,
+			italic: fontItalic,
 			align: 'center',
 			verticalAlign: 'middle',
 			padding: 10,
@@ -271,10 +274,10 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 					height: Math.max(1, bounds.height - layout.headerHeight - 1),
 				},
 				color: node.style?.text_color ?? theme.editorForeground,
-				fontFamily: node.style?.font?.family ?? theme.fontFamily,
+				fontFamily,
 				fontSize: layout.attributeFontSize,
 				bold: false,
-				italic: node.style?.font?.italic,
+				italic: fontItalic,
 				align: 'left',
 				verticalAlign: 'top',
 				padding: 10,

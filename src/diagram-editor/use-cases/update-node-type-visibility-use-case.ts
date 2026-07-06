@@ -2,15 +2,15 @@ import { DiagramNode, type OntologyDiagramDocument } from '../../documents/odiag
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 
-export class UpdateNodeDataPropertiesVisibilityUseCase {
+export class UpdateNodeTypeVisibilityUseCase {
 	public execute(
 		diagram: OntologyDiagramDocument,
 		id: string,
-		showDataProperties: boolean,
+		showType: boolean,
 	): DiagramMutationResult {
 		let changed = false;
 		const nextNodes = diagram.nodes.map((node) => {
-			if (node.id.value !== id || (node.showDataProperties === true) === showDataProperties) {
+			if (node.id.value !== id || node.showType === showType) {
 				return node;
 			}
 
@@ -22,8 +22,8 @@ export class UpdateNodeDataPropertiesVisibilityUseCase {
 				node.style,
 				node.image,
 				node.extra,
-				showDataProperties ? true : undefined,
-				node.showType,
+				node.showDataProperties,
+				showType,
 				node.showPropertyValues,
 			);
 		});

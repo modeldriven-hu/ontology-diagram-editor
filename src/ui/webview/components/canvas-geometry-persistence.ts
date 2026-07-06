@@ -116,32 +116,27 @@ export class CanvasGeometryPersistence {
 			}
 		}
 
-		const invalidNodeUpdate = nodeUpdates.find((update) => update.width < minimumNodeWidth || update.height < minimumNodeHeight);
-		if (invalidNodeUpdate !== undefined) {
-			this.restorePersistedBounds(nodeUpdates, this.persistedNodeBounds);
-			this.options.showStatus(`Nodes must be at least ${minimumNodeWidth} x ${minimumNodeHeight}.`);
-			return;
-		}
-		const invalidNoteUpdate = noteUpdates.find((update) => update.width < minimumNoteWidth || update.height < minimumNoteHeight);
-		if (invalidNoteUpdate !== undefined) {
-			this.restorePersistedBounds(noteUpdates, this.persistedNoteBounds);
-			this.options.showStatus(`Notes must be at least ${minimumNoteWidth} x ${minimumNoteHeight}.`);
-			return;
-		}
-		const invalidImageUpdate = imageUpdates.find((update) => update.width < minimumImageWidth || update.height < minimumImageHeight);
-		if (invalidImageUpdate !== undefined) {
-			this.restorePersistedBounds(imageUpdates, this.persistedImageBounds);
-			this.options.showStatus(`Images must be at least ${minimumImageWidth} x ${minimumImageHeight}.`);
-			return;
-		}
-		const invalidLabelUpdate = labelUpdates.find((update) => update.width < minimumLabelWidth || update.height < minimumLabelHeight);
-		if (invalidLabelUpdate !== undefined) {
-			this.restorePersistedBounds(labelUpdates, this.persistedLabelBounds);
-			this.options.showStatus(`Labels must be at least ${minimumLabelWidth} x ${minimumLabelHeight}.`);
-			return;
+		const normalizedNodeUpdates = clampBoundsUpdates(nodeUpdates, minimumNodeWidth, minimumNodeHeight);
+		const normalizedNoteUpdates = clampBoundsUpdates(noteUpdates, minimumNoteWidth, minimumNoteHeight);
+		const normalizedImageUpdates = clampBoundsUpdates(imageUpdates, minimumImageWidth, minimumImageHeight);
+		const normalizedLabelUpdates = clampBoundsUpdates(labelUpdates, minimumLabelWidth, minimumLabelHeight);
+		const normalizedUpdates = [
+			...normalizedNodeUpdates,
+			...normalizedNoteUpdates,
+			...normalizedImageUpdates,
+			...normalizedLabelUpdates,
+		];
+		if (normalizedUpdates.some((update) => !boundsUpdateEqual(update.normalized, update.original))) {
+			this.restoreNormalizedBounds(normalizedUpdates.map((update) => update.normalized));
 		}
 
-		this.persistUpdates(nodeUpdates, noteUpdates, imageUpdates, labelUpdates, dragKind);
+		this.persistUpdates(
+			normalizedNodeUpdates.map((update) => update.normalized),
+			normalizedNoteUpdates.map((update) => update.normalized),
+			normalizedImageUpdates.map((update) => update.normalized),
+			normalizedLabelUpdates.map((update) => update.normalized),
+			dragKind,
+		);
 	}
 
 	private persistChangedEdgeRoutes(edgeIds: readonly string[]): void {
@@ -236,17 +231,44 @@ export class CanvasGeometryPersistence {
 		}));
 	}
 
-	private restorePersistedBounds(updates: readonly BoundsUpdate[], persistedBoundsById: ReadonlyMap<string, BoundsUpdate>): void {
+	private restoreNormalizedBounds(updates: readonly BoundsUpdate[]): void {
 		this.suppressGeometryPersistence = true;
 		try {
-			this.options.canvas.restoreBounds(updates.flatMap((update) => {
-				const persistedBounds = persistedBoundsById.get(update.id);
-				return persistedBounds === undefined ? [] : [persistedBounds];
-			}));
+			this.options.canvas.restoreBounds(updates);
 		} finally {
 			this.suppressGeometryPersistence = false;
 		}
 	}
+}
+
+interface NormalizedBoundsUpdate<T extends BoundsUpdate> {
+	readonly original: T;
+	readonly normalized: T;
+}
+
+function clampBoundsUpdates<T extends BoundsUpdate>(
+	updates: readonly T[],
+	minimumWidth: number,
+	minimumHeight: number,
+): readonly NormalizedBoundsUpdate<T>[] {
+	return updates.map((update) => ({
+		original: update,
+		normalized: {
+			...update,
+			x: Math.max(0, update.x),
+			y: Math.max(0, update.y),
+			width: Math.max(minimumWidth, update.width),
+			height: Math.max(minimumHeight, update.height),
+		},
+	}));
+}
+
+function boundsUpdateEqual(left: BoundsUpdate, right: BoundsUpdate): boolean {
+	return left.id === right.id
+		&& left.x === right.x
+		&& left.y === right.y
+		&& left.width === right.width
+		&& left.height === right.height;
 }
 
 function edgeRoutesEqual(left: EdgeRouteUpdate, right: EdgeRouteUpdate): boolean {

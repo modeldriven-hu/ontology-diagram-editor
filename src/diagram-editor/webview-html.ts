@@ -2,9 +2,11 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { parseOntologyDiagramTextDocument } from '../documents/odiagram';
+import { readOntologyDiagramThemeFile, resolveNodeStyle } from '../documents/otheme';
 import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
+import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
 
 export async function buildDiagramWebviewHtml(
 	document: vscode.TextDocument,
@@ -91,6 +93,7 @@ function webviewBody(
 					<button class="local-element-action" id="alignSubclassEndpointsLocalButton" type="button" title="Align subclass endpoints" aria-label="Align subclass endpoints"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
+					<button class="local-element-action" id="straightenEdgeLocalButton" type="button" title="Straighten edge" aria-label="Straighten edge"></button>
 					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>
 					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
 				</div>
@@ -899,6 +902,13 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 				})),
 			},
 			ontology: {
+				items: loadedOntologies.flatMap((ontology) =>
+					ontology.items.map((item) => ({
+						reference: item.reference,
+						displayLabel: item.displayLabel,
+						type: item.type,
+					})),
+				),
 				data_properties: loadedOntologies.flatMap((ontology) =>
 					ontology.items
 						.filter((item) => item.type === 'dataProperty')
@@ -909,6 +919,16 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 							rangeReferences: item.metadata.rangeReferences ?? [],
 						})),
 				),
+				individuals: loadedOntologies.flatMap((ontology) =>
+					ontology.items
+						.filter((item) => item.type === 'individual')
+						.map((item) => ({
+							reference: item.reference,
+							displayLabel: item.displayLabel,
+							assertedClassReferences: item.metadata.assertedClassReferences ?? [],
+							propertyAssertions: item.metadata.propertyAssertions ?? [],
+						})),
+				),
 				comments: loadedOntologies.flatMap((ontology) =>
 					ontology.items
 						.filter((item) => (item.metadata.comments ?? []).length > 0)
@@ -916,8 +936,9 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 							reference: item.reference,
 							comments: item.metadata.comments ?? [],
 						})),
-				),
+					),
 			},
+			theme: await resolvedThemeOverrides(document, diagram),
 		};
 	} catch (error) {
 		return {
@@ -929,6 +950,34 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
+}
+
+async function resolvedThemeOverrides(document: vscode.TextDocument, diagram: ReturnType<typeof parseOntologyDiagramTextDocument>): Promise<WebviewThemeOverrideMap | undefined> {
+	const themeFile = diagram.metadata.themeFile;
+	if (themeFile === undefined || themeFile.trim().length === 0) {
+		return undefined;
+	}
+
+	try {
+		const themePath = path.resolve(path.dirname(document.uri.fsPath), themeFile);
+		const theme = await readOntologyDiagramThemeFile(themePath);
+		return {
+			light: nodeThemeOverrides(theme, 'light'),
+			dark: nodeThemeOverrides(theme, 'dark'),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+function nodeThemeOverrides(theme: Awaited<ReturnType<typeof readOntologyDiagramThemeFile>>, mode: WebviewThemeMode): WebviewThemeOverrides {
+	const nodeStyle = resolveNodeStyle(theme, undefined, mode);
+	return {
+		nodeFontBold: nodeStyle.font?.bold,
+		nodeFontFamily: nodeStyle.font?.family,
+		nodeFontItalic: nodeStyle.font?.italic,
+		nodeFontSize: nodeStyle.font?.size,
+	};
 }
 
 function imageWebviewSource(document: vscode.TextDocument, webview: vscode.Webview, source: string): string {
@@ -949,6 +998,7 @@ interface JsonPayload {
 	};
 	readonly diagram?: unknown;
 	readonly ontology?: unknown;
+	readonly theme?: unknown;
 	readonly error?: string;
 }
 

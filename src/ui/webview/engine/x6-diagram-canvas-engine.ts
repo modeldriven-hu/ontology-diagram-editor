@@ -1,6 +1,6 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
-import { nodeDataPropertyAttributes, nodeDataPropertyLayout, truncateText } from '../components/node-data-properties';
+import { nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText } from '../components/node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
@@ -647,6 +647,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 
 		const update = boundsUpdate(node);
+		this.restoreClampedNodePosition(node, update);
 		this.elementRegistry.updateBounds(update);
 		if (dragKind === 'resize') {
 			this.updateOntologyNodePresentation(node.id);
@@ -655,6 +656,20 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.publishSelectionChanged();
 		}
 		this.publishElementBounds([update], dragKind);
+	}
+
+	private restoreClampedNodePosition(node: X6Node, update: BoundsUpdate): void {
+		const position = node.position();
+		if (update.x === Math.round(position.x) && update.y === Math.round(position.y)) {
+			return;
+		}
+
+		this.suppressBoundsEvents = true;
+		try {
+			node.position(update.x, update.y);
+		} finally {
+			this.suppressBoundsEvents = false;
+		}
 	}
 
 	private publishElementBounds(updates: readonly BoundsUpdate[], dragKind: BoundsDragKind): void {
@@ -996,17 +1011,30 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	readonly attrs: Record<string, unknown>;
 } {
 	const hasImage = node.image !== undefined && node.image.trim() !== '';
-	const attributes = nodeDataPropertyAttributes(node, payload);
+	const attributes = nodeCompartmentAttributes(node, payload);
 	const hasAttributes = attributes.length > 0;
+	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
+	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
+	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
+	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: node.height,
-		fontSize: node.style?.font?.size ?? theme.fontSize,
+		fontSize,
 		attributeCount: attributes.length,
 	});
 	const displayAttributeTexts = [
 		...attributes.slice(0, layout.visibleAttributeCount).map((attribute) => attribute.text),
 		...(layout.showOverflowIndicator ? ['...'] : []),
 	];
+	const titleWidth = Math.max(0, node.width - (hasImage && hasAttributes ? 56 : 20));
+	const title = truncateText({
+		text: nodeTitleText(node, payload),
+		width: titleWidth,
+		fontSize,
+		fontFamily,
+		bold: fontBold,
+		italic: fontItalic,
+	});
 	const attributeLineCount = hasAttributes ? attributes.length + 1 : 0;
 	const attributeAttrs = Object.fromEntries([...Array(attributeLineCount).keys()].map((index) => [
 		`attribute${index}`,
@@ -1015,15 +1043,15 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 				text: displayAttributeTexts[index],
 				width: node.width - 20,
 				fontSize: layout.attributeFontSize,
-				fontFamily: node.style?.font?.family ?? theme.fontFamily,
-				italic: node.style?.font?.italic,
+				fontFamily,
+				italic: fontItalic,
 			}),
 			opacity: displayAttributeTexts[index] === undefined ? 0 : 1,
 			fill: node.style?.text_color ?? theme.editorForeground,
-			fontFamily: node.style?.font?.family ?? theme.fontFamily,
+			fontFamily,
 			fontSize: layout.attributeFontSize,
 			fontWeight: 400,
-			fontStyle: node.style?.font?.italic === true ? 'italic' : 'normal',
+			fontStyle: fontItalic === true ? 'italic' : 'normal',
 			textAnchor: 'start',
 			textVerticalAnchor: 'middle',
 			refX: 10,
@@ -1039,12 +1067,12 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 		],
 		attrs: {
 			label: {
-				text: nodeDisplayName(node.ontology_ref),
+				text: title,
 				fill: node.style?.text_color ?? theme.editorForeground,
-				fontFamily: node.style?.font?.family ?? theme.fontFamily,
-				fontSize: node.style?.font?.size ?? theme.fontSize,
-				fontWeight: node.style?.font?.bold === true ? 700 : 400,
-				fontStyle: node.style?.font?.italic === true ? 'italic' : 'normal',
+				fontFamily,
+				fontSize,
+				fontWeight: fontBold === true ? 700 : 400,
+				fontStyle: fontItalic === true ? 'italic' : 'normal',
 				textAnchor: 'middle',
 				textVerticalAnchor: 'middle',
 				refX: '50%',
@@ -1941,14 +1969,4 @@ function stopEvent(value: unknown): void {
 function plainText(value: string): string {
 	const document = new DOMParser().parseFromString(value, 'text/html');
 	return document.body.textContent ?? value;
-}
-
-function nodeDisplayName(ontologyRef: string): string {
-	const hashIndex = ontologyRef.lastIndexOf('#');
-	const slashIndex = ontologyRef.lastIndexOf('/');
-	const compactIriIndex = ontologyRef.includes('://') ? -1 : ontologyRef.lastIndexOf(':');
-	const separatorIndex = Math.max(hashIndex, slashIndex, compactIriIndex);
-	const displayName = separatorIndex >= 0 ? ontologyRef.slice(separatorIndex + 1) : ontologyRef;
-
-	return displayName.length > 0 ? displayName : ontologyRef;
 }

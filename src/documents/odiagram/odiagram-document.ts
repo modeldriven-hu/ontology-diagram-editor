@@ -297,6 +297,8 @@ export class DiagramNode {
 		public readonly image?: string,
 		public readonly extra: JsonObject = {},
 		public readonly showDataProperties?: boolean,
+		public readonly showType?: boolean,
+		public readonly showPropertyValues?: boolean,
 	) {
 		this.id = DiagramIdentifier.create(id, 'node');
 		this.ontologyRef = OntologyReference.create(ontologyRef);
@@ -315,6 +317,8 @@ export class DiagramNode {
 			style: this.style?.toPersistenceObject(),
 			image: this.image,
 			show_data_properties: this.showDataProperties === true ? true : undefined,
+			show_type: this.showType,
+			show_property_values: this.showPropertyValues,
 		});
 	}
 }
@@ -554,6 +558,8 @@ const nodeSchema = boundsFieldsSchema.extend({
 	style: commonStyleSchema.optional(),
 	image: z.string().optional(),
 	show_data_properties: z.boolean().optional(),
+	show_type: z.boolean().optional(),
+	show_property_values: z.boolean().optional(),
 }).passthrough();
 
 const edgeSchema = z.object({
@@ -642,8 +648,10 @@ function parseNode(value: z.infer<typeof nodeSchema>): DiagramNode {
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.style ? parseCommonStyle(value.style) : undefined,
 		value.image,
-		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties']),
+		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties', 'show_type', 'show_property_values']),
 		value.show_data_properties,
+		value.show_type,
+		value.show_property_values,
 	);
 }
 

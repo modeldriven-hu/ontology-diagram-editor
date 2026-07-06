@@ -17,6 +17,11 @@ const itemTypeIcons: Record<OntologyItemType, OntologyItemIcon> = {
 		canvasGlyph: 'L',
 		resourceName: 'object-property.svg',
 	},
+	objectPropertyAssertion: {
+		themeIconId: 'arrow-right',
+		canvasGlyph: 'A',
+		resourceName: 'object-property.svg',
+	},
 	dataProperty: {
 		themeIconId: 'symbol-field',
 		canvasGlyph: 'F',

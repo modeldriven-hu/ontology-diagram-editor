@@ -21,6 +21,7 @@ import {
 	OptimizeEdgeRouteUseCase,
 	SaveDiagramExportUseCase,
 	ShowRelatedElementsUseCase,
+	StraightenEdgeRouteUseCase,
 	UpdateEdgeRouteUseCase,
 	UpdateEdgeRouteLayoutUseCase,
 	UpdateElementBoundsUseCase,
@@ -32,6 +33,8 @@ import {
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
 	UpdateNodeImageUseCase,
+	UpdateNodePropertyValuesVisibilityUseCase,
+	UpdateNodeTypeVisibilityUseCase,
 	UpdateNoteBoundsUseCase,
 	UpdateNoteExportVisibilityUseCase,
 	UpdateNoteTextUseCase,
@@ -61,6 +64,7 @@ interface DiagramEditorUseCases {
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly optimizeEdgeRoute: OptimizeEdgeRouteUseCase;
+	readonly straightenEdgeRoute: StraightenEdgeRouteUseCase;
 	readonly showRelatedElements: ShowRelatedElementsUseCase;
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
 	readonly updateEdgeRouteLayout: UpdateEdgeRouteLayoutUseCase;
@@ -69,6 +73,8 @@ interface DiagramEditorUseCases {
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeDataPropertiesVisibility: UpdateNodeDataPropertiesVisibilityUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
+	readonly updateNodePropertyValuesVisibility: UpdateNodePropertyValuesVisibilityUseCase;
+	readonly updateNodeTypeVisibility: UpdateNodeTypeVisibilityUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
 	readonly updateNoteExportVisibility: UpdateNoteExportVisibilityUseCase;
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
@@ -138,6 +144,12 @@ export class DiagramCommandDispatcher {
 					command.id,
 				));
 				return;
+			case 'straightenEdgeRoute':
+				await this.handleResult(this.useCases.straightenEdgeRoute.execute(
+					this.repository.load(),
+					command.id,
+				));
+				return;
 			case 'showRelatedElements':
 				await this.showRelatedElements(command.nodeId);
 				return;
@@ -160,6 +172,20 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.id,
 					command.showDataProperties,
+				));
+				return;
+			case 'updateNodeTypeVisibility':
+				await this.handleResult(this.useCases.updateNodeTypeVisibility.execute(
+					this.repository.load(),
+					command.id,
+					command.showType,
+				));
+				return;
+			case 'updateNodePropertyValuesVisibility':
+				await this.handleResult(this.useCases.updateNodePropertyValuesVisibility.execute(
+					this.repository.load(),
+					command.id,
+					command.showPropertyValues,
 				));
 				return;
 			case 'createNote':
@@ -333,6 +359,7 @@ export class DiagramCommandDispatcher {
 			this.repository.load(),
 			resolvedPayload,
 			command.position,
+			command.size,
 		));
 	}
 
@@ -547,6 +574,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		optimizeEdgeRoute: new OptimizeEdgeRouteUseCase(),
+		straightenEdgeRoute: new StraightenEdgeRouteUseCase(),
 		showRelatedElements: new ShowRelatedElementsUseCase(),
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
 		updateEdgeRouteLayout: new UpdateEdgeRouteLayoutUseCase(),
@@ -555,6 +583,8 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeDataPropertiesVisibility: new UpdateNodeDataPropertiesVisibilityUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
+		updateNodePropertyValuesVisibility: new UpdateNodePropertyValuesVisibilityUseCase(),
+		updateNodeTypeVisibility: new UpdateNodeTypeVisibilityUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),
 		updateNoteExportVisibility: new UpdateNoteExportVisibilityUseCase(),
 		updateImageBounds: new UpdateImageBoundsUseCase(),

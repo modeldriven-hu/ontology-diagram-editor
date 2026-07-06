@@ -75,6 +75,8 @@ export class UpdateElementBoundsUseCase {
 				node.image,
 				node.extra,
 				node.showDataProperties,
+				node.showType,
+				node.showPropertyValues,
 			);
 		});
 		const nextNotes = diagram.notes.map((note) => {

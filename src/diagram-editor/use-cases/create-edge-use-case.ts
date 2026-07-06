@@ -6,7 +6,7 @@ import { defaultNodeHeight, defaultNodeWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { nextElementId } from './element-id';
 import { boundaryPoint, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
-import { namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
+import { namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
 
 interface EndpointNodes {
 	readonly source: DiagramNode;
@@ -141,7 +141,7 @@ function createEndpointNode(
 	diagram: OntologyDiagramDocument,
 	created: readonly DiagramNode[],
 	ontologyRef: string,
-	ontologyItemType: 'class' | 'datatype',
+	ontologyItemType: ResolvedEdgeEndpointNodeType,
 	bounds: Bounds,
 ): DiagramNode {
 	return new DiagramNode(
@@ -154,6 +154,9 @@ function createEndpointNode(
 		undefined,
 		undefined,
 		{ ontology_item_type: ontologyItemType },
+		undefined,
+		ontologyItemType === 'individual' ? true : undefined,
+		ontologyItemType === 'individual' ? true : undefined,
 	);
 }
 

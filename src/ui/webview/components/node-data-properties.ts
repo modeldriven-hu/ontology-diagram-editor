@@ -22,14 +22,45 @@ export function nodeDataPropertyAttributes(node: DiagramNode, payload: DiagramPa
 	return availableNodeDataPropertyAttributes(node, payload);
 }
 
+export function nodeCompartmentAttributes(node: DiagramNode, payload: DiagramPayload): readonly NodeDataPropertyAttribute[] {
+	if (node.ontology_item_type === 'individual') {
+		return node.show_property_values === true ? availableNodePropertyValueAttributes(node, payload) : [];
+	}
+
+	return nodeDataPropertyAttributes(node, payload);
+}
+
 export function availableNodeDataPropertyAttributes(node: DiagramNode, payload: DiagramPayload): readonly NodeDataPropertyAttribute[] {
 	const namespaces = payload.diagram?.namespaces ?? {};
 	return (payload.ontology?.data_properties ?? [])
 		.filter((property) => property.domainReferences.some((domain) => ontologyReferencesEqual(domain, node.ontology_ref, namespaces)))
 		.map((property) => ({
-			text: attributeText(property.displayLabel, property.reference, property.rangeReferences[0]),
+			text: propertyDefinitionText(property.displayLabel, property.reference, property.rangeReferences[0], payload),
 		}))
 		.sort((left, right) => left.text.localeCompare(right.text));
+}
+
+export function availableNodePropertyValueAttributes(node: DiagramNode, payload: DiagramPayload): readonly NodeDataPropertyAttribute[] {
+	return (individualForNode(node, payload)?.propertyAssertions ?? []).map((assertion) => ({
+		text: propertyAssertionText(assertion, payload),
+	}));
+}
+
+export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): string {
+	const title = node.ontology_item_type === 'individual'
+		? ontologyReferenceDisplayName(node.ontology_ref, payload)
+		: ontologyDisplayName(node.ontology_ref);
+	if (!nodeShowsType(node)) {
+		return title;
+	}
+
+	const typeNames = uniqueStrings((individualForNode(node, payload)?.assertedClassReferences ?? [])
+		.map((reference) => ontologyReferenceDisplayName(reference, payload)));
+	return typeNames.length === 0 ? title : `${title} : ${typeNames.join(', ')}`;
+}
+
+export function nodeShowsType(node: DiagramNode): boolean {
+	return node.ontology_item_type === 'individual' && node.show_type !== false;
 }
 
 export function nodeDataPropertyLayout(options: {
@@ -90,10 +121,6 @@ export function requiredNodeWidthForDataProperties(options: {
 	readonly attributeItalic?: boolean;
 	readonly minimumWidth: number;
 }): number {
-	if (options.attributes.length === 0) {
-		return options.minimumWidth;
-	}
-
 	const attributeFontSize = Math.max(9, options.fontSize - 1);
 	const titleWidth = measuredTextWidth({
 		text: options.title,
@@ -101,7 +128,7 @@ export function requiredNodeWidthForDataProperties(options: {
 		fontFamily: options.fontFamily,
 		bold: options.titleBold,
 	}) + 20;
-	const attributeWidth = Math.max(...options.attributes.map((attribute) => measuredTextWidth({
+	const attributeWidth = options.attributes.length === 0 ? 0 : Math.max(...options.attributes.map((attribute) => measuredTextWidth({
 		text: attribute.text,
 		fontSize: attributeFontSize,
 		fontFamily: options.fontFamily,
@@ -189,17 +216,61 @@ export function ontologyDisplayName(ontologyRef: string): string {
 	return displayName.length > 0 ? displayName : ontologyRef;
 }
 
-function attributeText(displayLabel: string, reference: string, rangeReference: string | undefined): string {
+function propertyDefinitionText(displayLabel: string, reference: string, rangeReference: string | undefined, payload: DiagramPayload): string {
 	const name = displayLabel.trim().length > 0 ? displayLabel : ontologyDisplayName(reference);
 	if (rangeReference === undefined || rangeReference.trim().length === 0) {
 		return name;
 	}
 
-	return `${name}: ${ontologyDisplayName(rangeReference)}`;
+	return `${name}: ${ontologyReferenceDisplayName(rangeReference, payload)}`;
+}
+
+function propertyAssertionText(assertion: {
+	readonly propertyReference: string;
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly language?: string;
+}, payload: DiagramPayload): string {
+	return `${ontologyReferenceDisplayName(assertion.propertyReference, payload)} = ${propertyAssertionValueText(assertion, payload)}`;
+}
+
+function propertyAssertionValueText(assertion: {
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly language?: string;
+}, payload: DiagramPayload): string {
+	if (assertion.valueType === 'resource') {
+		return ontologyReferenceDisplayName(assertion.value, payload);
+	}
+
+	const escapedValue = assertion.value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+	const language = assertion.language === undefined || assertion.language.length === 0 ? '' : `@${assertion.language}`;
+	return `'${escapedValue}'${language}`;
 }
 
 function estimatedTextWidth(text: string, fontSize: number): number {
 	return text.length * Math.max(1, fontSize * 0.62);
+}
+
+function individualForNode(node: DiagramNode, payload: DiagramPayload) {
+	const namespaces = payload.diagram?.namespaces ?? {};
+	return (payload.ontology?.individuals ?? [])
+		.find((individual) => ontologyReferencesEqual(individual.reference, node.ontology_ref, namespaces));
+}
+
+function ontologyReferenceDisplayName(reference: string, payload: DiagramPayload): string {
+	const namespaces = payload.diagram?.namespaces ?? {};
+	const item = (payload.ontology?.items ?? [])
+		.find((candidate) => ontologyReferencesEqual(candidate.reference, reference, namespaces));
+	if (item !== undefined && item.displayLabel !== item.reference) {
+		return item.displayLabel;
+	}
+
+	return ontologyDisplayName(reference);
+}
+
+function uniqueStrings(values: readonly string[]): readonly string[] {
+	return [...new Set(values)];
 }
 
 function ontologyReferencesEqual(left: string, right: string, namespaces: Readonly<Record<string, string>>): boolean {

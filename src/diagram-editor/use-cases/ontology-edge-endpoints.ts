@@ -1,16 +1,21 @@
 import type { OntologyDiagramDocument } from '../../documents/odiagram';
 import type { ModelTreeItemDropPayload } from '../../shared/webview-commands';
 
+export type ResolvedEdgeEndpointNodeType = 'class' | 'datatype' | 'individual';
+
 export interface ResolvedEdgeEndpoints {
 	readonly edgeOntologyRef: string;
 	readonly sourceOntologyRef: string;
 	readonly targetOntologyRef: string;
-	readonly sourceNodeType: 'class';
-	readonly targetNodeType: 'class' | 'datatype';
+	readonly sourceNodeType: ResolvedEdgeEndpointNodeType;
+	readonly targetNodeType: ResolvedEdgeEndpointNodeType;
 }
 
 export function isConnectionCapableOntologyItem(type: string): boolean {
-	return type === 'objectProperty' || type === 'dataProperty' || type === 'subclassRelationship';
+	return type === 'objectProperty'
+		|| type === 'dataProperty'
+		|| type === 'subclassRelationship'
+		|| type === 'objectPropertyAssertion';
 }
 
 export function resolveEdgeEndpoints(payload: ModelTreeItemDropPayload): ResolvedEdgeEndpoints | 'ambiguous' | undefined {
@@ -35,6 +40,14 @@ export function resolveEdgeEndpoints(payload: ModelTreeItemDropPayload): Resolve
 		const source = stringValue(metadata.subclassReference);
 		const target = stringValue(metadata.superclassReference);
 		return resolvedPropertyEndpoints('rdfs:subClassOf', source, target, 'class');
+	}
+
+	if (payload.ontologyItemType === 'objectPropertyAssertion') {
+		const edge = stringValue(metadata.edgeOntologyRef) ?? payload.ontologyItemReference;
+		const source = stringValue(metadata.sourceOntologyRef);
+		const target = stringValue(metadata.targetOntologyRef);
+		const targetNodeType = endpointNodeType(metadata.targetNodeType, 'individual');
+		return resolvedPropertyEndpoints(edge, source, target, targetNodeType, 'individual');
 	}
 
 	return undefined;
@@ -80,7 +93,8 @@ function resolvedPropertyEndpoints(
 	edgeOntologyRef: string,
 	sourceOntologyRef: string | 'ambiguous' | undefined,
 	targetOntologyRef: string | 'ambiguous' | undefined,
-	targetNodeType: 'class' | 'datatype',
+	targetNodeType: ResolvedEdgeEndpointNodeType,
+	sourceNodeType: ResolvedEdgeEndpointNodeType = 'class',
 ): ResolvedEdgeEndpoints | 'ambiguous' {
 	if (sourceOntologyRef === 'ambiguous' || targetOntologyRef === 'ambiguous' || sourceOntologyRef === undefined || targetOntologyRef === undefined) {
 		return 'ambiguous';
@@ -90,9 +104,13 @@ function resolvedPropertyEndpoints(
 		edgeOntologyRef,
 		sourceOntologyRef,
 		targetOntologyRef,
-		sourceNodeType: 'class',
+		sourceNodeType,
 		targetNodeType,
 	};
+}
+
+function endpointNodeType(value: unknown, fallback: ResolvedEdgeEndpointNodeType): ResolvedEdgeEndpointNodeType {
+	return value === 'class' || value === 'datatype' || value === 'individual' ? value : fallback;
 }
 
 function singleString(value: unknown): string | 'ambiguous' | undefined {

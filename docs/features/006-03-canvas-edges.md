@@ -110,6 +110,8 @@ route. The toolbar shall provide:
   target elements.
 - An optimize-edge-path action that recalculates the persisted route from the current
   endpoint bounds and updates the edge label to a route midpoint.
+- A straighten-edge action that rewrites the selected edge route as a horizontal or
+  vertical two-point line and updates the edge label to the new route midpoint.
 
 When a connection-capable ontology item is dragged onto the canvas, the canvas shall
 display a temporary edge preview.

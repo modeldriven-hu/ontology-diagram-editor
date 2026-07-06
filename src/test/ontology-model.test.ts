@@ -89,6 +89,15 @@ req:Requirement a owl:Class .
 req:FunctionalRequirement a owl:Class ;
   rdfs:subClassOf req:Requirement .
 
+req:id a owl:DatatypeProperty ;
+  rdfs:label "id" .
+
+req:title a owl:DatatypeProperty ;
+  rdfs:label "title" .
+
+req:relatedTo a owl:ObjectProperty ;
+  rdfs:label "related to" .
+
 req:conflictsWith a owl:ObjectProperty, owl:SymmetricProperty .
 `);
 			await writeFile(instancesPath, `
@@ -98,6 +107,9 @@ req:conflictsWith a owl:ObjectProperty, owl:SymmetricProperty .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 ex:REQ-001 a req:FunctionalRequirement ;
+  req:id "REQ-001" ;
+  req:title "User Authentication" ;
+  req:relatedTo ex:REQ-002 ;
   rdfs:label "User Authentication" .
 
 ex:REQ-002 rdf:type req:FunctionalRequirement ;
@@ -122,14 +134,47 @@ ex:REQ-002 rdf:type req:FunctionalRequirement ;
 			const schemaIndividuals = schemaOntology?.items.filter((item) => item.type === 'individual') ?? [];
 			const requirements = new Map((instancesOntology?.items.filter((item) => item.type === 'individual') ?? [])
 				.map((item) => [item.reference, item]));
+			const objectPropertyAssertions = instancesOntology?.items.filter((item) => item.type === 'objectPropertyAssertion') ?? [];
 			const shorthandRequirement = requirements.get('ex:REQ-001');
 			const explicitTypeRequirement = requirements.get('ex:REQ-002');
 			assert.deepStrictEqual(schemaIndividuals, []);
 			assert.strictEqual(requirements.size, 2);
 			assert.strictEqual(shorthandRequirement?.displayLabel, 'User Authentication');
 			assert.deepStrictEqual(shorthandRequirement?.metadata.assertedClassReferences, ['https://example.com/requirements#FunctionalRequirement']);
+			assert.deepStrictEqual(shorthandRequirement?.metadata.propertyAssertions?.map((assertion) => ({
+				propertyReference: assertion.propertyReference,
+				value: assertion.value,
+				valueType: assertion.valueType,
+			})), [
+				{
+					propertyReference: 'https://example.com/requirements#id',
+					value: 'REQ-001',
+					valueType: 'literal',
+				},
+				{
+					propertyReference: 'https://example.com/requirements#title',
+					value: 'User Authentication',
+					valueType: 'literal',
+				},
+				{
+					propertyReference: 'https://example.com/requirements#relatedTo',
+					value: 'https://example.com/requirements/instances#REQ-002',
+					valueType: 'resource',
+				},
+			]);
 			assert.strictEqual(explicitTypeRequirement?.displayLabel, 'Password Reset');
 			assert.deepStrictEqual(explicitTypeRequirement?.metadata.assertedClassReferences, ['https://example.com/requirements#FunctionalRequirement']);
+			assert.strictEqual(objectPropertyAssertions.length, 1);
+			assert.strictEqual(objectPropertyAssertions[0].reference, 'req:relatedTo');
+			assert.strictEqual(objectPropertyAssertions[0].displayLabel, 'User Authentication relatedTo Password Reset');
+			assert.deepStrictEqual(objectPropertyAssertions[0].metadata, {
+				relationshipReference: 'req:relatedTo',
+				displayLabels: [],
+				edgeOntologyRef: 'req:relatedTo',
+				sourceOntologyRef: 'ex:REQ-001',
+				targetOntologyRef: 'ex:REQ-002',
+				targetNodeType: 'individual',
+			});
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
@@ -170,6 +215,52 @@ ex:Domain a owl:Class ;
 			assert.strictEqual(relationship?.reference, 'rdfs:subClassOf');
 			assert.strictEqual(relationship?.metadata.subclassReference, 'ex:Requirement');
 			assert.strictEqual(relationship?.metadata.superclassReference, 'ex:Domain');
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('loads untyped resource assertion subjects as object property assertions', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-untyped-assertions-'));
+		try {
+			const ontologyPath = path.join(directory, 'model.ttl');
+			await writeFile(ontologyPath, `
+@prefix ex: <https://fressnapf.de/ontology/example/requirements#> .
+@prefix req: <https://fressnapf.de/ontology/requirements#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:AuthenticationService a owl:Class ;
+  rdfs:label "Authentication Service" .
+
+ex:REQ-002 req:appliesTo ex:AuthenticationService .
+`);
+			const diagram = new OntologyDiagramDocument(
+				DiagramMetadata.createEmpty('Example'),
+				[new OntologyFileReference('model.ttl')],
+				new Map([
+					['ex', 'https://fressnapf.de/ontology/example/requirements#'],
+					['req', 'https://fressnapf.de/ontology/requirements#'],
+				]),
+				[],
+				[],
+			);
+
+			const [ontology] = await loadReferencedOntologies(path.join(directory, 'diagram.odiagram'), diagram);
+
+			const requirement = ontology?.items.find((item) => item.type === 'individual' && item.reference === 'ex:REQ-002');
+			const assertion = ontology?.items.find((item) => item.type === 'objectPropertyAssertion');
+			assert.strictEqual(requirement?.displayLabel, 'ex:REQ-002');
+			assert.strictEqual(assertion?.reference, 'req:appliesTo');
+			assert.strictEqual(assertion?.displayLabel, 'ex:REQ-002 appliesTo Authentication Service');
+			assert.deepStrictEqual(assertion?.metadata, {
+				relationshipReference: 'req:appliesTo',
+				displayLabels: [],
+				edgeOntologyRef: 'req:appliesTo',
+				sourceOntologyRef: 'ex:REQ-002',
+				targetOntologyRef: 'ex:AuthenticationService',
+				targetNodeType: 'class',
+			});
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}

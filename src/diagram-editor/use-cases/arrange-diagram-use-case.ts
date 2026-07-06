@@ -31,6 +31,8 @@ export class ArrangeDiagramUseCase {
 				node.image,
 				node.extra,
 				node.showDataProperties,
+				node.showType,
+				node.showPropertyValues,
 			);
 		});
 

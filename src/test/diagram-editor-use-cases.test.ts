@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -42,6 +42,42 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.nodes[0].extra, {
 			ontology_item_type: 'class',
 		});
+	});
+
+	test('creates individual nodes with visible type and property values', () => {
+		const result = new CreateNodeUseCase().execute(
+			emptyDiagram(),
+			{
+				ontologyItemType: 'individual',
+				ontologyItemReference: 'ex:REQ-001',
+				displayLabel: 'REQ-001',
+				ontologyItemMetadata: {
+					assertedClassReferences: ['https://example.com/requirements#FunctionalRequirement'],
+					propertyAssertions: [
+						{
+							propertyReference: 'https://example.com/requirements#title',
+							value: 'User Authentication',
+							valueType: 'literal',
+						},
+						{
+							propertyReference: 'https://example.com/requirements#dependsOn',
+							value: 'https://example.com/requirements#REQ-002',
+							valueType: 'resource',
+						},
+					],
+				},
+			},
+			{ x: 10, y: 20 },
+			{ width: 520, height: 140 },
+		);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes[0].showType, true);
+		assert.strictEqual(result.diagram.nodes[0].showPropertyValues, true);
+		assert.strictEqual(result.diagram.nodes[0].bounds.width, 520);
+		assert.strictEqual(result.diagram.nodes[0].bounds.height, 140);
+		assert.deepStrictEqual(result.diagram.nodes[0].toPersistenceObject().show_type, true);
+		assert.deepStrictEqual(result.diagram.nodes[0].toPersistenceObject().show_property_values, true);
 	});
 
 	test('reports duplicate model-tree nodes without changing the diagram', () => {
@@ -666,6 +702,56 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
 	});
 
+	test('materializes object property assertion edges from individuals', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([
+				['ex', 'https://example.com/requirements/instances#'],
+				['req', 'https://example.com/requirements#'],
+			]),
+			[
+				new DiagramNode(
+					'node_requirement',
+					'ex:REQ-001',
+					new Bounds(40, 120, 360, 144),
+					undefined,
+					undefined,
+					{ ontology_item_type: 'individual' },
+					undefined,
+					true,
+					true,
+				),
+			],
+			[],
+		);
+
+		const result = new CreateEdgeUseCase().execute(diagram, {
+			ontologyItemType: 'objectPropertyAssertion',
+			ontologyItemReference: 'req:appliesTo',
+			displayLabel: 'REQ-001 appliesTo AuthenticationService',
+			ontologyItemMetadata: {
+				edgeOntologyRef: 'req:appliesTo',
+				sourceOntologyRef: 'ex:REQ-001',
+				targetOntologyRef: 'ex:AuthenticationService',
+				targetNodeType: 'individual',
+			},
+		}, { x: 460, y: 120 });
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.nodes.length, 2);
+		assert.strictEqual(result.diagram.edges.length, 1);
+		const targetNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:AuthenticationService');
+		assert.ok(targetNode);
+		assert.strictEqual(targetNode.extra.ontology_item_type, 'individual');
+		assert.strictEqual(targetNode.showType, true);
+		assert.strictEqual(targetNode.showPropertyValues, true);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_requirement');
+		assert.strictEqual(result.diagram.edges[0].target.value, targetNode.id.value);
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'req:appliesTo');
+		assert.strictEqual(result.diagram.edges[0].extra.ontology_item_type, 'objectPropertyAssertion');
+	});
+
 	test('routes bottom-side subclass edges through a shared generalization trunk', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
@@ -1114,6 +1200,57 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.ontologyRef.value), ['ex:memberOf']);
 	});
 
+	test('shows object property assertion targets for selected individuals', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([
+				['ex', 'https://example.com/requirements/instances#'],
+				['req', 'https://example.com/requirements#'],
+			]),
+			[
+				new DiagramNode(
+					'node_requirement',
+					'ex:REQ-001',
+					new Bounds(300, 200, 360, 144),
+					undefined,
+					undefined,
+					{ ontology_item_type: 'individual' },
+					undefined,
+					true,
+					true,
+				),
+			],
+			[],
+		);
+
+		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_requirement', 1, [
+			{
+				ontologyItemType: 'objectPropertyAssertion',
+				ontologyItemReference: 'req:appliesTo',
+				displayLabel: 'REQ-001 appliesTo AuthenticationService',
+				ontologyItemMetadata: {
+					edgeOntologyRef: 'req:appliesTo',
+					sourceOntologyRef: 'ex:REQ-001',
+					targetOntologyRef: 'ex:AuthenticationService',
+					targetNodeType: 'individual',
+				},
+			},
+		]);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.notification, 'Added 1 related node and 1 edge.');
+		const targetNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:AuthenticationService');
+		assert.ok(targetNode);
+		assert.strictEqual(targetNode.extra.ontology_item_type, 'individual');
+		assert.strictEqual(targetNode.showType, true);
+		assert.strictEqual(targetNode.showPropertyValues, true);
+		assert.strictEqual(result.diagram.edges[0].source.value, 'node_requirement');
+		assert.strictEqual(result.diagram.edges[0].target.value, targetNode.id.value);
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'req:appliesTo');
+		assert.strictEqual(result.diagram.edges[0].extra.ontology_item_type, 'objectPropertyAssertion');
+	});
+
 	test('shows related ontology elements to the selected depth', () => {
 		const diagram = diagramWithNodes([
 			new DiagramNode('node_person', 'ex:Person', new Bounds(100, 100, 180, 72)),
@@ -1261,6 +1398,111 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].routeLayout, 'manhattan');
 	});
 
+	test('straightens side-by-side edge routes horizontally', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 80)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(220, 20, 100, 80)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(10, 10), new Point(160, 10), new Point(160, 120), new Point(300, 120)],
+				),
+			],
+		);
+
+		const result = new StraightenEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 50 },
+			{ x: 220, y: 50 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 160,
+			y: 50,
+		});
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
+	});
+
+	test('straightens stacked edge routes vertically', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 80)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(20, 220, 100, 80)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(10, 10), new Point(160, 10), new Point(160, 120), new Point(300, 120)],
+				),
+			],
+		);
+
+		const result = new StraightenEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 60, y: 80 },
+			{ x: 60, y: 220 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 60,
+			y: 150,
+		});
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
+	});
+
+	test('forces a nearest axis-aligned route for diagonal endpoints', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 80)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(220, 110, 100, 80)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(100, 40), new Point(160, 40), new Point(160, 150), new Point(220, 150)],
+				),
+			],
+		);
+
+		const result = new StraightenEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 95 },
+			{ x: 220, y: 95 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 160,
+			y: 95,
+		});
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
+	});
+
 	test('reports invalid edge routes without changing the diagram', () => {
 		const result = new UpdateEdgeRouteUseCase().execute(emptyDiagram(), [{
 			id: 'edge_missing',
@@ -1300,6 +1542,38 @@ suite('Diagram editor use cases', () => {
 		assert.ok(disabled.diagram);
 		assert.strictEqual(disabled.diagram.nodes[0].showDataProperties, undefined);
 		assert.strictEqual(disabled.diagram.nodes[0].toPersistenceObject().show_data_properties, undefined);
+	});
+
+	test('updates node instance type visibility', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_requirement', 'ex:REQ-001', new Bounds(0, 0, 100, 50), undefined, undefined, { ontology_item_type: 'individual' }, undefined, true, true),
+		]);
+
+		const disabled = new UpdateNodeTypeVisibilityUseCase().execute(diagram, 'node_requirement', false);
+		assert.ok(disabled.diagram);
+		assert.strictEqual(disabled.diagram.nodes[0].showType, false);
+		assert.deepStrictEqual(disabled.diagram.nodes[0].toPersistenceObject().show_type, false);
+
+		const enabled = new UpdateNodeTypeVisibilityUseCase().execute(disabled.diagram, 'node_requirement', true);
+		assert.ok(enabled.diagram);
+		assert.strictEqual(enabled.diagram.nodes[0].showType, true);
+		assert.deepStrictEqual(enabled.diagram.nodes[0].toPersistenceObject().show_type, true);
+	});
+
+	test('updates node property value visibility', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_requirement', 'ex:REQ-001', new Bounds(0, 0, 100, 50), undefined, undefined, { ontology_item_type: 'individual' }, undefined, true, undefined),
+		]);
+
+		const enabled = new UpdateNodePropertyValuesVisibilityUseCase().execute(diagram, 'node_requirement', true);
+		assert.ok(enabled.diagram);
+		assert.strictEqual(enabled.diagram.nodes[0].showPropertyValues, true);
+		assert.deepStrictEqual(enabled.diagram.nodes[0].toPersistenceObject().show_property_values, true);
+
+		const disabled = new UpdateNodePropertyValuesVisibilityUseCase().execute(enabled.diagram, 'node_requirement', false);
+		assert.ok(disabled.diagram);
+		assert.strictEqual(disabled.diagram.nodes[0].showPropertyValues, false);
+		assert.deepStrictEqual(disabled.diagram.nodes[0].toPersistenceObject().show_property_values, false);
 	});
 
 	test('creates a diagram image with persisted source and default bounds', () => {
