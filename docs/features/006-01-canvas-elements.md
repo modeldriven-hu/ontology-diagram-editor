@@ -48,7 +48,17 @@ The selected element shall show a visible selection outline. Elements with persi
 bounds, such as nodes, notes, images, and standalone labels, shall show move and resize
 affordances. Edges shall show edge label movement affordances.
 
-Version 1 shall support single selection.
+The user can add or remove nodes, notes, images, and standalone labels from the current
+selection by using platform selection modifiers. The user can also select multiple
+bounded elements with a marquee selection gesture.
+
+When multiple bounded elements are selected, keyboard movement shall move those elements
+as a single unit. Mouse drag movement for multi-selection is disabled for version 1.
+Keyboard movement shall preserve each element's relative position within the selection
+and persist as one logical diagram movement. Edges whose source and target elements both
+move by the same group offset shall move with the selected elements: their persisted
+route points and label point shall be translated by the same offset instead of being
+rerouted. Version 1 multi-selection does not provide bulk property editing.
 
 Selecting an element shall emit a `Canvas selection changed` event.
 
@@ -122,7 +132,8 @@ The canvas shall support keyboard deletion of the selected element with `Delete`
 When a node, note, image, standalone label, or edge is selected, the canvas shall support
 keyboard movement with the arrow keys. For edges, arrow keys shall move the edge label.
 For nodes, notes, images, and standalone labels, arrow keys shall move the selected
-element. Holding `Shift` shall use a larger movement step.
+element. When multiple movable elements are selected, arrow keys shall move the selected
+elements as a group. Holding `Shift` shall use a larger movement step.
 
 The canvas shall support standard undo and redo keyboard shortcuts when focus is in the
 canvas and no text field or text editor is actively handling the shortcut. Undo and redo

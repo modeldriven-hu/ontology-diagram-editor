@@ -91,7 +91,8 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 function isInPlaceBoundsUpdate(command: WebviewCommand): boolean {
-	return command.type === 'updateNodeBounds'
+	return command.type === 'updateElementBounds'
+		|| command.type === 'updateNodeBounds'
 		|| command.type === 'updateNoteBounds'
 		|| command.type === 'updateImageBounds'
 		|| command.type === 'updateLabelBounds';

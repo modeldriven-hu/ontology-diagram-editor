@@ -38,6 +38,7 @@ interface WebviewConfig {
 
 interface WebviewState {
 	readonly selectedElementId?: string;
+	readonly selectedElementIds?: readonly string[];
 	readonly propertyPanelCollapsed?: boolean;
 	readonly propertyPanelWidth?: number;
 	readonly viewportPanX?: number;
@@ -325,7 +326,10 @@ function registerCanvasStateSubscriptions(): void {
 
 		const event = message.payload;
 		if (event.type === 'canvasSelectionChanged') {
-			updateWebviewState({ selectedElementId: event.selectedElementIdentifier });
+			updateWebviewState({
+				selectedElementId: event.selectedElementIdentifier,
+				selectedElementIds: event.selectedElementIdentifiers,
+			});
 		}
 		if (event.type === 'canvasPropertyPanelVisibilityChanged') {
 			updateWebviewState({ propertyPanelCollapsed: event.collapsed });
@@ -343,16 +347,19 @@ function registerCanvasStateSubscriptions(): void {
 function registerSelectionEventPublishing(): void {
 	canvas.onSelectionChanged(() => {
 		const selectedElementId = canvas.selectedElementId();
+		const selectedElementIds = canvas.selectedElementIds();
 		handlePendingNoteConnectionSelection(selectedElementId);
 		updateLocalElementToolbar();
 		console.log('[ontology-diagram-editor] publish canvas selection', {
 			selectedElementId,
+			selectedElementIds,
 			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
 		});
 		messageBus.publishEvent(new CanvasSelectionChangedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
 			selectedElementIdentifier: selectedElementId,
 			selectedElementType: selectedElementId === undefined ? undefined : elementRegistry.elementType(selectedElementId),
+			selectedElementIdentifiers: selectedElementIds,
 		}));
 	});
 }
@@ -544,13 +551,15 @@ function updateLocalElementToolbar(): void {
 
 	const zoom = canvas.zoom();
 	const toolbarWidth = localElementToolbar.getBoundingClientRect().width || localElementToolbarFallbackWidth(selectedElement);
-	const x = toolbarAnchor.x * zoom - canvasScroll.scrollLeft;
-	const y = toolbarAnchor.y * zoom - canvasScroll.scrollTop;
-	const left = Math.round(Math.min(Math.max(x, toolbarWidth / 2 + 8), Math.max(toolbarWidth / 2 + 8, canvasScroll.clientWidth - toolbarWidth / 2 - 8)));
-	const belowY = toolbarAnchor.belowY * zoom - canvasScroll.scrollTop;
-	const top = Math.round(y >= 48 ? y - 42 : belowY + 8);
-	localElementToolbar.style.left = `${left}px`;
-	localElementToolbar.style.top = `${Math.max(8, top)}px`;
+	const viewportX = toolbarAnchor.x * zoom - canvasScroll.scrollLeft;
+	const viewportY = toolbarAnchor.y * zoom - canvasScroll.scrollTop;
+	const minViewportX = toolbarWidth / 2 + 8;
+	const maxViewportX = Math.max(minViewportX, canvasScroll.clientWidth - toolbarWidth / 2 - 8);
+	const viewportLeft = Math.min(Math.max(viewportX, minViewportX), maxViewportX);
+	const belowViewportY = toolbarAnchor.belowY * zoom - canvasScroll.scrollTop;
+	const viewportTop = Math.max(8, viewportY >= 48 ? viewportY - 42 : belowViewportY + 8);
+	localElementToolbar.style.left = `${Math.round(viewportLeft + canvasScroll.scrollLeft)}px`;
+	localElementToolbar.style.top = `${Math.round(viewportTop + canvasScroll.scrollTop)}px`;
 	localElementToolbar.hidden = false;
 	connectNoteLocalButton.setAttribute('aria-pressed', String(pendingNoteConnectionSourceId === selectedElementId));
 }
@@ -1078,12 +1087,13 @@ function rectCenter(bounds: ContentBounds): CanvasPoint {
 }
 
 function restoreSelection(): void {
-	const selectedElementId = vscode.getState()?.selectedElementId;
-	if (selectedElementId === undefined) {
+	const state = vscode.getState();
+	const selectedElementIds = state?.selectedElementIds ?? (state?.selectedElementId === undefined ? [] : [state.selectedElementId]);
+	if (selectedElementIds.length === 0) {
 		return;
 	}
 
-	canvas.selectElement(selectedElementId);
+	canvas.selectElements(selectedElementIds);
 }
 
 function restoreViewport(): void {
@@ -1252,6 +1262,12 @@ function registerKeyboardNudgeHandlers(): void {
 
 		const delta = keyboardNudgeDelta(event);
 		if (delta === undefined) {
+			return;
+		}
+
+		const selectedElementIds = canvas.selectedElementIds();
+		if (selectedElementIds.length > 1 && canvas.nudgeSelectedElements(delta)) {
+			event.preventDefault();
 			return;
 		}
 

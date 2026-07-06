@@ -42,6 +42,7 @@ export class CanvasPropertyPanel {
 	private collapsed = false;
 	private panelWidth?: number;
 	private selectedElement: CanvasPropertyElement | undefined;
+	private selectedElementCount = 0;
 	private readonly selectedTabByContext = new Map<string, string>();
 
 	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
@@ -73,7 +74,9 @@ export class CanvasPropertyPanel {
 				console.log('[ontology-diagram-editor] property-panel selection event received', {
 					selectedElementIdentifier: event.selectedElementIdentifier,
 					selectedElementType: event.selectedElementType,
+					selectedElementCount: event.selectedElementIdentifiers.length,
 				});
+				this.selectedElementCount = event.selectedElementIdentifiers.length;
 				this.selectedElement = event.selectedElementIdentifier === undefined
 					? undefined
 					: this.options.registry.element(event.selectedElementIdentifier);
@@ -192,6 +195,11 @@ export class CanvasPropertyPanel {
 	private renderSelection(): void {
 		this.options.body.textContent = '';
 		if (this.selectedElement === undefined) {
+			if (this.selectedElementCount > 1) {
+				this.renderMultipleSelectionContext();
+				return;
+			}
+
 			this.options.title.textContent = 'Diagram Properties';
 			this.renderDiagramContext();
 			return;
@@ -199,6 +207,13 @@ export class CanvasPropertyPanel {
 
 		this.options.title.textContent = `${capitalize(this.selectedElement.kind)} Properties`;
 		this.renderElement(this.selectedElement);
+	}
+
+	private renderMultipleSelectionContext(): void {
+		this.options.title.textContent = 'Multiple Selection';
+		this.options.body.append(sectionElement('Selection', [
+			readonlyField('Selected', String(this.selectedElementCount)),
+		]));
 	}
 
 	private renderDiagramContext(): void {

@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasDragCompletedEvent } from '../../../shared/canvas-editor-events';
-import { UpdateEdgeRouteCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../../../shared/webview-commands';
+import { UpdateEdgeRouteCommand, UpdateElementBoundsCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../../../shared/webview-commands';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import type { BoundsDragKind, DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 
@@ -198,6 +198,15 @@ export class CanvasGeometryPersistence {
 		}
 		for (const update of labelUpdates) {
 			this.publishDragCompleted('label', update, dragKind);
+		}
+		if (dragKind === 'move' && nodeUpdates.length + noteUpdates.length + imageUpdates.length + labelUpdates.length > 1) {
+			this.options.messageBus.publishCommand(new UpdateElementBoundsCommand({
+				nodeUpdates,
+				noteUpdates,
+				imageUpdates,
+				labelUpdates,
+			}));
+			return;
 		}
 		if (nodeUpdates.length > 0) {
 			this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand(nodeUpdates));

@@ -1,5 +1,7 @@
 export {};
 
+import type { CanvasPoint } from '../../../shared/canvas-geometry';
+
 declare global {
 	interface Window {
 		X6?: X6BrowserApi;
@@ -23,6 +25,10 @@ export interface X6Graph {
 	clearTransformWidgets?: () => void;
 	getPlugin?(name: string): unknown;
 	use(plugin: unknown): void;
+	cleanSelection?(options?: Record<string, unknown>): X6Graph;
+	resetSelection?(cells?: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): X6Graph;
+	select?(cells: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): X6Graph;
+	unselect?(cells: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): X6Graph;
 	zoom(): number;
 	zoom(factor: number, options?: {
 		readonly absolute?: boolean;
@@ -37,6 +43,15 @@ export interface X6Graph {
 
 export interface X6Cell {
 	readonly id: string;
+}
+
+export interface X6SelectionPlugin {
+	clean(options?: Record<string, unknown>): unknown;
+	reset(cells?: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): unknown;
+	select(cells: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): unknown;
+	unselect(cells: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): unknown;
+	isSelected(cell: X6Cell | string): boolean;
+	getSelectedCells(): X6Cell[];
 }
 
 export interface X6Node extends X6Cell {
@@ -61,8 +76,11 @@ export interface X6Edge extends X6Cell {
 	getVertices(): unknown[];
 	getPolyline(): { readonly points: readonly { readonly x: number; readonly y: number }[] };
 	removeTools(): void;
-	setLabelAt(index: number, label: X6EdgeLabel): X6Edge;
+	setLabelAt(index: number, label: X6EdgeLabel, options?: Record<string, unknown>): X6Edge;
+	setSource(source: X6Terminal, options?: Record<string, unknown>): X6Edge;
+	setTarget(target: X6Terminal, options?: Record<string, unknown>): X6Edge;
 	setTools(tools?: unknown): X6Edge;
+	setVertices(vertices: readonly CanvasPoint[], options?: Record<string, unknown>): X6Edge;
 }
 
 export interface X6Terminal {

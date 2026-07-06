@@ -22,7 +22,7 @@ DOM state.
 | Canvas opened | A `.odiagram` file is opened in the canvas view | Diagram file path |
 | Canvas rendered | The canvas renders or rerenders the diagram | Diagram file path, rendered element identifiers, warnings |
 | Canvas validation changed | Diagram validation warnings or errors change | Diagram file path, warnings, errors |
-| Canvas selection changed | The selected canvas element changes | Diagram file path, selected element identifier, selected element type |
+| Canvas selection changed | The selected canvas element or selection set changes | Diagram file path, selected element identifier, selected element type, selected element identifiers |
 | Canvas viewport changed | The user pans, zooms, fits, resets, or reveals an element in the canvas viewport | Diagram file path, pan x, pan y, zoom, change source |
 | Canvas drag started | The user starts dragging a selected canvas element, resize handle, or edge label | Diagram file path, element identifier, drag kind, initial geometry |
 | Canvas drag changed | The user moves a selected element, resize handle, or edge label during a drag | Diagram file path, element identifier, drag kind, preview geometry |

@@ -4,7 +4,7 @@
 
 - Given the canvas opens a `.odiagram` file, when the webview initializes, then `Canvas opened` is emitted with the diagram file path.
 - Given the canvas renders or rerenders, when rendering completes, then `Canvas rendered` includes diagram file path, rendered element identifiers, and warnings.
-- Given selection changes, when the event is emitted, then it includes diagram file path, selected element identifier, and selected element type.
+- Given selection changes, when the event is emitted, then it includes diagram file path, selected element identifier, selected element type, and the selected element identifiers.
 - Given a drag starts, changes, completes, or cancels, when the event is emitted, then it includes diagram file path, element identifier, drag kind, and the relevant geometry payload.
 
 ## Editing Events

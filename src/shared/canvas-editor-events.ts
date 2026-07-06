@@ -34,15 +34,18 @@ export class CanvasSelectionChangedEvent {
 	public readonly diagramFilePath?: string;
 	public readonly selectedElementIdentifier?: string;
 	public readonly selectedElementType?: CanvasElementType;
+	public readonly selectedElementIdentifiers: readonly string[];
 
 	public constructor(options: {
 		readonly diagramFilePath?: string;
 		readonly selectedElementIdentifier?: string;
 		readonly selectedElementType?: CanvasElementType;
+		readonly selectedElementIdentifiers?: readonly string[];
 	}) {
 		this.diagramFilePath = options.diagramFilePath;
 		this.selectedElementIdentifier = options.selectedElementIdentifier;
 		this.selectedElementType = options.selectedElementType;
+		this.selectedElementIdentifiers = options.selectedElementIdentifiers ?? [];
 	}
 }
 

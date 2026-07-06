@@ -65,6 +65,7 @@ export type WebviewCommand =
 	| DeleteNoteCommand
 	| DeleteImageCommand
 	| DeleteLabelCommand
+	| UpdateElementBoundsCommand
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
 	| OptimizeEdgeRouteCommand
@@ -116,6 +117,26 @@ export class UpdateNodeBoundsCommand {
 
 	public constructor(updates: readonly NodeBoundsUpdate[]) {
 		this.updates = updates;
+	}
+}
+
+export class UpdateElementBoundsCommand {
+	public readonly type = 'updateElementBounds';
+	public readonly nodeUpdates: readonly NodeBoundsUpdate[];
+	public readonly noteUpdates: readonly NoteBoundsUpdate[];
+	public readonly imageUpdates: readonly ImageBoundsUpdate[];
+	public readonly labelUpdates: readonly LabelBoundsUpdate[];
+
+	public constructor(options: {
+		readonly nodeUpdates?: readonly NodeBoundsUpdate[];
+		readonly noteUpdates?: readonly NoteBoundsUpdate[];
+		readonly imageUpdates?: readonly ImageBoundsUpdate[];
+		readonly labelUpdates?: readonly LabelBoundsUpdate[];
+	}) {
+		this.nodeUpdates = options.nodeUpdates ?? [];
+		this.noteUpdates = options.noteUpdates ?? [];
+		this.imageUpdates = options.imageUpdates ?? [];
+		this.labelUpdates = options.labelUpdates ?? [];
 	}
 }
 

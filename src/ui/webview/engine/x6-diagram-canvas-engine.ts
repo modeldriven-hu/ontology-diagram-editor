@@ -1,17 +1,26 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
-import type { CanvasElementRegistry } from '../components/canvas-element-registry';
+import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeDataPropertyAttributes, nodeDataPropertyLayout, truncateText } from '../components/node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
-import type { X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node } from './x6-browser';
+import type { X6Cell, X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node, X6SelectionPlugin } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
 type ElementStyle = NonNullable<DiagramNode['style']>;
 type EdgeLineStyle = NonNullable<DiagramEdge['style']>['line_style'];
 type ConnectableElement = Pick<DiagramNode | DiagramNote | DiagramImage, 'id' | 'x' | 'y' | 'width' | 'height'>;
+type EdgeRouteSnapshot = {
+	readonly id: string;
+	readonly sourceId: string;
+	readonly targetId: string;
+	readonly sourceElement: ConnectableElement;
+	readonly targetElement: ConnectableElement;
+	readonly points: readonly CanvasPoint[];
+	readonly label: CanvasPoint;
+};
 
 export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly graph: X6Graph;
@@ -20,8 +29,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly boundsChangeListeners = new Set<CanvasBoundsChangeListener>();
 	private readonly edgeRouteChangeListeners = new Set<CanvasEdgeRouteChangeListener>();
 	private readonly pendingEdgeRouteChanges = new Set<string>();
-	private selectedId: string | undefined;
+	private selectedIds: string[] = [];
 	private suppressBoundsEvents = false;
+	private suppressSelectionEvents = false;
 	private suppressEdgeRouteEvents = false;
 	private suppressBlankSelectionClear = false;
 	private edgeRoutePublishTimer: number | undefined;
@@ -54,14 +64,27 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				allowMulti: false,
 				highlight: false,
 			},
-			interacting: {
-				nodeMovable: true,
+			interacting: (cellView: unknown) => ({
+				nodeMovable: !this.isMultiSelectedNodeView(cellView),
 				edgeMovable: false,
 				edgeLabelMovable: true,
 				arrowheadMovable: false,
 				vertexMovable: true,
-			},
+			}),
 		});
+		this.graph.use(new x6.Selection({
+			rubberband: true,
+			rubberNode: true,
+			rubberEdge: false,
+			multiple: true,
+			multipleSelectionModifiers: ['ctrl', 'meta', 'shift'],
+			movable: false,
+			showNodeSelectionBox: true,
+			showEdgeSelectionBox: false,
+			pointerEvents: 'none',
+			content: false,
+			filter: (cell: unknown) => isX6Node(cell) && this.elementRegistry.element(cell.id)?.kind !== 'edge',
+		}));
 		this.graph.use(new x6.Transform({
 			resizing: {
 				enabled: true,
@@ -77,8 +100,10 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	public renderDiagram(payload: DiagramPayload, theme: WebviewTheme): void {
 		this.theme = theme;
 		this.currentPayload = payload;
+		const selectedIds = this.selectedIds;
 		installX6Styles(theme);
 		this.suppressEdgeRouteEvents = true;
+		this.suppressSelectionEvents = true;
 		try {
 			this.clearPendingEdgeRouteChanges();
 			this.graph.clearCells();
@@ -104,11 +129,20 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 		} finally {
 			this.suppressEdgeRouteEvents = false;
+			this.suppressSelectionEvents = false;
 		}
+		this.setSelectedIds(selectedIds.filter((id) => this.graph.getCellById(id) !== undefined), {
+			publish: false,
+			syncGraphSelection: true,
+		});
 	}
 
 	public selectedElementId(): string | undefined {
-		return this.selectedId;
+		return this.selectedIds.length === 1 ? this.selectedIds[0] : undefined;
+	}
+
+	public selectedElementIds(): readonly string[] {
+		return [...this.selectedIds];
 	}
 
 	public selectElement(id: string): void {
@@ -116,18 +150,20 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		const cell = this.graph.getCellById(id);
 		if (isX6Node(cell) && this.elementRegistry.element(id) !== undefined) {
 			console.log('[ontology-diagram-editor] canvas selectElement resolved node', { id });
-			createTransformWidget(this.graph, cell);
-			this.setSelectedId(id);
+			this.setSelectedIds([id], { syncGraphSelection: true });
 		}
 		if (isX6Edge(cell) && this.elementRegistry.element(id) !== undefined) {
 			console.log('[ontology-diagram-editor] canvas selectElement resolved edge', { id });
-			clearTransformWidgets(this.graph);
-			cell.setTools(edgeEditTools());
-			this.setSelectedId(id);
+			this.setSelectedIds([id], { syncGraphSelection: true });
 		}
 		if (cell === undefined) {
 			console.warn('[ontology-diagram-editor] canvas selectElement missing cell', { id });
 		}
+	}
+
+	public selectElements(ids: readonly string[]): void {
+		console.log('[ontology-diagram-editor] canvas selectElements requested', { ids });
+		this.setSelectedIds(ids, { syncGraphSelection: true });
 	}
 
 	public zoom(): number {
@@ -187,7 +223,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		this.elementRegistry.updateBounds(update);
 		cell.resize(update.width, update.height);
 		this.updateOntologyNodePresentation(id);
-		if (this.selectedId === id) {
+		if (this.selectedIds.includes(id)) {
 			this.publishSelectionChanged();
 		}
 		for (const listener of this.boundsChangeListeners) {
@@ -245,7 +281,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		this.elementRegistry.updateBounds(update);
 		cell.position(update.x, update.y);
-		if (this.selectedId === id) {
+		if (this.selectedIds.includes(id)) {
 			this.publishSelectionChanged();
 		}
 		for (const listener of this.boundsChangeListeners) {
@@ -254,6 +290,53 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				bounds: [update],
 			});
 		}
+
+		return true;
+	}
+
+	public nudgeSelectedElements(delta: CanvasPoint): boolean {
+		const cells = this.selectedNodeCells();
+		if (cells.length === 0) {
+			return false;
+		}
+
+		const adjustedDelta = boundedGroupDelta(cells, delta);
+		if (adjustedDelta.x === 0 && adjustedDelta.y === 0) {
+			return false;
+		}
+
+		this.suppressBoundsEvents = true;
+		const edgeRoutes = this.selectedInternalEdgeRoutes();
+		const updates: BoundsUpdate[] = [];
+		try {
+			for (const cell of cells) {
+				const position = cell.position();
+				const size = cell.size();
+				const update = {
+					id: cell.id,
+					x: Math.max(0, Math.round(position.x + adjustedDelta.x)),
+					y: Math.max(0, Math.round(position.y + adjustedDelta.y)),
+					width: Math.round(size.width),
+					height: Math.round(size.height),
+				};
+				if (!boundsDifferFromRegistry(update, this.elementRegistry)) {
+					continue;
+				}
+
+				cell.position(update.x, update.y);
+				this.elementRegistry.updateBounds(update);
+				updates.push(update);
+			}
+		} finally {
+			this.suppressBoundsEvents = false;
+		}
+		if (updates.length === 0) {
+			return false;
+		}
+
+		this.applyTranslatedEdgeRoutes(edgeRoutes, updates);
+		this.publishSelectionChanged();
+		this.publishElementBounds(updates, 'move');
 
 		return true;
 	}
@@ -353,8 +436,6 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			if (node === undefined) {
 				return;
 			}
-
-			this.setSelectedId(node.id);
 		});
 		this.graph.on('edge:click', (event) => {
 			const edge = eventEdge(event);
@@ -372,9 +453,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 
 			stopEvent(event.e);
-			clearTransformWidgets(this.graph);
-			edge.setTools(edgeEditTools());
-			this.setSelectedId(edge.id);
+			this.setSelectedIds([edge.id], { syncGraphSelection: true });
 		});
 		this.graph.on('edge:label:click', (event) => {
 			const edge = eventEdge(event);
@@ -383,9 +462,14 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 
 			stopEvent(event.e);
-			clearTransformWidgets(this.graph);
-			edge.setTools(edgeEditTools());
-			this.setSelectedId(edge.id);
+			this.setSelectedIds([edge.id], { syncGraphSelection: true });
+		});
+		this.graph.on('selection:changed', (event) => {
+			if (this.suppressSelectionEvents) {
+				return;
+			}
+
+			this.setSelectedIds(eventSelectedIds(event), { syncGraphSelection: false });
 		});
 		this.graph.on('edge:change:source', (event) => {
 			this.markEdgeRouteChanged(eventEdge(event));
@@ -413,7 +497,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				return;
 			}
 
-			this.setSelectedId(undefined);
+			this.setSelectedIds([], { syncGraphSelection: true });
 		});
 		this.graph.on('node:dblclick', (event) => {
 			const node = eventNode(event);
@@ -431,6 +515,10 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		this.graph.on('node:moved', (event) => {
 			const node = eventNode(event);
 			if (node === undefined) {
+				return;
+			}
+
+			if (this.selectedIds.length > 1 && this.selectedIds.includes(node.id)) {
 				return;
 			}
 
@@ -460,20 +548,66 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
-	private setSelectedId(id: string | undefined): void {
-		if (this.selectedId === id) {
-			console.log('[ontology-diagram-editor] canvas selection unchanged', { id });
+	private setSelectedIds(
+		ids: readonly string[],
+		options: { readonly publish?: boolean; readonly syncGraphSelection?: boolean } = {},
+	): void {
+		const nextIds = uniqueElementIds(ids).filter((id) => this.elementRegistry.element(id) !== undefined);
+		if (stringArraysEqual(this.selectedIds, nextIds)) {
+			if (options.syncGraphSelection === true) {
+				this.syncGraphSelection(nextIds);
+			}
+			this.updateSelectionPresentation(this.selectedIds, nextIds);
+			console.log('[ontology-diagram-editor] canvas selection unchanged', { ids: nextIds });
 			return;
 		}
 
+		const previousIds = this.selectedIds;
 		console.log('[ontology-diagram-editor] canvas selection changed', {
-			from: this.selectedId,
-			to: id,
-			elementType: id === undefined ? undefined : this.elementRegistry.elementType(id),
+			from: previousIds,
+			to: nextIds,
+			elementType: nextIds.length === 1 ? this.elementRegistry.elementType(nextIds[0]) : undefined,
 		});
-		this.removeEdgeTools(this.selectedId);
-		this.selectedId = id;
-		this.publishSelectionChanged();
+		this.selectedIds = nextIds;
+		if (options.syncGraphSelection !== false) {
+			this.syncGraphSelection(nextIds);
+		}
+		this.updateSelectionPresentation(previousIds, nextIds);
+		if (options.publish !== false) {
+			this.publishSelectionChanged();
+		}
+	}
+
+	private syncGraphSelection(ids: readonly string[]): void {
+		this.suppressSelectionEvents = true;
+		try {
+			const nodeIds = ids.filter((id) => isX6Node(this.graph.getCellById(id)));
+			resetSelection(this.graph, nodeIds);
+		} finally {
+			this.suppressSelectionEvents = false;
+		}
+	}
+
+	private updateSelectionPresentation(previousIds: readonly string[], nextIds: readonly string[]): void {
+		for (const id of previousIds) {
+			if (!nextIds.includes(id)) {
+				this.removeEdgeTools(id);
+			}
+		}
+
+		clearTransformWidgets(this.graph);
+		if (nextIds.length !== 1) {
+			return;
+		}
+
+		const id = nextIds[0];
+		const cell = this.graph.getCellById(id);
+		if (isX6Node(cell)) {
+			createTransformWidget(this.graph, cell);
+		}
+		if (isX6Edge(cell)) {
+			cell.setTools(edgeEditTools());
+		}
 	}
 
 	private removeEdgeTools(id: string | undefined): void {
@@ -487,6 +621,18 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
+	private selectedNodeCells(): readonly X6Node[] {
+		return this.selectedIds.flatMap((id) => {
+			const cell = this.graph.getCellById(id);
+			return isX6Node(cell) && isMovableCanvasElement(this.elementRegistry.element(id)?.kind) ? [cell] : [];
+		});
+	}
+
+	private isMultiSelectedNodeView(cellView: unknown): boolean {
+		const cell = cellViewCell(cellView);
+		return this.selectedIds.length > 1 && isX6Node(cell) && this.selectedIds.includes(cell.id);
+	}
+
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
 		if (this.suppressBoundsEvents) {
 			return;
@@ -497,14 +643,93 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		if (dragKind === 'resize') {
 			this.updateOntologyNodePresentation(node.id);
 		}
-		if (this.selectedId === node.id) {
+		if (this.selectedIds.includes(node.id)) {
 			this.publishSelectionChanged();
 		}
+		this.publishElementBounds([update], dragKind);
+	}
+
+	private publishElementBounds(updates: readonly BoundsUpdate[], dragKind: BoundsDragKind): void {
 		for (const listener of this.boundsChangeListeners) {
 			listener({
 				dragKind,
-				bounds: [update],
+				bounds: updates,
 			});
+		}
+	}
+
+	private selectedInternalEdgeRoutes(): readonly EdgeRouteSnapshot[] {
+		const selectedIds = new Set(this.selectedIds);
+		return elementRegistryEdges(this.elementRegistry).flatMap((edge) => {
+			if (!selectedIds.has(edge.source) || !selectedIds.has(edge.target)) {
+				return [];
+			}
+
+			const sourceElement = connectableElement(this.elementRegistry.element(edge.source));
+			const targetElement = connectableElement(this.elementRegistry.element(edge.target));
+			const route = this.edgeRoute(edge.id, edge.label);
+			return sourceElement === undefined || targetElement === undefined || route === undefined || route.points.length < 2
+				? []
+				: [{
+					id: edge.id,
+					sourceId: edge.source,
+					targetId: edge.target,
+					sourceElement,
+					targetElement,
+					points: route.points,
+					label: route.label,
+				}];
+		});
+	}
+
+	private applyTranslatedEdgeRoutes(edgeRoutes: readonly EdgeRouteSnapshot[], updates: readonly BoundsUpdate[]): void {
+		if (edgeRoutes.length === 0 || updates.length === 0) {
+			return;
+		}
+
+		const updateById = new Map(updates.map((update) => [update.id, update]));
+		this.suppressEdgeRouteEvents = true;
+		try {
+			for (const edgeRoute of edgeRoutes) {
+				const sourceDelta = movedElementDelta(edgeRoute.sourceElement, updateById.get(edgeRoute.sourceId));
+				const targetDelta = movedElementDelta(edgeRoute.targetElement, updateById.get(edgeRoute.targetId));
+				if (sourceDelta === undefined || targetDelta === undefined || !canvasPointsEqual(sourceDelta, targetDelta)) {
+					continue;
+				}
+
+				this.applyTranslatedEdgeRoute(edgeRoute, sourceDelta);
+			}
+		} finally {
+			this.suppressEdgeRouteEvents = false;
+		}
+	}
+
+	private applyTranslatedEdgeRoute(edgeRoute: EdgeRouteSnapshot, delta: CanvasPoint): void {
+		const edge = this.graph.getCellById(edgeRoute.id);
+		if (!isX6Edge(edge)) {
+			return;
+		}
+
+		const points = edgeRoute.points.map((point) => translateCanvasPoint(point, delta));
+		const sourceElement = translateConnectableElement(edgeRoute.sourceElement, delta);
+		const targetElement = translateConnectableElement(edgeRoute.targetElement, delta);
+		const options = { ui: true };
+		edge.setSource({
+			cell: edgeRoute.sourceId,
+			anchor: anchorFromPoint(points[0], sourceElement),
+		}, options);
+		edge.setTarget({
+			cell: edgeRoute.targetId,
+			anchor: anchorFromPoint(points[points.length - 1], targetElement),
+		}, options);
+		edge.setVertices(points.slice(1, -1), options);
+
+		const existingLabel = edge.getLabels()[0];
+		if (existingLabel !== undefined) {
+			edge.setLabelAt(0, {
+				...existingLabel,
+				position: labelPosition(translateCanvasPoint(edgeRoute.label, delta), points[0]),
+			}, options);
 		}
 	}
 
@@ -1404,6 +1629,49 @@ function boundsUpdate(node: X6Node): BoundsUpdate {
 	};
 }
 
+function elementRegistryEdges(registry: CanvasElementRegistry): readonly DiagramEdge[] {
+	return registry.renderedElementIdentifiers().flatMap((id) => {
+		const element = registry.element(id);
+		return element?.kind === 'edge' ? [element.value] : [];
+	});
+}
+
+function connectableElement(element: CanvasPropertyElement | undefined): ConnectableElement | undefined {
+	return element?.kind === 'node' || element?.kind === 'note' || element?.kind === 'image'
+		? element.value
+		: undefined;
+}
+
+function movedElementDelta(element: ConnectableElement, update: BoundsUpdate | undefined): CanvasPoint | undefined {
+	if (update === undefined || update.width !== element.width || update.height !== element.height) {
+		return undefined;
+	}
+
+	return {
+		x: update.x - element.x,
+		y: update.y - element.y,
+	};
+}
+
+function translateConnectableElement(element: ConnectableElement, delta: CanvasPoint): ConnectableElement {
+	return {
+		...element,
+		x: element.x + delta.x,
+		y: element.y + delta.y,
+	};
+}
+
+function translateCanvasPoint(point: CanvasPoint, delta: CanvasPoint): CanvasPoint {
+	return {
+		x: point.x + delta.x,
+		y: point.y + delta.y,
+	};
+}
+
+function canvasPointsEqual(left: CanvasPoint, right: CanvasPoint): boolean {
+	return left.x === right.x && left.y === right.y;
+}
+
 function eventNode(event: Record<string, unknown>): X6Node | undefined {
 	return isX6Node(event.node) ? event.node : undefined;
 }
@@ -1493,6 +1761,94 @@ function isTransformPlugin(value: unknown): value is { clearWidgets: () => void;
 		&& value !== null
 		&& typeof (value as { clearWidgets?: unknown }).clearWidgets === 'function'
 		&& typeof (value as { createWidget?: unknown }).createWidget === 'function';
+}
+
+function eventSelectedIds(event: Record<string, unknown>): readonly string[] {
+	const selected = event.selected;
+	if (!Array.isArray(selected)) {
+		return [];
+	}
+
+	return selected.flatMap((cell) => isX6Node(cell) ? [cell.id] : []);
+}
+
+function resetSelection(graph: X6Graph, ids: readonly string[]): void {
+	if (ids.length === 0) {
+		if (typeof graph.cleanSelection === 'function') {
+			graph.cleanSelection({ batch: true });
+			return;
+		}
+
+		const selection = graph.getPlugin?.('selection');
+		if (isSelectionPlugin(selection)) {
+			selection.clean({ batch: true });
+			return;
+		}
+	}
+
+	if (typeof graph.resetSelection === 'function') {
+		graph.resetSelection([...ids], { batch: true });
+		return;
+	}
+
+	const selection = graph.getPlugin?.('selection');
+	if (isSelectionPlugin(selection)) {
+		selection.reset([...ids], { batch: true });
+		return;
+	}
+
+	console.warn('[ontology-diagram-editor] x6 selection reset API unavailable');
+}
+
+function isSelectionPlugin(value: unknown): value is X6SelectionPlugin {
+	return typeof value === 'object'
+		&& value !== null
+		&& typeof (value as { reset?: unknown }).reset === 'function'
+		&& typeof (value as { clean?: unknown }).clean === 'function';
+}
+
+function cellViewCell(value: unknown): unknown {
+	return typeof value === 'object' && value !== null && 'cell' in value
+		? (value as { readonly cell?: unknown }).cell
+		: undefined;
+}
+
+function uniqueElementIds(ids: readonly string[]): readonly string[] {
+	return [...new Set(ids)];
+}
+
+function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isMovableCanvasElement(kind: string | undefined): boolean {
+	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label';
+}
+
+function boundedGroupDelta(cells: readonly X6Node[], delta: CanvasPoint): CanvasPoint {
+	if (cells.length === 0) {
+		return { x: 0, y: 0 };
+	}
+
+	const minX = Math.min(...cells.map((cell) => cell.position().x));
+	const minY = Math.min(...cells.map((cell) => cell.position().y));
+
+	return {
+		x: delta.x < 0 ? Math.max(delta.x, -minX) : delta.x,
+		y: delta.y < 0 ? Math.max(delta.y, -minY) : delta.y,
+	};
+}
+
+function boundsDifferFromRegistry(update: BoundsUpdate, registry: CanvasElementRegistry): boolean {
+	const element = registry.element(update.id);
+	if (element === undefined || element.kind === 'edge') {
+		return false;
+	}
+
+	return update.x !== element.value.x
+		|| update.y !== element.value.y
+		|| update.width !== element.value.width
+		|| update.height !== element.value.height;
 }
 
 function stopEvent(value: unknown): void {

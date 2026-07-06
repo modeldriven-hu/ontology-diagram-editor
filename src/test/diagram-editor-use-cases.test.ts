@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -348,6 +348,112 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.edges[0].points[0].toPersistenceObject(), {
 			x: 180,
 			y: 25,
+		});
+	});
+
+	test('updates mixed element bounds as one diagram mutation', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50))],
+			[
+				new DiagramEdge(
+					'edge_noteConnection',
+					'node_source',
+					'note_context',
+					'https://ontology-diagram-editor.local/note-connection',
+					new Point(150, 25),
+					[new Point(100, 25), new Point(200, 25)],
+				),
+			],
+			[new DiagramNote('note_context', new Bounds(200, 0, 120, 64), 'Context')],
+			[new DiagramImage('image_logo', new Bounds(400, 0, 80, 40), 'images/logo.png')],
+			[new DiagramLabel('label_caption', new Bounds(500, 0, 120, 30), 'Caption')],
+		);
+
+		const result = new UpdateElementBoundsUseCase().execute(diagram, {
+			nodeUpdates: [{ id: 'node_source', x: 10, y: 20, width: 100, height: 50 }],
+			noteUpdates: [{ id: 'note_context', x: 210, y: 20, width: 120, height: 64 }],
+			imageUpdates: [{ id: 'image_logo', x: 410, y: 20, width: 80, height: 40 }],
+			labelUpdates: [{ id: 'label_caption', x: 510, y: 20, width: 120, height: 30 }],
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes[0].bounds.toPersistenceObject(), {
+			x: 10,
+			y: 20,
+			width: 100,
+			height: 50,
+		});
+		assert.deepStrictEqual(result.diagram.notes[0].bounds.toPersistenceObject(), {
+			x: 210,
+			y: 20,
+			width: 120,
+			height: 64,
+		});
+		assert.deepStrictEqual(result.diagram.images[0].bounds.toPersistenceObject(), {
+			x: 410,
+			y: 20,
+			width: 80,
+			height: 40,
+		});
+		assert.deepStrictEqual(result.diagram.labels[0].bounds.toPersistenceObject(), {
+			x: 510,
+			y: 20,
+			width: 120,
+			height: 30,
+		});
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 110, y: 45 },
+			{ x: 210, y: 45 },
+		]);
+	});
+
+	test('moves edge routes with endpoints during grouped element movement', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(300, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relatedTo',
+					'node_source',
+					'node_target',
+					'ex:relatedTo',
+					new Point(180, 105),
+					[
+						new Point(100, 25),
+						new Point(180, 120),
+						new Point(300, 25),
+					],
+				),
+			],
+		);
+
+		const result = new UpdateElementBoundsUseCase().execute(diagram, {
+			nodeUpdates: [
+				{ id: 'node_source', x: 20, y: 10, width: 100, height: 50 },
+				{ id: 'node_target', x: 320, y: 10, width: 100, height: 50 },
+			],
+			noteUpdates: [],
+			imageUpdates: [],
+			labelUpdates: [],
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 120, y: 35 },
+			{ x: 200, y: 130 },
+			{ x: 320, y: 35 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 200,
+			y: 115,
 		});
 	});
 
