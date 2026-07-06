@@ -73,7 +73,7 @@ ex:Child rdfs:subClassOf ex:Parent .
 		const range = findOntologySourceRange(text, {
 			type: 'subclassRelationship',
 			reference: 'rdfs:subClassOf',
-			displayLabel: 'Child -> Parent',
+			displayLabel: 'Child ⊑ Parent',
 			sourceOntologyPath: 'model.ttl',
 			metadata: {
 				displayLabels: [],

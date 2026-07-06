@@ -586,7 +586,7 @@ suite('Diagram editor use cases', () => {
 		const result = new CreateEdgeUseCase().execute(diagram, {
 			ontologyItemType: 'subclassRelationship',
 			ontologyItemReference: 'rdfs:subClassOf',
-			displayLabel: 'Person -> Agent',
+			displayLabel: 'Person ⊑ Agent',
 			ontologyItemMetadata: {
 				subclassReference: 'ex:Person',
 				superclassReference: 'ex:Agent',
@@ -605,7 +605,7 @@ suite('Diagram editor use cases', () => {
 		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
 			ontologyItemType: 'subclassRelationship',
 			ontologyItemReference: 'rdfs:subClassOf',
-			displayLabel: 'Person -> Agent',
+			displayLabel: 'Person ⊑ Agent',
 			ontologyItemMetadata: {
 				subclassReference: 'ex:Person',
 				superclassReference: 'ex:Agent',
@@ -632,7 +632,7 @@ suite('Diagram editor use cases', () => {
 		const result = new CreateEdgeUseCase().execute(diagram, {
 			ontologyItemType: 'subclassRelationship',
 			ontologyItemReference: 'rdfs:subClassOf',
-			displayLabel: 'Person -> Agent',
+			displayLabel: 'Person ⊑ Agent',
 			ontologyItemMetadata: {
 				subclassReference: 'ex:Person',
 				superclassReference: 'ex:Agent',
@@ -669,7 +669,7 @@ suite('Diagram editor use cases', () => {
 		const result = new CreateEdgeUseCase().execute(diagram, {
 			ontologyItemType: 'subclassRelationship',
 			ontologyItemReference: 'rdfs:subClassOf',
-			displayLabel: 'Person -> Agent',
+			displayLabel: 'Person ⊑ Agent',
 			ontologyItemMetadata: {
 				subclassReference: 'ex:Person',
 				superclassReference: 'ex:Agent',
@@ -677,7 +677,7 @@ suite('Diagram editor use cases', () => {
 		}, { x: 200, y: 20 });
 
 		assert.strictEqual(result.diagram, undefined);
-		assert.strictEqual(result.notification, '"Person -> Agent" already has an edge in this diagram.');
+		assert.strictEqual(result.notification, '"Person ⊑ Agent" already has an edge in this diagram.');
 	});
 
 	test('reports ambiguous edge endpoint metadata without changing the diagram', () => {

@@ -68,6 +68,23 @@ Each ontology item node shall also expose the parsed ontology item metadata need
 by other editor features. This metadata is runtime state derived from the referenced
 ontology file and shall not be persisted into the `.odiagram` file.
 
+Class item rows shall avoid displaying raw ontology URLs in the visible label or row
+description. If no explicit label or compact namespace form is available, the row label
+shall fall back to the local IRI name. The full class reference should remain available
+through metadata and tooltip details.
+
+Relationship item display labels shall identify the concrete relationship endpoints
+rather than repeating only the relationship predicate. A subclass relationship shall use
+the subclass display name, a subclass glyph, and the superclass display name, for
+example `Requirement ⊑ Domain`.
+
+Object and data property item rows shall keep the property display name as the primary
+label and use the row description or tooltip to show the domain and range names. For
+example, an `applies to` object property from `Requirement` to `Domain` may display as
+`applies to (Requirement, Domain)`, while an `identifier` data property may display as
+`identifier (Requirement, Literal)`. The full property reference should remain available
+in the tooltip instead of being the primary row description.
+
 At minimum, ontology item metadata shall include:
 
 | Ontology item type | Runtime metadata |

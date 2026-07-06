@@ -656,16 +656,13 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	}
 
 	private createOntologyItemTreeItem(node: OntologyItemTreeNode): vscode.TreeItem {
+		const namespaces = this.parsedDiagram?.namespaces ?? new Map<string, string>();
 		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
 		item.id = node.id;
 		item.contextValue = 'ontologyItem';
-		item.description = node.item.reference === node.label ? undefined : node.item.reference;
+		item.description = ontologyItemDescription(node.item, node.label, node.ontology, namespaces);
 		item.iconPath = this.iconPathForItemType(node.item.type);
-		item.tooltip = [
-			node.item.reference,
-			`Source: ${node.ontology.relativePath}`,
-			`Type: ${getOntologyItemTypeLabel(node.item.type)}`,
-		].join('\n');
+		item.tooltip = ontologyItemTooltip(node, namespaces);
 		return item;
 	}
 
@@ -704,6 +701,118 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 
 		return vscode.Uri.joinPath(this.extensionUri, 'resources', 'ontology-item-icons', icon.resourceName);
 	}
+}
+
+function ontologyItemDescription(
+	item: OntologyItem,
+	label: string,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): string | undefined {
+	if (item.type === 'subclassRelationship') {
+		return undefined;
+	}
+
+	if (item.type === 'class') {
+		return undefined;
+	}
+
+	if (item.type === 'objectProperty' || item.type === 'dataProperty') {
+		return endpointTupleDescription(item, ontology, namespaces);
+	}
+
+	return item.reference === label ? undefined : item.reference;
+}
+
+function ontologyItemTooltip(node: OntologyItemTreeNode, namespaces: ReadonlyMap<string, string>): string {
+	return [
+		node.item.displayLabel,
+		`Reference: ${node.item.reference}`,
+		`Source file: ${node.ontology.relativePath}`,
+		`Type: ${getOntologyItemTypeLabel(node.item.type)}`,
+		...ontologyItemEndpointTooltipLines(node.item, node.ontology, namespaces),
+	].join('\n');
+}
+
+function endpointTupleDescription(item: OntologyItem, ontology: LoadedOntology, namespaces: ReadonlyMap<string, string>): string | undefined {
+	const domain = endpointDisplayNames(item.metadata.domainReferences, ontology, namespaces);
+	const range = endpointDisplayNames(item.metadata.rangeReferences, ontology, namespaces);
+	if (domain === undefined && range === undefined) {
+		return undefined;
+	}
+
+	return `(${domain ?? '?'}, ${range ?? '?'})`;
+}
+
+function ontologyItemEndpointTooltipLines(
+	item: OntologyItem,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): readonly string[] {
+	if (item.type === 'objectProperty' || item.type === 'dataProperty' || item.type === 'annotationProperty') {
+		return [
+			...endpointTooltipLines('Domain', item.metadata.domainReferences, ontology, namespaces),
+			...endpointTooltipLines('Range', item.metadata.rangeReferences, ontology, namespaces),
+		];
+	}
+
+	if (item.type === 'subclassRelationship') {
+		return [
+			...endpointTooltipLines('Subclass', optionalReference(item.metadata.subclassReference), ontology, namespaces),
+			...endpointTooltipLines('Superclass', optionalReference(item.metadata.superclassReference), ontology, namespaces),
+		];
+	}
+
+	return [];
+}
+
+function endpointTooltipLines(
+	label: string,
+	references: readonly string[] | undefined,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): readonly string[] {
+	const values = endpointReferenceTexts(references, ontology, namespaces);
+	return values.length === 0 ? [] : [`${label}: ${values.join(', ')}`];
+}
+
+function endpointDisplayNames(
+	references: readonly string[] | undefined,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): string | undefined {
+	const values = uniqueStrings((references ?? []).map((reference) => ontologyReferenceDisplayName(reference, ontology, namespaces)));
+	return values.length === 0 ? undefined : values.join(' | ');
+}
+
+function endpointReferenceTexts(
+	references: readonly string[] | undefined,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): readonly string[] {
+	return uniqueStrings((references ?? []).map((reference) => {
+		const displayName = ontologyReferenceDisplayName(reference, ontology, namespaces);
+		return displayName === reference ? reference : `${displayName} (${reference})`;
+	}));
+}
+
+function ontologyReferenceDisplayName(reference: string, ontology: LoadedOntology, namespaces: ReadonlyMap<string, string>): string {
+	const item = ontology.items.find((candidate) => ontologyReferencesEqual(candidate.reference, reference, namespaces));
+	return item?.displayLabel ?? localOntologyReferenceName(reference);
+}
+
+function localOntologyReferenceName(reference: string): string {
+	const separatorIndex = Math.max(reference.lastIndexOf('#'), reference.lastIndexOf('/'), reference.lastIndexOf(':'));
+	const name = separatorIndex >= 0 ? reference.slice(separatorIndex + 1) : reference;
+	return name.length === 0 ? reference : name;
+}
+
+function optionalReference(reference: string | undefined): readonly string[] | undefined {
+	return reference === undefined ? undefined : [reference];
+}
+
+function uniqueStrings(values: readonly string[]): readonly string[] {
+	return [...new Set(values)];
 }
 
 function selectionPayloadForNode(node: ModelTreeNode): ModelTreeSelectionEvent {

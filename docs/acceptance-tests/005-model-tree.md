@@ -10,7 +10,10 @@
 ## Ontology Metadata
 
 - Given ontology items are parsed, when tree nodes are created, then each item node exposes display label, full reference, source ontology path, item type, and runtime metadata.
+- Given a class has no explicit label or compact namespace display, when its model-tree item is displayed, then the visible label uses the local IRI name and the raw URL is kept out of the row description.
 - Given an ontology item has multiple domains, ranges, class assertions, or equivalent references, when metadata is exposed, then all values are preserved.
+- Given a subclass relationship is parsed, when its model-tree item is displayed, then the label shows the subclass name, a subclass glyph, and the superclass name instead of only the relationship predicate.
+- Given an object or data property has a domain and range, when its model-tree item is displayed, then the property name remains the primary label and the domain/range names are shown in the row description or tooltip instead of the raw property reference.
 - Given a subclass relationship node is dragged, when the drag event is emitted, then metadata includes concrete subclass and superclass endpoints.
 
 ## Selection And Drag

@@ -14,6 +14,11 @@ interface RdfQuad {
 	readonly object: RdfTerm;
 }
 
+interface SubclassRelationship {
+	readonly subclassReference: string;
+	readonly superclassReference: string;
+}
+
 interface RdfQuadStream {
 	on(event: 'data', listener: (quad: RdfQuad) => void): RdfQuadStream;
 	on(event: 'error', listener: (error: Error) => void): RdfQuadStream;
@@ -162,7 +167,7 @@ function createOntologyItems(
 	const superclasses = new Map<string, Set<string>>();
 	const equivalentClasses = new Map<string, Set<string>>();
 	const classAssertions = new Map<string, Set<string>>();
-	const subclassRelationships: OntologyItem[] = [];
+	const subclassRelationships: SubclassRelationship[] = [];
 
 	for (const quad of quads) {
 		const subject = namedTermValue(quad.subject);
@@ -187,7 +192,7 @@ function createOntologyItems(
 			addMapValue(ranges, subject, object);
 		} else if (predicate === rdfsSubClassOf) {
 			addMapValue(superclasses, subject, object);
-			subclassRelationships.push(createSubclassRelationship(sourceOntologyPath, subject, object, labels, namespaces));
+			subclassRelationships.push({ subclassReference: subject, superclassReference: object });
 		} else if (predicate === owlEquivalentClass) {
 			addMapValue(equivalentClasses, subject, object);
 		}
@@ -222,7 +227,13 @@ function createOntologyItems(
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
-		...subclassRelationships,
+		...subclassRelationships.map((relationship) => createSubclassRelationship(
+			sourceOntologyPath,
+			relationship.subclassReference,
+			relationship.superclassReference,
+			labels,
+			namespaces,
+		)),
 		...createEntityItems('individual', [owlNamedIndividual], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
@@ -272,7 +283,7 @@ function createSubclassRelationship(
 	return {
 		type: 'subclassRelationship',
 		reference: 'rdfs:subClassOf',
-		displayLabel: `${subclassLabel} -> ${superclassLabel}`,
+		displayLabel: `${subclassLabel} ⊑ ${superclassLabel}`,
 		sourceOntologyPath,
 		metadata: {
 			relationshipReference: 'rdfs:subClassOf',
@@ -284,7 +295,13 @@ function createSubclassRelationship(
 }
 
 function displayLabel(iri: string, labels: ReadonlyMap<string, ReadonlySet<string>>, namespaces: ReadonlyMap<string, string>): string {
-	return valuesFor(labels, iri)[0] ?? compactIri(iri, namespaces) ?? localName(iri);
+	const label = valuesFor(labels, iri)[0];
+	if (label !== undefined) {
+		return label;
+	}
+
+	const compact = compactIri(iri, namespaces);
+	return compact === iri ? localName(iri) : compact;
 }
 
 function compactIri(iri: string, namespaces: ReadonlyMap<string, string>): string {
