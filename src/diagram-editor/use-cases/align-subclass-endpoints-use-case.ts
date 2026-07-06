@@ -5,6 +5,12 @@ import { roundCoordinate } from './geometry';
 import { ontologyReferencesEqual } from './ontology-edge-endpoints';
 
 type BoundsSide = 'left' | 'right' | 'top' | 'bottom';
+type GeneralizationSetRoute = {
+	readonly sourceSide: BoundsSide;
+	readonly targetSide: BoundsSide;
+	readonly targetPoint: Point;
+	readonly sharedAxisCoordinate: number;
+};
 
 export class AlignSubclassEndpointsUseCase {
 	public execute(
@@ -43,10 +49,8 @@ export class AlignSubclassEndpointsUseCase {
 			return { notification: 'The shared superclass is not an ontology node.' };
 		}
 
-		const sourceGroupCenter = boundsCenter(groupBounds(selectedNodes.map((node) => node.bounds)));
-		const targetSide = nearestSide(targetNode.bounds, sourceGroupCenter);
-		const targetPoint = sideMidpoint(targetNode.bounds, targetSide);
-		const targetApproachPoint = approachPoint(targetPoint, targetSide);
+		const selectedBounds = groupBounds(selectedNodes.map((node) => node.bounds));
+		const route = generalizationSetRoute(selectedBounds, targetNode.bounds);
 		const edgeBySource = new Map(subclassEdges
 			.filter((edge) => edge.target.value === targetId)
 			.map((edge) => [edge.source.value, edge] as const));
@@ -69,10 +73,12 @@ export class AlignSubclassEndpointsUseCase {
 				return edge;
 			}
 
-			const sourceSide = nearestSide(sourceNode.bounds, targetPoint);
-			const sourcePoint = sideMidpoint(sourceNode.bounds, sourceSide);
-			const nextPoints = alignedRoutePoints(edge.points, sourcePoint, targetApproachPoint, targetPoint);
-			if (samePoints(edge.points, nextPoints)) {
+			const nextPoints = generalizationSetRoutePoints(sourceNode.bounds, route);
+			const nextLabel = routeMiddlePoint(nextPoints);
+			const nextRouteLayout = edge.routeLayout === undefined || edge.routeLayout === 'orthogonal'
+				? edge.routeLayout
+				: 'orthogonal';
+			if (samePoints(edge.points, nextPoints) && pointsEqual(edge.label, nextLabel) && edge.routeLayout === nextRouteLayout) {
 				return edge;
 			}
 
@@ -82,11 +88,11 @@ export class AlignSubclassEndpointsUseCase {
 				edge.source.value,
 				edge.target.value,
 				edge.ontologyRef.value,
-				edge.label,
+				nextLabel,
 				nextPoints,
 				edge.style,
 				edge.extra,
-				edge.routeLayout,
+				nextRouteLayout,
 			);
 		});
 
@@ -130,11 +136,29 @@ function boundsCenter(bounds: Bounds): Point {
 	);
 }
 
-function nearestSide(bounds: Bounds, point: Point): BoundsSide {
-	const sides: readonly BoundsSide[] = ['left', 'right', 'top', 'bottom'];
-	return sides
-		.map((side) => ({ side, point: sideMidpoint(bounds, side) }))
-		.sort((left, right) => pointDistanceSquared(left.point, point) - pointDistanceSquared(right.point, point))[0]?.side ?? 'right';
+function generalizationSetRoute(selectedBounds: Bounds, targetBounds: Bounds): GeneralizationSetRoute {
+	const selectedCenter = boundsCenter(selectedBounds);
+	const targetCenter = boundsCenter(targetBounds);
+	const targetSide = dominantSide(targetCenter, selectedCenter);
+	const sourceSide = oppositeSide(targetSide);
+	const targetPoint = sideMidpoint(targetBounds, targetSide);
+
+	return {
+		sourceSide,
+		targetSide,
+		targetPoint,
+		sharedAxisCoordinate: sharedAxisCoordinate(selectedBounds, targetPoint, targetSide),
+	};
+}
+
+function dominantSide(origin: Point, point: Point): BoundsSide {
+	const dx = point.x - origin.x;
+	const dy = point.y - origin.y;
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx < 0 ? 'left' : 'right';
+	}
+
+	return dy < 0 ? 'top' : 'bottom';
 }
 
 function sideMidpoint(bounds: Bounds, side: BoundsSide): Point {
@@ -152,43 +176,126 @@ function sideMidpoint(bounds: Bounds, side: BoundsSide): Point {
 	}
 }
 
-function approachPoint(targetPoint: Point, side: BoundsSide): Point {
-	const offset = 40;
+function oppositeSide(side: BoundsSide): BoundsSide {
 	switch (side) {
 		case 'left':
-			return new Point(roundCoordinate(targetPoint.x - offset), targetPoint.y);
+			return 'right';
 		case 'right':
-			return new Point(roundCoordinate(targetPoint.x + offset), targetPoint.y);
+			return 'left';
 		case 'top':
-			return new Point(targetPoint.x, roundCoordinate(targetPoint.y - offset));
+			return 'bottom';
 		case 'bottom':
-			return new Point(targetPoint.x, roundCoordinate(targetPoint.y + offset));
+			return 'top';
 	}
 }
 
-function pointDistanceSquared(left: Point, right: Point): number {
-	return (left.x - right.x) ** 2 + (left.y - right.y) ** 2;
+function sharedAxisCoordinate(selectedBounds: Bounds, targetPoint: Point, targetSide: BoundsSide): number {
+	const fallbackOffset = 40;
+	switch (targetSide) {
+		case 'left': {
+			const selectedEdge = selectedBounds.x + selectedBounds.width;
+			return roundCoordinate(targetPoint.x > selectedEdge
+				? (selectedEdge + targetPoint.x) / 2
+				: selectedEdge + fallbackOffset);
+		}
+		case 'right': {
+			const selectedEdge = selectedBounds.x;
+			return roundCoordinate(targetPoint.x < selectedEdge
+				? (selectedEdge + targetPoint.x) / 2
+				: selectedEdge - fallbackOffset);
+		}
+		case 'top': {
+			const selectedEdge = selectedBounds.y + selectedBounds.height;
+			return roundCoordinate(targetPoint.y > selectedEdge
+				? (selectedEdge + targetPoint.y) / 2
+				: selectedEdge + fallbackOffset);
+		}
+		case 'bottom': {
+			const selectedEdge = selectedBounds.y;
+			return roundCoordinate(targetPoint.y < selectedEdge
+				? (selectedEdge + targetPoint.y) / 2
+				: selectedEdge - fallbackOffset);
+		}
+	}
 }
 
-function alignedRoutePoints(
-	points: readonly Point[],
-	sourcePoint: Point,
-	targetApproachPoint: Point,
-	targetPoint: Point,
-): readonly Point[] {
-	return withoutConsecutiveDuplicatePoints([
-		sourcePoint,
-		...points.slice(1, -1),
-		targetApproachPoint,
-		targetPoint,
-	]);
+function generalizationSetRoutePoints(sourceBounds: Bounds, route: GeneralizationSetRoute): readonly Point[] {
+	const sourcePoint = sideMidpoint(sourceBounds, route.sourceSide);
+	const points = route.targetSide === 'left' || route.targetSide === 'right'
+		? [
+			sourcePoint,
+			new Point(route.sharedAxisCoordinate, sourcePoint.y),
+			new Point(route.sharedAxisCoordinate, route.targetPoint.y),
+			route.targetPoint,
+		]
+		: [
+			sourcePoint,
+			new Point(sourcePoint.x, route.sharedAxisCoordinate),
+			new Point(route.targetPoint.x, route.sharedAxisCoordinate),
+			route.targetPoint,
+		];
+
+	return withoutRedundantPoints(points);
 }
 
-function withoutConsecutiveDuplicatePoints(points: readonly Point[]): readonly Point[] {
-	return points.filter((point, index) => {
+function withoutRedundantPoints(points: readonly Point[]): readonly Point[] {
+	const withoutDuplicates = points.filter((point, index) => {
 		const previous = points[index - 1];
 		return previous === undefined || !pointsEqual(previous, point);
 	});
+
+	const withoutCollinearPoints = withoutDuplicates.filter((point, index) => {
+		const previous = withoutDuplicates[index - 1];
+		const next = withoutDuplicates[index + 1];
+		return previous === undefined || next === undefined || !areCollinear(previous, point, next);
+	});
+
+	return withoutCollinearPoints.length >= 2
+		? withoutCollinearPoints
+		: [points[0], points[points.length - 1]];
+}
+
+function areCollinear(first: Point, second: Point, third: Point): boolean {
+	return first.x === second.x && second.x === third.x
+		|| first.y === second.y && second.y === third.y;
+}
+
+function routeMiddlePoint(points: readonly Point[]): Point {
+	const totalLength = routeLength(points);
+	if (totalLength === 0) {
+		return points[0];
+	}
+
+	const targetLength = totalLength / 2;
+	let traversedLength = 0;
+	for (let index = 1; index < points.length; index += 1) {
+		const start = points[index - 1];
+		const end = points[index];
+		const segmentLength = pointDistance(start, end);
+		if (segmentLength === 0) {
+			continue;
+		}
+		if (traversedLength + segmentLength >= targetLength) {
+			const ratio = (targetLength - traversedLength) / segmentLength;
+			return new Point(
+				roundCoordinate(start.x + (end.x - start.x) * ratio),
+				roundCoordinate(start.y + (end.y - start.y) * ratio),
+			);
+		}
+
+		traversedLength += segmentLength;
+	}
+
+	return points[points.length - 1];
+}
+
+function routeLength(points: readonly Point[]): number {
+	return points.slice(1).reduce((length, point, index) =>
+		length + pointDistance(points[index], point), 0);
+}
+
+function pointDistance(left: Point, right: Point): number {
+	return Math.abs(left.x - right.x) + Math.abs(left.y - right.y);
 }
 
 function pointsEqual(left: Point, right: Point): boolean {

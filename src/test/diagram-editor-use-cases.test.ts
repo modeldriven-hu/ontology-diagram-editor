@@ -666,7 +666,7 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
 	});
 
-	test('aligns subclass edge endpoints on the shared superclass', () => {
+	test('routes bottom-side subclass edges through a shared generalization trunk', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -710,18 +710,20 @@ suite('Diagram editor use cases', () => {
 		assert.ok(employeeEdge);
 		assert.ok(customerEdge);
 		assert.deepStrictEqual(employeeEdge.points.map((point) => point.toPersistenceObject()), [
-			{ x: 100, y: 125 },
-			{ x: 140, y: 100 },
+			{ x: 50, y: 100 },
+			{ x: 50, y: 80 },
+			{ x: 140, y: 80 },
 			{ x: 140, y: 60 },
 		]);
 		assert.deepStrictEqual(customerEdge.points.map((point) => point.toPersistenceObject()), [
-			{ x: 180, y: 165 },
-			{ x: 140, y: 100 },
+			{ x: 230, y: 140 },
+			{ x: 230, y: 80 },
+			{ x: 140, y: 80 },
 			{ x: 140, y: 60 },
 		]);
 	});
 
-	test('aligns subclass endpoint to the middle of the nearest superclass side', () => {
+	test('routes left-side subclass edges through a shared generalization trunk', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -765,12 +767,13 @@ suite('Diagram editor use cases', () => {
 		const constraintPoints = constraintEdge.points.map((point) => point.toPersistenceObject());
 		assert.deepStrictEqual(constraintPoints, [
 			{ x: 424, y: 250 },
-			{ x: 740, y: 232 },
+			{ x: 718, y: 250 },
+			{ x: 718, y: 232 },
 			{ x: 780, y: 232 },
 		]);
 	});
 
-	test('aligns each subclass source to the side facing the shared superclass endpoint', () => {
+	test('uses the selected subclass box to route every bottom-side source from its top edge', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -830,10 +833,74 @@ suite('Diagram editor use cases', () => {
 		assert.ok(constraintEdge);
 		assert.ok(functionalRequirementEdge);
 		assert.ok(qualityRequirementEdge);
-		assert.deepStrictEqual(constraintEdge.points[0].toPersistenceObject(), { x: 391, y: 559 });
+		assert.deepStrictEqual(constraintEdge.points.map((point) => point.toPersistenceObject()), [
+			{ x: 272, y: 511 },
+			{ x: 272, y: 355 },
+			{ x: 694, y: 355 },
+			{ x: 694, y: 198 },
+		]);
 		assert.deepStrictEqual(functionalRequirementEdge.points[0].toPersistenceObject(), { x: 602, y: 511 });
-		assert.deepStrictEqual(qualityRequirementEdge.points[0].toPersistenceObject(), { x: 812, y: 559 });
+		assert.deepStrictEqual(qualityRequirementEdge.points[0].toPersistenceObject(), { x: 931, y: 511 });
 		assert.deepStrictEqual(functionalRequirementEdge.points[functionalRequirementEdge.points.length - 1].toPersistenceObject(), { x: 694, y: 198 });
+	});
+
+	test('routes right-side subclass edges through a shared generalization trunk', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_employee', 'ex:Employee', new Bounds(360, 80, 100, 50)),
+				new DiagramNode('node_customer', 'ex:Customer', new Bounds(520, 140, 100, 50)),
+				new DiagramNode('node_person', 'ex:Person', new Bounds(80, 100, 120, 60)),
+			],
+			[
+				new DiagramEdge(
+					'edge_employeePerson',
+					'node_employee',
+					'node_person',
+					'rdfs:subClassOf',
+					new Point(0, 0),
+					[new Point(360, 105), new Point(200, 130)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+					'direct',
+				),
+				new DiagramEdge(
+					'edge_customerPerson',
+					'node_customer',
+					'node_person',
+					'rdfs:subClassOf',
+					new Point(0, 0),
+					[new Point(520, 165), new Point(200, 130)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+			],
+		);
+
+		const result = new AlignSubclassEndpointsUseCase().execute(diagram, ['node_employee', 'node_customer']);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		const updatedEdges = new Map(result.diagram.edges.map((edge) => [edge.id.value, edge] as const));
+		const employeeEdge = updatedEdges.get('edge_employeePerson');
+		const customerEdge = updatedEdges.get('edge_customerPerson');
+		assert.ok(employeeEdge);
+		assert.ok(customerEdge);
+		assert.deepStrictEqual(employeeEdge.points.map((point) => point.toPersistenceObject()), [
+			{ x: 360, y: 105 },
+			{ x: 280, y: 105 },
+			{ x: 280, y: 130 },
+			{ x: 200, y: 130 },
+		]);
+		assert.deepStrictEqual(customerEdge.points.map((point) => point.toPersistenceObject()), [
+			{ x: 520, y: 165 },
+			{ x: 280, y: 165 },
+			{ x: 280, y: 130 },
+			{ x: 200, y: 130 },
+		]);
+		assert.strictEqual(employeeEdge.routeLayout, 'orthogonal');
 	});
 
 	test('does not align subclass endpoints without one shared superclass', () => {
