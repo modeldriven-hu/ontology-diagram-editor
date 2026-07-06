@@ -95,6 +95,8 @@ export interface X6Terminal {
 
 export interface X6EdgeView {
 	readonly routePoints?: readonly { readonly x: number; readonly y: number }[];
+	getLabelPosition(x: number, y: number, options?: Record<string, unknown> | null): X6LabelPosition;
+	getLabelPosition(x: number, y: number, angle: number, options?: Record<string, unknown> | null): X6LabelPosition;
 	getTerminalConnectionPoint(type: 'source' | 'target'): { readonly x: number; readonly y: number };
 	getLabelTransformationMatrix(labelPosition: X6LabelPosition): DOMMatrix;
 }

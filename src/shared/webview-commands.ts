@@ -60,6 +60,7 @@ export type WebviewCommand =
 	| CreateImageCommand
 	| CreateLabelCommand
 	| SaveDiagramExportCommand
+	| DeleteElementsCommand
 	| DeleteEdgeCommand
 	| DeleteNodeCommand
 	| DeleteNoteCommand
@@ -70,6 +71,7 @@ export type WebviewCommand =
 	| UpdateEdgeRouteCommand
 	| OptimizeEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
+	| ShowRelatedElementsCommand
 	| UpdateNoteBoundsCommand
 	| UpdateImageBoundsCommand
 	| UpdateLabelBoundsCommand
@@ -169,6 +171,15 @@ export class UpdateEdgeRouteLayoutCommand {
 	}
 }
 
+export class ShowRelatedElementsCommand {
+	public readonly type = 'showRelatedElements';
+	public readonly nodeId: string;
+
+	public constructor(nodeId: string) {
+		this.nodeId = nodeId;
+	}
+}
+
 export class CreateNoteCommand {
 	public readonly type = 'createNote';
 	public readonly text: string;
@@ -248,6 +259,15 @@ export class DeleteNodeCommand {
 
 	public constructor(id: string) {
 		this.id = id;
+	}
+}
+
+export class DeleteElementsCommand {
+	public readonly type = 'deleteElements';
+	public readonly ids: readonly string[];
+
+	public constructor(ids: readonly string[]) {
+		this.ids = ids;
 	}
 }
 

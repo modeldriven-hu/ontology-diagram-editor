@@ -11,6 +11,7 @@ import {
 	CreateNodeUseCase,
 	CreateNoteConnectionUseCase,
 	CreateNoteUseCase,
+	DeleteElementsUseCase,
 	DeleteEdgeUseCase,
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
@@ -18,6 +19,7 @@ import {
 	DeleteNoteUseCase,
 	OptimizeEdgeRouteUseCase,
 	SaveDiagramExportUseCase,
+	ShowRelatedElementsUseCase,
 	UpdateEdgeRouteUseCase,
 	UpdateEdgeRouteLayoutUseCase,
 	UpdateElementBoundsUseCase,
@@ -38,6 +40,8 @@ import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
+import { isConnectionCapableOntologyItem } from './use-cases/ontology-edge-endpoints';
+import { loadReferencedOntologies, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
 
 interface DiagramEditorUseCases {
 	readonly arrangeDiagram: ArrangeDiagramUseCase;
@@ -49,11 +53,13 @@ interface DiagramEditorUseCases {
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
+	readonly deleteElements: DeleteElementsUseCase;
 	readonly deleteEdge: DeleteEdgeUseCase;
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly optimizeEdgeRoute: OptimizeEdgeRouteUseCase;
+	readonly showRelatedElements: ShowRelatedElementsUseCase;
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
 	readonly updateEdgeRouteLayout: UpdateEdgeRouteLayoutUseCase;
 	readonly updateElementBounds: UpdateElementBoundsUseCase;
@@ -124,6 +130,9 @@ export class DiagramCommandDispatcher {
 					command.id,
 				));
 				return;
+			case 'showRelatedElements':
+				await this.showRelatedElements(command.nodeId);
+				return;
 			case 'updateEdgeRouteLayout':
 				await this.handleResult(this.useCases.updateEdgeRouteLayout.execute(
 					this.repository.load(),
@@ -181,6 +190,9 @@ export class DiagramCommandDispatcher {
 				return;
 			case 'deleteNode':
 				await this.deleteNode(command);
+				return;
+			case 'deleteElements':
+				await this.deleteElements(command);
 				return;
 			case 'deleteEdge':
 				await this.deleteEdge(command);
@@ -272,6 +284,22 @@ export class DiagramCommandDispatcher {
 		}
 	}
 
+	private async showRelatedElements(nodeId: string): Promise<void> {
+		const depth = await pickRelatedElementDepth();
+		if (depth === undefined) {
+			return;
+		}
+
+		const diagram = this.repository.load();
+		const loadedOntologies = await loadReferencedOntologies(this.repository.uri.fsPath, diagram);
+		await this.handleResult(this.useCases.showRelatedElements.execute(
+			diagram,
+			nodeId,
+			depth,
+			relationshipPayloads(loadedOntologies),
+		));
+	}
+
 	private async undoOrRedo(command: 'undo' | 'redo'): Promise<void> {
 		await vscode.commands.executeCommand(command);
 		await this.repository.saveCurrentDocument();
@@ -337,6 +365,45 @@ export class DiagramCommandDispatcher {
 		await this.handleResult(this.useCases.deleteNode.execute(
 			diagram,
 			command.id,
+		));
+	}
+
+	private async deleteElements(command: Extract<WebviewCommand, { readonly type: 'deleteElements' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const ids = new Set(command.ids);
+		const selectedNodeIds = diagram.nodes.filter((node) => ids.has(node.id.value)).map((node) => node.id.value);
+		const selectedNoteIds = diagram.notes.filter((note) => ids.has(note.id.value)).map((note) => note.id.value);
+		const selectedImageIds = diagram.images.filter((image) => ids.has(image.id.value)).map((image) => image.id.value);
+		const selectedLabelIds = diagram.labels.filter((label) => ids.has(label.id.value)).map((label) => label.id.value);
+		const selectedEdgeIds = diagram.edges.filter((edge) => ids.has(edge.id.value)).map((edge) => edge.id.value);
+		const selectedElementCount = selectedNodeIds.length + selectedNoteIds.length + selectedImageIds.length + selectedLabelIds.length + selectedEdgeIds.length;
+		if (selectedElementCount === 0) {
+			return;
+		}
+
+		const selectedEndpointIds = new Set([
+			...selectedNodeIds,
+			...selectedNoteIds,
+			...selectedImageIds,
+		]);
+		const connectedEdgeCount = diagram.edges.filter((edge) =>
+			!ids.has(edge.id.value)
+			&& (selectedEndpointIds.has(edge.source.value) || selectedEndpointIds.has(edge.target.value)),
+		).length;
+		const confirmed = await vscode.window.showWarningMessage(
+			connectedEdgeCount > 0
+				? `Delete ${selectedElementCount} selected element${selectedElementCount === 1 ? '' : 's'} and ${connectedEdgeCount} connected edge${connectedEdgeCount === 1 ? '' : 's'} from the diagram?`
+				: `Delete ${selectedElementCount} selected element${selectedElementCount === 1 ? '' : 's'} from the diagram?`,
+			{ modal: true },
+			'Delete',
+		);
+		if (confirmed !== 'Delete') {
+			return;
+		}
+
+		await this.handleResult(this.useCases.deleteElements.execute(
+			diagram,
+			command.ids,
 		));
 	}
 
@@ -465,11 +532,13 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
+		deleteElements: new DeleteElementsUseCase(),
 		deleteEdge: new DeleteEdgeUseCase(),
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		optimizeEdgeRoute: new OptimizeEdgeRouteUseCase(),
+		showRelatedElements: new ShowRelatedElementsUseCase(),
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
 		updateEdgeRouteLayout: new UpdateEdgeRouteLayoutUseCase(),
 		updateElementBounds: new UpdateElementBoundsUseCase(),
@@ -487,10 +556,6 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateThemeMode: new UpdateThemeModeUseCase(),
 		saveDiagramExport: new SaveDiagramExportUseCase(new VsCodeDiagramExportSavePort()),
 	};
-}
-
-function isConnectionCapableOntologyItem(type: string): boolean {
-	return type === 'objectProperty' || type === 'dataProperty' || type === 'subclassRelationship';
 }
 
 class VsCodeDiagramExportSavePort implements DiagramExportSavePort {
@@ -554,4 +619,37 @@ function imageMimeType(filePath: string): string {
 		default:
 			return 'application/octet-stream';
 	}
+}
+
+async function pickRelatedElementDepth(): Promise<number | undefined> {
+	const selected = await vscode.window.showQuickPick([
+		{ label: 'Depth 1', description: 'Directly connected elements', depth: 1 },
+		{ label: 'Depth 2', description: 'Two relationship steps', depth: 2 },
+		{ label: 'Depth 3', description: 'Three relationship steps', depth: 3 },
+		{ label: 'Depth 4', description: 'Four relationship steps', depth: 4 },
+		{ label: 'Depth 5', description: 'Five relationship steps', depth: 5 },
+	], {
+		title: 'Show Related Elements',
+		placeHolder: 'Select how deep to add related ontology elements.',
+	});
+
+	return selected?.depth;
+}
+
+function relationshipPayloads(loadedOntologies: readonly LoadedOntology[]): readonly ModelTreeItemDropPayload[] {
+	return loadedOntologies.flatMap((ontology) =>
+		ontology.items
+			.filter((item) => isConnectionCapableOntologyItem(item.type))
+			.map((item) => relationshipPayload(ontology, item)),
+	);
+}
+
+function relationshipPayload(ontology: LoadedOntology, item: OntologyItem): ModelTreeItemDropPayload {
+	return {
+		sourceOntologyFilePath: ontology.relativePath,
+		ontologyItemType: item.type,
+		ontologyItemReference: item.reference,
+		displayLabel: item.displayLabel,
+		ontologyItemMetadata: item.metadata,
+	};
 }

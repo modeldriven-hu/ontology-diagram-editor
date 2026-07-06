@@ -86,8 +86,10 @@ function webviewBody(
 				<div class="local-element-toolbar" id="localElementToolbar" role="toolbar" aria-label="Selected element actions" hidden>
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
 					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
+					<button class="local-element-action" id="showRelatedElementsLocalButton" type="button" title="Show related elements" aria-label="Show related elements"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
+					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>
 					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
 				</div>
 				<div class="canvas-content" id="canvasContent"></div>

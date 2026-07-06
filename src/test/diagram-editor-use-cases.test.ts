@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -239,6 +239,71 @@ suite('Diagram editor use cases', () => {
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_source', 'node_target']);
 		assert.deepStrictEqual(result.diagram.edges, []);
+	});
+
+	test('deletes multiple elements and their connected edges from the diagram', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_selected', 'ex:Selected', new Bounds(200, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(400, 0, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_selected',
+					'node_source',
+					'node_target',
+					'ex:selected',
+					new Point(250, 25),
+					[new Point(100, 25), new Point(400, 25)],
+				),
+				new DiagramEdge(
+					'edge_connected',
+					'node_selected',
+					'node_target',
+					'ex:connected',
+					new Point(350, 25),
+					[new Point(300, 25), new Point(400, 25)],
+				),
+				new DiagramEdge(
+					'edge_keep',
+					'node_source',
+					'node_target',
+					'ex:keep',
+					new Point(250, 40),
+					[new Point(100, 40), new Point(400, 40)],
+				),
+			],
+			[
+				new DiagramNote('note_selected', new Bounds(10, 80, 120, 80), 'Selected'),
+				new DiagramNote('note_keep', new Bounds(150, 80, 120, 80), 'Keep'),
+			],
+			[
+				new DiagramImage('image_selected', new Bounds(10, 180, 100, 80), 'images/logo.png'),
+			],
+			[
+				new DiagramLabel('label_selected', new Bounds(10, 280, 100, 40), 'Selected'),
+				new DiagramLabel('label_keep', new Bounds(150, 280, 100, 40), 'Keep'),
+			],
+		);
+
+		const result = new DeleteElementsUseCase().execute(diagram, [
+			'node_selected',
+			'edge_selected',
+			'note_selected',
+			'image_selected',
+			'label_selected',
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.id.value), ['node_source', 'node_target']);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.id.value), ['edge_keep']);
+		assert.deepStrictEqual(result.diagram.notes.map((note) => note.id.value), ['note_keep']);
+		assert.deepStrictEqual(result.diagram.images, []);
+		assert.deepStrictEqual(result.diagram.labels.map((label) => label.id.value), ['label_keep']);
 	});
 
 	test('deletes a note connection edge without deleting either endpoint', () => {
@@ -693,6 +758,116 @@ suite('Diagram editor use cases', () => {
 
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'Edge creation needs exactly one source and one target ontology item.');
+	});
+
+	test('shows directly related ontology elements for a selected node', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(300, 200, 180, 72)),
+		]);
+
+		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_person', 1, [
+			{
+				ontologyItemType: 'objectProperty',
+				ontologyItemReference: 'ex:memberOf',
+				displayLabel: 'memberOf',
+				ontologyItemMetadata: {
+					domainReferences: ['ex:Person'],
+					rangeReferences: ['ex:Organization'],
+				},
+			},
+			{
+				ontologyItemType: 'subclassRelationship',
+				ontologyItemReference: 'rdfs:subClassOf',
+				displayLabel: 'Employee ⊑ Person',
+				ontologyItemMetadata: {
+					subclassReference: 'ex:Employee',
+					superclassReference: 'ex:Person',
+				},
+			},
+		]);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.notification, 'Added 2 related nodes and 2 edges.');
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value).sort(), ['ex:Employee', 'ex:Organization', 'ex:Person']);
+		const employeeNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Employee');
+		const organizationNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Organization');
+		assert.ok(employeeNode);
+		assert.ok(organizationNode);
+		const subclassEdge = result.diagram.edges.find((edge) => edge.ontologyRef.value === 'rdfs:subClassOf');
+		const propertyEdge = result.diagram.edges.find((edge) => edge.ontologyRef.value === 'ex:memberOf');
+		assert.ok(subclassEdge);
+		assert.ok(propertyEdge);
+		assert.strictEqual(subclassEdge.source.value, employeeNode.id.value);
+		assert.strictEqual(subclassEdge.target.value, 'node_person');
+		assert.strictEqual(propertyEdge.source.value, 'node_person');
+		assert.strictEqual(propertyEdge.target.value, organizationNode.id.value);
+		assert.strictEqual(result.diagram.namespaces.get('rdfs'), 'http://www.w3.org/2000/01/rdf-schema#');
+	});
+
+	test('skips data properties when showing related ontology elements', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(300, 200, 180, 72)),
+		]);
+
+		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_person', 1, [
+			{
+				ontologyItemType: 'objectProperty',
+				ontologyItemReference: 'ex:memberOf',
+				displayLabel: 'memberOf',
+				ontologyItemMetadata: {
+					domainReferences: ['ex:Person'],
+					rangeReferences: ['ex:Organization'],
+				},
+			},
+			{
+				ontologyItemType: 'dataProperty',
+				ontologyItemReference: 'ex:identifier',
+				displayLabel: 'identifier',
+				ontologyItemMetadata: {
+					domainReferences: ['ex:Person'],
+					rangeReferences: ['rdfs:Literal'],
+				},
+			},
+		]);
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.notification, 'Added 1 related node and 1 edge.');
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value).sort(), ['ex:Organization', 'ex:Person']);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.ontologyRef.value), ['ex:memberOf']);
+	});
+
+	test('shows related ontology elements to the selected depth', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(100, 100, 180, 72)),
+		]);
+
+		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_person', 2, [
+			{
+				ontologyItemType: 'objectProperty',
+				ontologyItemReference: 'ex:memberOf',
+				displayLabel: 'memberOf',
+				ontologyItemMetadata: {
+					domainReferences: ['ex:Person'],
+					rangeReferences: ['ex:Organization'],
+				},
+			},
+			{
+				ontologyItemType: 'objectProperty',
+				ontologyItemReference: 'ex:hasRole',
+				displayLabel: 'hasRole',
+				ontologyItemMetadata: {
+					domainReferences: ['ex:Organization'],
+					rangeReferences: ['ex:Role'],
+				},
+			},
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value), ['ex:Person', 'ex:Organization', 'ex:Role']);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.ontologyRef.value).sort(), ['ex:hasRole', 'ex:memberOf']);
+		const roleNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Role');
+		assert.ok(roleNode);
+		assert.strictEqual(roleNode.bounds.x > diagram.nodes[0].bounds.x, true);
 	});
 
 	test('updates edge source and target anchor points', () => {

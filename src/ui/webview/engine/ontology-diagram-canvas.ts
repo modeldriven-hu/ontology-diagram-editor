@@ -1,9 +1,9 @@
-import { LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { GitBranchPlus, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, ShowRelatedElementsCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -84,8 +84,10 @@ const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElemen
 const localElementToolbar = requiredElement('localElementToolbar');
 const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
 const createCommentNoteLocalButton = requiredElement('createCommentNoteLocalButton') as HTMLButtonElement;
+const showRelatedElementsLocalButton = requiredElement('showRelatedElementsLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
+const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
 const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
@@ -164,12 +166,20 @@ createCommentNoteLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	createCommentNoteFromSelectedNode();
 });
+showRelatedElementsLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	showRelatedElementsForSelectedNode();
+});
 connectNoteLocalButton.addEventListener('click', () => {
 	toggleNoteConnectionMode();
 });
 optimizeEdgeLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	optimizeSelectedEdgeRoute();
+});
+resetEdgeLabelLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	resetSelectedEdgeLabel();
 });
 deleteEdgeLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
@@ -379,6 +389,13 @@ function renderLocalElementToolbarIcons(): void {
 	createCommentNoteLocalButton.title = 'Create note from ontology comment';
 	createCommentNoteLocalButton.setAttribute('aria-label', 'Create note from ontology comment');
 
+	showRelatedElementsLocalButton.replaceChildren(createIconElement(GitBranchPlus, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	showRelatedElementsLocalButton.title = 'Show related elements';
+	showRelatedElementsLocalButton.setAttribute('aria-label', 'Show related elements');
+
 	const badge = document.createElement('span');
 	badge.className = 'local-action-note-badge';
 	badge.textContent = 'N';
@@ -396,6 +413,13 @@ function renderLocalElementToolbarIcons(): void {
 	}));
 	optimizeEdgeLocalButton.title = 'Optimize edge path';
 	optimizeEdgeLocalButton.setAttribute('aria-label', 'Optimize edge path');
+
+	resetEdgeLabelLocalButton.replaceChildren(createIconElement(RotateCcw, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	resetEdgeLabelLocalButton.title = 'Reset label position';
+	resetEdgeLabelLocalButton.setAttribute('aria-label', 'Reset label position');
 
 	deleteEdgeLocalButton.replaceChildren(createIconElement(Trash2, {
 		'aria-hidden': 'true',
@@ -572,8 +596,10 @@ function updateLocalElementToolbarButtons(element: CanvasPropertyElement): void 
 	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 	minimizeLocalButton.hidden = !canResize;
 	createCommentNoteLocalButton.hidden = element.kind !== 'node';
+	showRelatedElementsLocalButton.hidden = element.kind !== 'node';
 	connectNoteLocalButton.hidden = element.kind !== 'note';
 	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
+	resetEdgeLabelLocalButton.hidden = element.kind !== 'edge';
 	deleteEdgeLocalButton.hidden = element.kind !== 'edge';
 
 	if (element.kind === 'node') {
@@ -675,7 +701,10 @@ function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
 }
 
 function localElementToolbarFallbackWidth(element: CanvasPropertyElement): number {
-	if (element.kind === 'node' || element.kind === 'note' || element.kind === 'edge') {
+	if (element.kind === 'node' || element.kind === 'edge') {
+		return 103;
+	}
+	if (element.kind === 'note') {
 		return 67;
 	}
 
@@ -712,6 +741,20 @@ function optimizeSelectedEdgeRoute(): void {
 	showStatus('Optimizing edge path.');
 }
 
+function resetSelectedEdgeLabel(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+		showStatus('Select an edge to reset its label.');
+		return;
+	}
+
+	canvas.resetEdgeLabel(selectedElementId);
+	showStatus('Resetting edge label position.');
+}
+
 function createCommentNoteFromSelectedNode(): void {
 	const selectedElementId = canvas.selectedElementId();
 	const selectedElement = selectedElementId === undefined
@@ -730,6 +773,19 @@ function createCommentNoteFromSelectedNode(): void {
 
 	messageBus.publishCommand(new CreateCommentNoteCommand(selectedElementId, comment));
 	showStatus('Creating note from ontology comment.');
+}
+
+function showRelatedElementsForSelectedNode(): void {
+	const selectedElementId = canvas.selectedElementId();
+	const selectedElement = selectedElementId === undefined
+		? undefined
+		: elementRegistry.element(selectedElementId);
+	if (selectedElementId === undefined || selectedElement?.kind !== 'node') {
+		showStatus('Select a node to show related elements.');
+		return;
+	}
+
+	messageBus.publishCommand(new ShowRelatedElementsCommand(selectedElementId));
 }
 
 function commentTextForNode(node: DiagramNode): string {
@@ -1267,7 +1323,7 @@ function registerKeyboardNudgeHandlers(): void {
 
 		const selectedElementIds = canvas.selectedElementIds();
 		if (selectedElementIds.length > 1 && canvas.nudgeSelectedElements(delta)) {
-			event.preventDefault();
+			consumeKeyboardNudgeEvent(event);
 			return;
 		}
 
@@ -1276,15 +1332,20 @@ function registerKeyboardNudgeHandlers(): void {
 			return;
 		}
 		if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeLabel(selectedElementId, delta)) {
-			event.preventDefault();
+			consumeKeyboardNudgeEvent(event);
 			return;
 		}
 
 		const selectedElementKind = elementRegistry.element(selectedElementId)?.kind;
 		if (isKeyboardNudgeableElement(selectedElementKind) && canvas.nudgeElement(selectedElementId, delta)) {
-			event.preventDefault();
+			consumeKeyboardNudgeEvent(event);
 		}
-	});
+	}, { capture: true });
+}
+
+function consumeKeyboardNudgeEvent(event: KeyboardEvent): void {
+	event.preventDefault();
+	event.stopImmediatePropagation();
 }
 
 function keyboardNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
@@ -1321,9 +1382,9 @@ function registerDeleteHandlers(): void {
 			return;
 		}
 
-		const selectedElementId = canvas.selectedElementId();
-		if (selectedElementId !== undefined && deleteElement(selectedElementId)) {
+		if (deleteSelectedElements()) {
 			event.preventDefault();
+			event.stopPropagation();
 		}
 	});
 }
@@ -1376,6 +1437,28 @@ function deleteElement(id: string): boolean {
 	}
 
 	return false;
+}
+
+function deleteSelectedElements(): boolean {
+	const selectedElementIds = deletableElementIds(canvas.selectedElementIds());
+	if (selectedElementIds.length > 1) {
+		messageBus.publishCommand(new DeleteElementsCommand(selectedElementIds));
+
+		return true;
+	}
+
+	return selectedElementIds.length === 1 && deleteElement(selectedElementIds[0]);
+}
+
+function deletableElementIds(ids: readonly string[]): readonly string[] {
+	return [...new Set(ids)].filter((id) => {
+		const element = elementRegistry.element(id);
+		return element?.kind === 'node'
+			|| element?.kind === 'edge'
+			|| geometryPersistence.hasNote(id)
+			|| geometryPersistence.hasImage(id)
+			|| geometryPersistence.hasLabel(id);
+	});
 }
 
 function trackRenderedGeometry(payload: DiagramPayload): void {

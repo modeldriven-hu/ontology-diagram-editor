@@ -29,6 +29,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly boundsChangeListeners = new Set<CanvasBoundsChangeListener>();
 	private readonly edgeRouteChangeListeners = new Set<CanvasEdgeRouteChangeListener>();
 	private readonly pendingEdgeRouteChanges = new Set<string>();
+	private readonly edgeLabelPoints = new Map<string, CanvasPoint>();
+	private readonly programmaticLabelChanges = new Set<string>();
 	private selectedIds: string[] = [];
 	private suppressBoundsEvents = false;
 	private suppressSelectionEvents = false;
@@ -106,6 +108,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		this.suppressSelectionEvents = true;
 		try {
 			this.clearPendingEdgeRouteChanges();
+			this.edgeLabelPoints.clear();
+			this.programmaticLabelChanges.clear();
 			this.graph.clearCells();
 			for (const image of payload.diagram?.images ?? []) {
 				this.graph.addNode(x6Image(image, theme));
@@ -122,6 +126,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				...(payload.diagram?.images ?? []).map((image) => [image.id, image] as const),
 			]);
 			for (const edge of payload.diagram?.edges ?? []) {
+				this.edgeLabelPoints.set(edge.id, edge.label);
 				this.graph.addEdge(x6Edge(edge, connectableElementById, theme));
 			}
 			for (const label of payload.diagram?.labels ?? []) {
@@ -353,10 +358,13 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return undefined;
 		}
 
+		const labelPoint = this.edgeLabelPoints.get(edgeId) ?? edgeLabelPoint(cell, view, points[0]) ?? label;
+		this.edgeLabelPoints.set(edgeId, labelPoint);
+
 		return {
 			id: edgeId,
 			points,
-			label: edgeLabelPoint(cell, view) ?? label,
+			label: labelPoint,
 		};
 	}
 
@@ -371,17 +379,13 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		if (points.length < 2) {
 			return false;
 		}
-		const currentLabel = edgeLabelPoint(cell, view) ?? resetLabelPoint(points);
+		const currentLabel = this.edgeLabelPoints.get(edgeId) ?? edgeLabelPoint(cell, view, points[0]) ?? resetLabelPoint(points);
 
 		const nextLabel = {
 			x: Math.max(0, currentLabel.x + delta.x),
 			y: Math.max(0, currentLabel.y + delta.y),
 		};
-		const existingLabel = cell.getLabels()[0] ?? {};
-		cell.setLabelAt(0, {
-			...existingLabel,
-			position: labelPosition(nextLabel, points[0]),
-		});
+		this.setEdgeLabelPosition(cell, nextLabel, points[0]);
 		this.clearLabelDragHighlight(cell.id);
 		this.markEdgeRouteChanged(cell);
 		this.flushEdgeRouteChanges();
@@ -402,12 +406,10 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 
 		const label = resetLabelPoint(points);
-		const existingLabel = cell.getLabels()[0] ?? {};
-		cell.setLabelAt(0, {
-			...existingLabel,
-			position: labelPosition(label, points[0]),
-		});
+		this.setEdgeLabelPosition(cell, label, points[0]);
 		this.clearLabelDragHighlight(cell.id);
+		this.markEdgeRouteChanged(cell);
+		this.flushEdgeRouteChanges();
 	}
 
 	public onSelectionChanged(listener: CanvasSelectionListener): void {
@@ -482,7 +484,13 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		});
 		this.graph.on('edge:change:labels', (event) => {
 			const edge = eventEdge(event);
-			this.highlightLabelDragEdge(edge);
+			if (edge !== undefined) {
+				const isProgrammaticLabelChange = this.programmaticLabelChanges.delete(edge.id);
+				if (!isProgrammaticLabelChange) {
+					this.edgeLabelPoints.delete(edge.id);
+					this.highlightLabelDragEdge(edge);
+				}
+			}
 			this.markEdgeRouteChanged(edge);
 		});
 		this.graph.on('edge:mouseup', (event) => {
@@ -725,12 +733,25 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		edge.setVertices(points.slice(1, -1), options);
 
 		const existingLabel = edge.getLabels()[0];
+		const translatedLabel = translateCanvasPoint(edgeRoute.label, delta);
+		this.edgeLabelPoints.set(edgeRoute.id, translatedLabel);
 		if (existingLabel !== undefined) {
-			edge.setLabelAt(0, {
-				...existingLabel,
-				position: labelPosition(translateCanvasPoint(edgeRoute.label, delta), points[0]),
-			}, options);
+			this.setEdgeLabelPosition(edge, translatedLabel, points[0], options);
 		}
+	}
+
+	private setEdgeLabelPosition(edge: X6Edge, label: CanvasPoint, sourcePoint: CanvasPoint, options?: Record<string, unknown>): void {
+		const existingLabel = edge.getLabels()[0] ?? {};
+		const view = edgeView(this.graph, edge);
+		this.edgeLabelPoints.set(edge.id, label);
+		this.programmaticLabelChanges.add(edge.id);
+		edge.setLabelAt(0, {
+			...existingLabel,
+			position: labelPositionForPoint(label, view, sourcePoint),
+		}, options);
+		window.setTimeout(() => {
+			this.programmaticLabelChanges.delete(edge.id);
+		}, 0);
 	}
 
 	private markEdgeRouteChanged(edge: X6Edge | undefined): void {
@@ -1119,7 +1140,25 @@ function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): X6LabelPos
 	};
 }
 
+function labelPositionForPoint(label: CanvasPoint, view: X6EdgeView | undefined, sourcePoint: CanvasPoint): X6LabelPosition {
+	return view?.getLabelPosition(label.x, label.y, {
+		absoluteDistance: true,
+		absoluteOffset: true,
+	}) ?? labelPosition(label, sourcePoint);
+}
+
 function resetLabelPoint(points: readonly CanvasPoint[]): CanvasPoint {
+	if (points.length > 2) {
+		const lastSegment = lastNonZeroSegment(points);
+		if (lastSegment !== undefined) {
+			return offsetLabelPoint(segmentMiddlePoint(lastSegment.start, lastSegment.end), lastSegment.start, lastSegment.end);
+		}
+	}
+
+	return routeMiddleLabelPoint(points);
+}
+
+function routeMiddleLabelPoint(points: readonly CanvasPoint[]): CanvasPoint {
 	const totalLength = routeLength(points);
 	if (totalLength === 0) {
 		return points[0];
@@ -1145,6 +1184,25 @@ function resetLabelPoint(points: readonly CanvasPoint[]): CanvasPoint {
 	}
 
 	return offsetLabelPoint(points[points.length - 1], points[points.length - 2], points[points.length - 1]);
+}
+
+function lastNonZeroSegment(points: readonly CanvasPoint[]): { readonly start: CanvasPoint; readonly end: CanvasPoint } | undefined {
+	for (let index = points.length - 1; index > 0; index -= 1) {
+		const start = points[index - 1];
+		const end = points[index];
+		if (distance(start, end) > 0) {
+			return { start, end };
+		}
+	}
+
+	return undefined;
+}
+
+function segmentMiddlePoint(start: CanvasPoint, end: CanvasPoint): CanvasPoint {
+	return {
+		x: start.x + (end.x - start.x) / 2,
+		y: start.y + (end.y - start.y) / 2,
+	};
 }
 
 function routeLength(points: readonly CanvasPoint[]): number {
@@ -1559,14 +1617,19 @@ function normalizedRoutePoints(edge: X6Edge, view: X6EdgeView | undefined): read
 	]);
 }
 
-function edgeLabelPoint(edge: X6Edge, view: X6EdgeView | undefined): CanvasPoint | undefined {
-	if (view === undefined) {
-		return undefined;
-	}
-
+function edgeLabelPoint(edge: X6Edge, view: X6EdgeView | undefined, sourcePoint: CanvasPoint): CanvasPoint | undefined {
 	const labelPositionValue = edge.getLabels()[0]?.position;
 	const labelPosition = normalizeLabelPosition(labelPositionValue);
 	if (labelPosition === undefined) {
+		return undefined;
+	}
+
+	const absoluteOffsetPoint = absoluteOffsetLabelPoint(labelPosition, sourcePoint);
+	if (absoluteOffsetPoint !== undefined) {
+		return absoluteOffsetPoint;
+	}
+
+	if (view === undefined) {
 		return undefined;
 	}
 
@@ -1579,6 +1642,22 @@ function edgeLabelPoint(edge: X6Edge, view: X6EdgeView | undefined): CanvasPoint
 
 function normalizeLabelPosition(position: X6LabelPosition | undefined): X6LabelPosition | undefined {
 	return position === undefined ? undefined : position;
+}
+
+function absoluteOffsetLabelPoint(position: X6LabelPosition, sourcePoint: CanvasPoint): CanvasPoint | undefined {
+	if (typeof position === 'number') {
+		return undefined;
+	}
+
+	const offset = position.offset;
+	if (position.distance !== 0 || typeof offset !== 'object' || offset === null || position.options?.absoluteDistance !== true || position.options.absoluteOffset !== true) {
+		return undefined;
+	}
+
+	return canvasPoint({
+		x: sourcePoint.x + (offset.x ?? 0),
+		y: sourcePoint.y + (offset.y ?? 0),
+	});
 }
 
 function canvasPoint(point: { readonly x: number; readonly y: number }): CanvasPoint {

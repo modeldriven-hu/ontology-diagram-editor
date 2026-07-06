@@ -83,10 +83,16 @@ Version 1 local toolbar actions are:
 
 | Selection | Actions |
 |-----------|---------|
-| Node | Resize to minimum; create note from ontology comment when a comment is available. |
+| Node | Resize to minimum; create note from ontology comment when a comment is available; show related elements to a selected relationship depth. |
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |
 | Edge | Optimize edge path and remove edge. |
+
+The show-related-elements node action shall ask the user for a relationship depth. It
+shall add unambiguous connection-capable object property, data property, and subclass
+relationship endpoints reachable from the selected node up to that depth. Existing
+nodes and edges shall not be duplicated. The expansion shall be persisted as one
+logical `.odiagram` document edit.
 
 The local toolbar shall be hidden while on-canvas note or label text editing is active.

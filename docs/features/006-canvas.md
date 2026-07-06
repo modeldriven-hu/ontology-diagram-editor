@@ -69,6 +69,8 @@ The minimum viable product shall support:
 - Creating nodes by dragging classes, individuals, and datatypes from the model tree.
 - Creating connection-capable ontology edges by materializing the resolved source and
   target nodes when either endpoint is missing from the canvas.
+- Expanding a selected ontology-backed node by adding related nodes and relationship
+  edges to a selected relationship depth.
 - Adding notes, standalone labels, and standalone images through canvas commands.
 - Selecting, moving, resizing where supported, and deleting canvas elements.
 - Editing note and label text.

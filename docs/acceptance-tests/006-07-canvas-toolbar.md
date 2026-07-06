@@ -19,8 +19,9 @@
 
 ## Local Element Toolbar
 
-- Given a node is selected, when the local toolbar appears, then Resize to minimum and Create note from ontology comment are available.
+- Given a node is selected, when the local toolbar appears, then Resize to minimum, Create note from ontology comment, and Show related elements are available.
 - Given a selected node has no ontology comment, when the local toolbar appears, then Create note from ontology comment is disabled or reports a concise problem.
+- Given a node is selected, when the user chooses Show related elements and selects a depth, then related object property, data property, and subclass relationship endpoints up to that depth are added without duplicating existing nodes or edges.
 - Given a note is selected, when the local toolbar appears, then Resize to compact size and Connect Note are available.
 - Given an image or label is selected, when the local toolbar appears, then Resize to minimum is available.
 - Given an edge is selected, when the local toolbar appears, then Optimize edge path and Remove edge are available.
