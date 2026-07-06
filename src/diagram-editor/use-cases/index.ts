@@ -1,4 +1,5 @@
 export { ArrangeDiagramUseCase } from './arrange-diagram-use-case';
+export { AlignSubclassEndpointsUseCase } from './align-subclass-endpoints-use-case';
 export { CreateImageUseCase } from './create-image-use-case';
 export { CreateLabelUseCase } from './create-label-use-case';
 export { CreateCommentNoteUseCase } from './create-comment-note-use-case';

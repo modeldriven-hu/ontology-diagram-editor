@@ -84,9 +84,11 @@ function webviewBody(
 					</div>
 				</form>
 				<div class="local-element-toolbar" id="localElementToolbar" role="toolbar" aria-label="Selected element actions" hidden>
+					<button class="local-element-drag-handle" id="localElementDragHandle" type="button" title="Move toolbar" aria-label="Move toolbar"></button>
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
 					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
 					<button class="local-element-action" id="showRelatedElementsLocalButton" type="button" title="Show related elements" aria-label="Show related elements"></button>
+					<button class="local-element-action" id="alignSubclassEndpointsLocalButton" type="button" title="Align subclass endpoints" aria-label="Align subclass endpoints"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
 					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>
@@ -332,6 +334,33 @@ function webviewStyles(): string {
 	.local-element-action:disabled:hover {
 		border-color: transparent;
 		background: transparent;
+	}
+
+	.local-element-drag-handle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 28px;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--vscode-descriptionForeground);
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.local-element-drag-handle:hover,
+	.local-element-drag-handle:focus-visible {
+		border-color: color-mix(in srgb, var(--vscode-focusBorder) 72%, transparent);
+		background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+		color: var(--vscode-foreground);
+		outline: none;
+	}
+
+	.local-element-toolbar.dragging .local-element-drag-handle {
+		cursor: grabbing;
 	}
 
 	.local-action-note-badge {

@@ -51,6 +51,7 @@ export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePa
 
 export type WebviewCommand =
 	| ArrangeDiagramCommand
+	| AlignSubclassEndpointsCommand
 	| UndoDiagramCommand
 	| RedoDiagramCommand
 	| CreateNodeCommand
@@ -89,6 +90,15 @@ export type WebviewCommand =
 
 export class ArrangeDiagramCommand {
 	public readonly type = 'arrangeDiagram';
+}
+
+export class AlignSubclassEndpointsCommand {
+	public readonly type = 'alignSubclassEndpoints';
+	public readonly nodeIds: readonly string[];
+
+	public constructor(nodeIds: readonly string[]) {
+		this.nodeIds = nodeIds;
+	}
 }
 
 export class UndoDiagramCommand {

@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -664,6 +664,217 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].source.value, 'node_person');
 		assert.strictEqual(result.diagram.edges[0].target.value, 'node_agent');
 		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'rdfs:subClassOf');
+	});
+
+	test('aligns subclass edge endpoints on the shared superclass', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_employee', 'ex:Employee', new Bounds(0, 100, 100, 50)),
+				new DiagramNode('node_customer', 'ex:Customer', new Bounds(180, 140, 100, 50)),
+				new DiagramNode('node_person', 'ex:Person', new Bounds(80, 0, 120, 60)),
+			],
+			[
+				new DiagramEdge(
+					'edge_employeePerson',
+					'node_employee',
+					'node_person',
+					'rdfs:subClassOf',
+					new Point(80, 80),
+					[new Point(50, 100), new Point(80, 30)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+				new DiagramEdge(
+					'edge_customerPerson',
+					'node_customer',
+					'node_person',
+					'rdfs:subClassOf',
+					new Point(200, 90),
+					[new Point(230, 140), new Point(200, 30)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+			],
+		);
+
+		const result = new AlignSubclassEndpointsUseCase().execute(diagram, ['node_employee', 'node_customer']);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		const updatedEdges = new Map(result.diagram.edges.map((edge) => [edge.id.value, edge] as const));
+		const employeeEdge = updatedEdges.get('edge_employeePerson');
+		const customerEdge = updatedEdges.get('edge_customerPerson');
+		assert.ok(employeeEdge);
+		assert.ok(customerEdge);
+		assert.deepStrictEqual(employeeEdge.points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 125 },
+			{ x: 140, y: 100 },
+			{ x: 140, y: 60 },
+		]);
+		assert.deepStrictEqual(customerEdge.points.map((point) => point.toPersistenceObject()), [
+			{ x: 180, y: 165 },
+			{ x: 140, y: 100 },
+			{ x: 140, y: 60 },
+		]);
+	});
+
+	test('aligns subclass endpoint to the middle of the nearest superclass side', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_constraint', 'ex:Constraint', new Bounds(64, 178, 360, 144)),
+				new DiagramNode('node_rule', 'ex:Rule', new Bounds(536, 746, 120, 80)),
+				new DiagramNode('node_requirement', 'ex:Requirement', new Bounds(780, 160, 360, 144)),
+			],
+			[
+				new DiagramEdge(
+					'edge_constraintRequirement',
+					'node_constraint',
+					'node_requirement',
+					'rdfs:subClassOf',
+					new Point(540, 220),
+					[new Point(424, 322), new Point(780, 250)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+				new DiagramEdge(
+					'edge_ruleRequirement',
+					'node_rule',
+					'node_requirement',
+					'rdfs:subClassOf',
+					new Point(540, 620),
+					[new Point(656, 786), new Point(780, 250)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+			],
+		);
+
+		const result = new AlignSubclassEndpointsUseCase().execute(diagram, ['node_constraint', 'node_rule']);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		const updatedEdges = new Map(result.diagram.edges.map((edge) => [edge.id.value, edge] as const));
+		const constraintEdge = updatedEdges.get('edge_constraintRequirement');
+		assert.ok(constraintEdge);
+		const constraintPoints = constraintEdge.points.map((point) => point.toPersistenceObject());
+		assert.deepStrictEqual(constraintPoints, [
+			{ x: 424, y: 250 },
+			{ x: 740, y: 232 },
+			{ x: 780, y: 232 },
+		]);
+	});
+
+	test('aligns each subclass source to the side facing the shared superclass endpoint', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_constraint', 'ex:Constraint', new Bounds(153, 511, 238, 95)),
+				new DiagramNode('node_functionalRequirement', 'ex:FunctionalRequirement', new Bounds(483, 511, 237, 95)),
+				new DiagramNode('node_qualityRequirement', 'ex:QualityRequirement', new Bounds(812, 511, 238, 95)),
+				new DiagramNode('node_requirement', 'ex:Requirement', new Bounds(575, 103, 238, 95)),
+			],
+			[
+				new DiagramEdge(
+					'edge_constraintRequirement',
+					'node_constraint',
+					'node_requirement',
+					'rdfs:subClassOf',
+					new Point(430, 340),
+					[new Point(391, 558), new Point(694, 198)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+				new DiagramEdge(
+					'edge_functionalRequirementRequirement',
+					'node_functionalRequirement',
+					'node_requirement',
+					'rdfs:subClassOf',
+					new Point(520, 340),
+					[new Point(720, 558), new Point(694, 198)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+				new DiagramEdge(
+					'edge_qualityRequirementRequirement',
+					'node_qualityRequirement',
+					'node_requirement',
+					'rdfs:subClassOf',
+					new Point(820, 340),
+					[new Point(812, 558), new Point(694, 198)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+			],
+		);
+
+		const result = new AlignSubclassEndpointsUseCase().execute(diagram, [
+			'node_constraint',
+			'node_functionalRequirement',
+			'node_qualityRequirement',
+		]);
+
+		assert.strictEqual(result.notification, undefined);
+		assert.ok(result.diagram);
+		const updatedEdges = new Map(result.diagram.edges.map((edge) => [edge.id.value, edge] as const));
+		const constraintEdge = updatedEdges.get('edge_constraintRequirement');
+		const functionalRequirementEdge = updatedEdges.get('edge_functionalRequirementRequirement');
+		const qualityRequirementEdge = updatedEdges.get('edge_qualityRequirementRequirement');
+		assert.ok(constraintEdge);
+		assert.ok(functionalRequirementEdge);
+		assert.ok(qualityRequirementEdge);
+		assert.deepStrictEqual(constraintEdge.points[0].toPersistenceObject(), { x: 391, y: 559 });
+		assert.deepStrictEqual(functionalRequirementEdge.points[0].toPersistenceObject(), { x: 602, y: 511 });
+		assert.deepStrictEqual(qualityRequirementEdge.points[0].toPersistenceObject(), { x: 812, y: 559 });
+		assert.deepStrictEqual(functionalRequirementEdge.points[functionalRequirementEdge.points.length - 1].toPersistenceObject(), { x: 694, y: 198 });
+	});
+
+	test('does not align subclass endpoints without one shared superclass', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#'], ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#']]),
+			[
+				new DiagramNode('node_employee', 'ex:Employee', new Bounds(0, 100, 100, 50)),
+				new DiagramNode('node_customer', 'ex:Customer', new Bounds(180, 140, 100, 50)),
+				new DiagramNode('node_person', 'ex:Person', new Bounds(80, 0, 120, 60)),
+				new DiagramNode('node_agent', 'ex:Agent', new Bounds(260, 0, 120, 60)),
+			],
+			[
+				new DiagramEdge(
+					'edge_employeePerson',
+					'node_employee',
+					'node_person',
+					'rdfs:subClassOf',
+					new Point(80, 80),
+					[new Point(50, 100), new Point(80, 30)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+				new DiagramEdge(
+					'edge_customerAgent',
+					'node_customer',
+					'node_agent',
+					'rdfs:subClassOf',
+					new Point(260, 90),
+					[new Point(230, 140), new Point(260, 30)],
+					undefined,
+					{ ontology_item_type: 'subclassRelationship' },
+				),
+			],
+		);
+
+		const result = new AlignSubclassEndpointsUseCase().execute(diagram, ['node_employee', 'node_customer']);
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'Selected nodes do not share the same superclass edge.');
 	});
 
 	test('adds the rdfs namespace when materializing subclass edges', () => {

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { readFile } from 'fs/promises';
 
 import {
+	AlignSubclassEndpointsUseCase,
 	ArrangeDiagramUseCase,
 	CreateEdgeUseCase,
 	CreateCommentNoteUseCase,
@@ -44,6 +45,7 @@ import { isConnectionCapableOntologyItem } from './use-cases/ontology-edge-endpo
 import { loadReferencedOntologies, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
 
 interface DiagramEditorUseCases {
+	readonly alignSubclassEndpoints: AlignSubclassEndpointsUseCase;
 	readonly arrangeDiagram: ArrangeDiagramUseCase;
 	readonly createNode: CreateNodeUseCase;
 	readonly createEdge: CreateEdgeUseCase;
@@ -92,6 +94,12 @@ export class DiagramCommandDispatcher {
 
 	public async dispatch(command: WebviewCommand): Promise<void> {
 		switch (command.type) {
+			case 'alignSubclassEndpoints':
+				await this.handleResult(this.useCases.alignSubclassEndpoints.execute(
+					this.repository.load(),
+					command.nodeIds,
+				));
+				return;
 			case 'arrangeDiagram':
 				await this.handleResult(this.useCases.arrangeDiagram.execute(
 					this.repository.load(),
@@ -523,6 +531,7 @@ export class DiagramCommandDispatcher {
 
 function createDefaultUseCases(): DiagramEditorUseCases {
 	return {
+		alignSubclassEndpoints: new AlignSubclassEndpointsUseCase(),
 		arrangeDiagram: new ArrangeDiagramUseCase(),
 		createNode: new CreateNodeUseCase(),
 		createEdge: new CreateEdgeUseCase(),
