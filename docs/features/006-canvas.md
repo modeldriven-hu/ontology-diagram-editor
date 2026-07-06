@@ -143,8 +143,12 @@ Version 1 shall define actions for:
 - Toggle property panel.
 - Toggle light/dark mode.
 
-The create new diagram command shall ask the user for a target `.odiagram` path and
-create a valid empty diagram document using the `.odiagram` file format specification.
+The create new diagram command shall ask the user for a file name and create a valid
+empty diagram document using the `.odiagram` file format specification. When the
+command is invoked from a selected folder in the Visual Studio Code Explorer, the
+selected folder shall be used as the target folder. When the command is invoked
+without an Explorer resource, the user shall choose the target folder before the file
+is created.
 After creation, the extension shall open the new file in the canvas view.
 
 Actions that cannot currently run shall be disabled or shall fail without changing the

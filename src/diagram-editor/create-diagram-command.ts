@@ -47,33 +47,53 @@ export class CreateDiagramCommand {
 	}
 }
 
-async function resolveTargetFolder(resource?: vscode.Uri): Promise<vscode.Uri | undefined> {
+export async function resolveTargetFolder(
+	resource?: vscode.Uri,
+	pickTargetFolder: () => Promise<vscode.Uri | undefined> = promptForTargetFolder,
+): Promise<vscode.Uri | undefined> {
 	if (resource !== undefined) {
-		return resource;
+		return targetFolderFromResource(resource);
 	}
 
-	const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-	if (workspaceFolders.length === 1) {
-		return workspaceFolders[0].uri;
-	}
+	return pickTargetFolder();
+}
 
-	if (workspaceFolders.length > 1) {
-		const selected = await vscode.window.showWorkspaceFolderPick({
-			placeHolder: 'Choose where to create the ontology diagram.',
-		});
-
-		return selected?.uri;
-	}
-
+async function promptForTargetFolder(): Promise<vscode.Uri | undefined> {
 	const selected = await vscode.window.showOpenDialog({
 		canSelectFiles: false,
 		canSelectFolders: true,
 		canSelectMany: false,
+		defaultUri: defaultTargetFolderUri(),
 		openLabel: 'Create Here',
 		title: 'Choose Folder for New Ontology Diagram',
 	});
 
 	return selected?.[0];
+}
+
+function defaultTargetFolderUri(): vscode.Uri | undefined {
+	const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
+	if (activeDocumentUri?.scheme === 'file') {
+		return vscode.Uri.file(path.dirname(activeDocumentUri.fsPath));
+	}
+
+	const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+	if (workspaceFolders.length > 0) {
+		return workspaceFolders[0].uri;
+	}
+
+	return undefined;
+}
+
+async function targetFolderFromResource(resource: vscode.Uri): Promise<vscode.Uri> {
+	const stat = await vscode.workspace.fs.stat(resource);
+	return (stat.type & vscode.FileType.Directory) !== 0 ? resource : parentUri(resource);
+}
+
+function parentUri(resource: vscode.Uri): vscode.Uri {
+	return resource.scheme === 'file'
+		? vscode.Uri.file(path.dirname(resource.fsPath))
+		: vscode.Uri.joinPath(resource, '..');
 }
 
 function validateDiagramFileName(value: string): string | undefined {

@@ -1,71 +1,135 @@
-# ontology-diagram-editor README
+# Ontology Diagram Editor
 
-This is the README for your extension "ontology-diagram-editor". After writing up a brief description, we recommend including the following sections.
+Ontology Diagram Editor is a Visual Studio Code extension for creating and editing
+ontology-backed diagrams. It opens `.odiagram` YAML files in a custom webview editor,
+loads referenced ontology files into a model tree, and lets you build diagrams by
+placing ontology items, relationships, notes, images, and labels on a canvas.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Create valid empty `.odiagram` files from the Command Palette or from an Explorer
+  folder context menu.
+- Open `.odiagram` files as either text or an interactive canvas editor.
+- Reference ontology files from a diagram and browse them in the Ontology Diagram model
+  tree.
+- Load ontology items into groups for classes, object properties, data properties,
+  annotation properties, subclass relationships, individuals, and datatypes.
+- Add and remove referenced ontology files from the model tree.
+- Open ontology source files and reveal the best available source location for a model
+  tree item.
+- Drag ontology items from the model tree onto the canvas to create nodes or
+  relationship edges.
+- Materialize object property, data property, and subclass relationship edges, including
+  missing endpoint nodes when the relationship metadata is unambiguous.
+- Render ontology-backed nodes and edges with UML-style conventions.
+- Add, edit, move, resize, and delete notes, standalone labels, and standalone images.
+- Connect notes to nodes, images, or other notes with persisted annotation edges.
+- Select canvas elements, move them with the keyboard, and move multiple bounded
+  elements together with arrow keys.
+- Inspect and edit selected element geometry, text, image sources, route layout, export
+  inclusion, data-property visibility, and style overrides in the property panel.
+- Customize element-level style for nodes, edges, notes, labels, and image borders or
+  shadows without editing the referenced theme file.
+- Use `.otheme` YAML files for reusable visual defaults, with light and dark mode
+  overrides.
+- Toggle the rendered light or dark theme mode and persist the selected mode in
+  `.odiagram` metadata.
+- Pan, zoom, fit, and reset the canvas viewport without changing persisted coordinates.
+- Arrange ontology-backed nodes and reroute connected edges through a toolbar action.
+- Export non-empty diagrams as SVG or PNG.
+- Persist completed canvas edits back to the opened `.odiagram` document, preserving
+  unknown fields whenever practical.
 
-For example if there is an image subfolder under your extension project workspace:
+The `.odiagram` format is YAML-based and stores diagram metadata, ontology references,
+namespace shortcuts, positioned nodes and edges, plus optional notes, images, labels,
+and element-level style overrides. Relative paths are resolved from the `.odiagram`
+file.
 
-\!\[feature X\]\(images/feature-x.png\)
+Images added through the canvas are embedded as data URI sources so diagrams remain
+portable. Relative image paths are also supported for compatibility when edited through
+text or the property panel. Remote image URLs are not supported in version 1.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+Detailed feature specifications are available in `docs/features/`.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Visual Studio Code `^1.125.0`.
+- Ontology files referenced by a diagram should be reachable from the `.odiagram` file.
+- Supported ontology input formats include Turtle (`.ttl`), RDF/XML (`.rdf`, `.owl`,
+  `.xml`), JSON-LD (`.jsonld`), and N-Triples (`.nt`).
+- Optional theme files are YAML files, preferably using the `.otheme.yml` extension.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+This extension does not currently contribute VS Code settings.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Current version 1 scope intentionally excludes:
+
+- Multi-user editing.
+- Grouping elements, layer management, custom z-index controls, and freehand drawing.
+- Direct ontology source editing from canvas controls.
+- Theme file editing from canvas controls.
+- Annotation property edge creation.
+- Direct property-panel editing of element identifiers, ontology references, edge
+  endpoints, edge route points, or edge label positions.
+- Mouse drag movement for multi-selection. Multiple bounded elements can still be moved
+  together with keyboard arrow keys.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Initial development release with `.odiagram` custom editor support, ontology model tree,
+canvas editing, property panel editing, theming, persistence, and SVG/PNG export.
 
 ---
 
 ## Following extension guidelines
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+This repository follows the standard Visual Studio Code extension layout. Extension
+entry points live in `src/`, feature and acceptance-test notes live in `docs/`, and the
+development bundle is produced into `dist/` by `esbuild.js`.
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+Useful development commands:
+
+- `npm install`: install dependencies from `package-lock.json`.
+- `npm run compile`: type-check, lint, and bundle the extension.
+- `npm run watch`: run TypeScript and esbuild watchers during development.
+- `npm test`: compile tests, compile the extension, lint, and run VS Code extension
+  tests.
+- `npm run package`: build a production bundle.
+
+To build an installable Visual Studio Code plugin file (`.vsix`):
+
+```sh
+npm install
+npm run package
+npx @vscode/vsce package
+```
+
+`npm run package` creates the production bundle in `dist/`. `npx @vscode/vsce package`
+then creates the `.vsix` file in the project root, using `.vscodeignore` to decide what
+is included. If VSCE reports missing marketplace metadata, add the required fields such
+as `publisher` to `package.json` before packaging.
+
+See also the Visual Studio Code [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines).
 
 ## Working with Markdown
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+The main project documentation is Markdown:
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+- Feature specifications: `docs/features/`.
+- Acceptance-test notes: `docs/acceptance-tests/`.
+- Diagram documentation: `docs/diagrams/`.
+
+You can preview Markdown in Visual Studio Code with `Shift+Cmd+V` on macOS or
+`Shift+Ctrl+V` on Windows and Linux.
 
 ## For more information
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- [Visual Studio Code Extension API](https://code.visualstudio.com/api)
+- [Custom editors](https://code.visualstudio.com/api/extension-guides/custom-editors)
+- [Webview API](https://code.visualstudio.com/api/extension-guides/webview)
+- [Markdown support in Visual Studio Code](https://code.visualstudio.com/docs/languages/markdown)

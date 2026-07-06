@@ -434,7 +434,7 @@ function webviewStyles(): string {
 	.error-state {
 		position: absolute;
 		left: 24px;
-		top: 24px;
+		top: 68px;
 		max-width: 560px;
 		padding: 12px 14px;
 		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);

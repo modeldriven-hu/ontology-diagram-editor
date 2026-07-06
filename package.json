@@ -3,6 +3,7 @@
   "displayName": "Ontology Diagram Editor",
   "description": "",
   "version": "0.0.1",
+  "publisher": "modeldriven-hu",
   "engines": {
     "vscode": "^1.125.0"
   },
@@ -72,6 +73,13 @@
       ]
     },
     "menus": {
+      "explorer/context": [
+        {
+          "command": "ontology-diagram-editor.createOntologyDiagram",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ],
       "view/title": [
         {
           "command": "ontology-diagram-editor.modelTree.addOntology",
