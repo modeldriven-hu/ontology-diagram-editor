@@ -1,4 +1,4 @@
-import { GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, MoveHorizontal, Redo2, RotateCcw, Route, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, MoveHorizontal, Redo2, RotateCcw, Route, Rows2, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
@@ -10,6 +10,7 @@ import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { CanvasPropertyPanel } from '../components/canvas-property-panel';
+import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
 import { measuredTextWidth, nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
@@ -95,6 +96,20 @@ const localElementDragHandle = requiredElement('localElementDragHandle') as HTML
 const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
 const createCommentNoteLocalButton = requiredElement('createCommentNoteLocalButton') as HTMLButtonElement;
 const showRelatedElementsLocalButton = requiredElement('showRelatedElementsLocalButton') as HTMLButtonElement;
+const alignLeftLocalButton = requiredElement('alignLeftLocalButton') as HTMLButtonElement;
+const alignHorizontalCenterLocalButton = requiredElement('alignHorizontalCenterLocalButton') as HTMLButtonElement;
+const alignRightLocalButton = requiredElement('alignRightLocalButton') as HTMLButtonElement;
+const alignTopLocalButton = requiredElement('alignTopLocalButton') as HTMLButtonElement;
+const alignVerticalCenterLocalButton = requiredElement('alignVerticalCenterLocalButton') as HTMLButtonElement;
+const alignBottomLocalButton = requiredElement('alignBottomLocalButton') as HTMLButtonElement;
+const matchWidthLocalButton = requiredElement('matchWidthLocalButton') as HTMLButtonElement;
+const matchHeightLocalButton = requiredElement('matchHeightLocalButton') as HTMLButtonElement;
+const matchSizeLocalButton = requiredElement('matchSizeLocalButton') as HTMLButtonElement;
+const nodeSelectionSizeSeparator = requiredElement('nodeSelectionSizeSeparator');
+const distributeHorizontalLocalButton = requiredElement('distributeHorizontalLocalButton') as HTMLButtonElement;
+const distributeVerticalLocalButton = requiredElement('distributeVerticalLocalButton') as HTMLButtonElement;
+const nodeSelectionDistributeSeparator = requiredElement('nodeSelectionDistributeSeparator');
+const nodeSelectionSubclassSeparator = requiredElement('nodeSelectionSubclassSeparator');
 const alignSubclassEndpointsLocalButton = requiredElement('alignSubclassEndpointsLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
@@ -187,6 +202,50 @@ createCommentNoteLocalButton.addEventListener('click', () => {
 showRelatedElementsLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	showRelatedElementsForSelectedNode();
+});
+alignLeftLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('left');
+});
+alignHorizontalCenterLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('horizontalCenter');
+});
+alignRightLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('right');
+});
+alignTopLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('top');
+});
+alignVerticalCenterLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('verticalCenter');
+});
+alignBottomLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignSelectedNodes('bottom');
+});
+matchWidthLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	matchSelectedNodeSize('width');
+});
+matchHeightLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	matchSelectedNodeSize('height');
+});
+matchSizeLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	matchSelectedNodeSize('size');
+});
+distributeHorizontalLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	distributeSelectedNodes('horizontal');
+});
+distributeVerticalLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	distributeSelectedNodes('vertical');
 });
 alignSubclassEndpointsLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
@@ -407,36 +466,97 @@ function renderLocalElementToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	localElementDragHandle.title = 'Move toolbar';
-	localElementDragHandle.setAttribute('aria-label', 'Move toolbar');
+	setLocalActionTooltip(localElementDragHandle, 'Move toolbar');
 
 	minimizeLocalButton.replaceChildren(createIconElement(Minimize2, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	minimizeLocalButton.title = 'Resize to minimum size';
-	minimizeLocalButton.setAttribute('aria-label', 'Resize to minimum size');
+	setLocalActionTooltip(minimizeLocalButton, 'Resize to minimum size');
 
 	createCommentNoteLocalButton.replaceChildren(createIconElement(StickyNotePlus, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	createCommentNoteLocalButton.title = 'Create note from ontology comment';
-	createCommentNoteLocalButton.setAttribute('aria-label', 'Create note from ontology comment');
+	setLocalActionTooltip(createCommentNoteLocalButton, 'Create note from ontology comment');
 
 	showRelatedElementsLocalButton.replaceChildren(createIconElement(GitBranchPlus, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	showRelatedElementsLocalButton.title = 'Show related elements';
-	showRelatedElementsLocalButton.setAttribute('aria-label', 'Show related elements');
+	setLocalActionTooltip(showRelatedElementsLocalButton, 'Show related elements');
+
+	alignLeftLocalButton.replaceChildren(createIconElement(AlignStartVertical, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignLeftLocalButton, 'Align selected nodes left');
+
+	alignHorizontalCenterLocalButton.replaceChildren(createIconElement(AlignCenterVertical, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignHorizontalCenterLocalButton, 'Align selected node horizontal centers');
+
+	alignRightLocalButton.replaceChildren(createIconElement(AlignEndVertical, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignRightLocalButton, 'Align selected nodes right');
+
+	alignTopLocalButton.replaceChildren(createIconElement(AlignStartHorizontal, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignTopLocalButton, 'Align selected nodes top');
+
+	alignVerticalCenterLocalButton.replaceChildren(createIconElement(AlignCenterHorizontal, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignVerticalCenterLocalButton, 'Align selected node vertical centers');
+
+	alignBottomLocalButton.replaceChildren(createIconElement(AlignEndHorizontal, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(alignBottomLocalButton, 'Align selected nodes bottom');
+
+	matchWidthLocalButton.replaceChildren(createIconElement(Columns2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(matchWidthLocalButton, 'Match selected node width');
+
+	matchHeightLocalButton.replaceChildren(createIconElement(Rows2, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(matchHeightLocalButton, 'Match selected node height');
+
+	matchSizeLocalButton.replaceChildren(createIconElement(SquareEqual, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(matchSizeLocalButton, 'Match selected node size');
+
+	distributeHorizontalLocalButton.replaceChildren(createIconElement(AlignHorizontalSpaceBetween, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(distributeHorizontalLocalButton, 'Distribute selected nodes horizontally');
+
+	distributeVerticalLocalButton.replaceChildren(createIconElement(AlignVerticalSpaceBetween, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setLocalActionTooltip(distributeVerticalLocalButton, 'Distribute selected nodes vertically');
 
 	alignSubclassEndpointsLocalButton.replaceChildren(createIconElement(GitMerge, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	alignSubclassEndpointsLocalButton.title = 'Align subclass endpoints';
-	alignSubclassEndpointsLocalButton.setAttribute('aria-label', 'Align subclass endpoints');
+	setLocalActionTooltip(alignSubclassEndpointsLocalButton, 'Align subclass endpoints');
 
 	const badge = document.createElement('span');
 	badge.className = 'local-action-note-badge';
@@ -445,37 +565,38 @@ function renderLocalElementToolbarIcons(): void {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}), badge);
-	connectNoteLocalButton.title = 'Connect note';
-	connectNoteLocalButton.setAttribute('aria-label', 'Connect note');
+	setLocalActionTooltip(connectNoteLocalButton, 'Connect note');
 	connectNoteLocalButton.setAttribute('aria-pressed', 'false');
 
 	optimizeEdgeLocalButton.replaceChildren(createIconElement(Route, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	optimizeEdgeLocalButton.title = 'Optimize edge path';
-	optimizeEdgeLocalButton.setAttribute('aria-label', 'Optimize edge path');
+	setLocalActionTooltip(optimizeEdgeLocalButton, 'Optimize edge path');
 
 	straightenEdgeLocalButton.replaceChildren(createIconElement(MoveHorizontal, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	straightenEdgeLocalButton.title = 'Straighten edge';
-	straightenEdgeLocalButton.setAttribute('aria-label', 'Straighten edge');
+	setLocalActionTooltip(straightenEdgeLocalButton, 'Straighten edge');
 
 	resetEdgeLabelLocalButton.replaceChildren(createIconElement(RotateCcw, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	resetEdgeLabelLocalButton.title = 'Reset label position';
-	resetEdgeLabelLocalButton.setAttribute('aria-label', 'Reset label position');
+	setLocalActionTooltip(resetEdgeLabelLocalButton, 'Reset label position');
 
 	deleteEdgeLocalButton.replaceChildren(createIconElement(Trash2, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	deleteEdgeLocalButton.title = 'Remove edge';
-	deleteEdgeLocalButton.setAttribute('aria-label', 'Remove edge');
+	setLocalActionTooltip(deleteEdgeLocalButton, 'Remove edge');
+}
+
+function setLocalActionTooltip(element: HTMLElement, tooltip: string): void {
+	element.title = tooltip;
+	element.setAttribute('aria-label', tooltip);
+	element.dataset.tooltip = tooltip;
 }
 
 function registerViewportEventPublishing(): void {
@@ -676,10 +797,25 @@ function hasLocalElementToolbarActions(element: LocalElementToolbarContext): boo
 
 function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): void {
 	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
+	const isNodeSelection = element.kind === 'nodeSelection';
 	minimizeLocalButton.hidden = !canResize;
 	createCommentNoteLocalButton.hidden = element.kind !== 'node';
 	showRelatedElementsLocalButton.hidden = element.kind !== 'node';
-	alignSubclassEndpointsLocalButton.hidden = element.kind !== 'nodeSelection';
+	alignLeftLocalButton.hidden = !isNodeSelection;
+	alignHorizontalCenterLocalButton.hidden = !isNodeSelection;
+	alignRightLocalButton.hidden = !isNodeSelection;
+	alignTopLocalButton.hidden = !isNodeSelection;
+	alignVerticalCenterLocalButton.hidden = !isNodeSelection;
+	alignBottomLocalButton.hidden = !isNodeSelection;
+	matchWidthLocalButton.hidden = !isNodeSelection;
+	matchHeightLocalButton.hidden = !isNodeSelection;
+	matchSizeLocalButton.hidden = !isNodeSelection;
+	nodeSelectionSizeSeparator.hidden = !isNodeSelection;
+	distributeHorizontalLocalButton.hidden = !isNodeSelection;
+	distributeVerticalLocalButton.hidden = !isNodeSelection;
+	nodeSelectionDistributeSeparator.hidden = !isNodeSelection;
+	nodeSelectionSubclassSeparator.hidden = !isNodeSelection;
+	alignSubclassEndpointsLocalButton.hidden = !isNodeSelection;
 	connectNoteLocalButton.hidden = element.kind !== 'note';
 	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 	straightenEdgeLocalButton.hidden = element.kind !== 'edge';
@@ -689,39 +825,32 @@ function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): 
 	if (element.kind === 'nodeSelection') {
 		const hasSharedSuperclass = sharedSubclassTargetIds(element.ids).length === 1;
 		alignSubclassEndpointsLocalButton.disabled = !hasSharedSuperclass;
-		alignSubclassEndpointsLocalButton.title = hasSharedSuperclass
+		setLocalActionTooltip(alignSubclassEndpointsLocalButton, hasSharedSuperclass
 			? 'Align subclass endpoints'
-			: 'Selected nodes do not share one superclass edge';
-		alignSubclassEndpointsLocalButton.setAttribute('aria-label', alignSubclassEndpointsLocalButton.title);
+			: 'Selected nodes do not share one superclass edge');
 	} else {
 		alignSubclassEndpointsLocalButton.disabled = false;
-		alignSubclassEndpointsLocalButton.title = 'Align subclass endpoints';
-		alignSubclassEndpointsLocalButton.setAttribute('aria-label', 'Align subclass endpoints');
+		setLocalActionTooltip(alignSubclassEndpointsLocalButton, 'Align subclass endpoints');
 	}
 
 	if (element.kind === 'node') {
 		const hasComments = commentTextForNode(element.value).trim().length > 0;
 		createCommentNoteLocalButton.disabled = !hasComments;
-		createCommentNoteLocalButton.title = hasComments
+		setLocalActionTooltip(createCommentNoteLocalButton, hasComments
 			? 'Create note from ontology comment'
-			: 'No ontology comment available';
-		createCommentNoteLocalButton.setAttribute('aria-label', createCommentNoteLocalButton.title);
+			: 'No ontology comment available');
 	} else {
 		createCommentNoteLocalButton.disabled = false;
 	}
 
 	if (element.kind === 'note') {
-		minimizeLocalButton.title = 'Resize note to compact size';
-		minimizeLocalButton.setAttribute('aria-label', 'Resize note to compact size');
+		setLocalActionTooltip(minimizeLocalButton, 'Resize note to compact size');
 	} else if (element.kind === 'image') {
-		minimizeLocalButton.title = 'Resize image to minimum size';
-		minimizeLocalButton.setAttribute('aria-label', 'Resize image to minimum size');
+		setLocalActionTooltip(minimizeLocalButton, 'Resize image to minimum size');
 	} else if (element.kind === 'label') {
-		minimizeLocalButton.title = 'Resize label to minimum size';
-		minimizeLocalButton.setAttribute('aria-label', 'Resize label to minimum size');
+		setLocalActionTooltip(minimizeLocalButton, 'Resize label to minimum size');
 	} else {
-		minimizeLocalButton.title = 'Resize to minimum size';
-		minimizeLocalButton.setAttribute('aria-label', 'Resize to minimum size');
+		setLocalActionTooltip(minimizeLocalButton, 'Resize to minimum size');
 	}
 }
 
@@ -985,6 +1114,9 @@ function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
 }
 
 function localElementToolbarFallbackWidth(element: LocalElementToolbarContext): number {
+	if (element.kind === 'nodeSelection') {
+		return 410;
+	}
 	if (element.kind === 'node' || element.kind === 'edge') {
 		return 123;
 	}
@@ -1084,6 +1216,62 @@ function showRelatedElementsForSelectedNode(): void {
 	}
 
 	messageBus.publishCommand(new ShowRelatedElementsCommand(selectedElementId));
+}
+
+function alignSelectedNodes(alignment: NodeSelectionAlignment): void {
+	const toolbarContext = localElementToolbarContext();
+	if (toolbarContext?.kind !== 'nodeSelection') {
+		showStatus('Select two or more nodes to align.');
+		return;
+	}
+
+	const updates = alignNodeSelection(toolbarContext.values, alignment);
+	if (updates.length === 0) {
+		showStatus('Selected nodes are already aligned.');
+		return;
+	}
+
+	geometryPersistence.applyElementBounds(updates, 'move');
+	updateLocalElementToolbar();
+	showStatus('Aligned selected nodes.');
+}
+
+function matchSelectedNodeSize(match: NodeSelectionSizeMatch): void {
+	const toolbarContext = localElementToolbarContext();
+	if (toolbarContext?.kind !== 'nodeSelection') {
+		showStatus('Select two or more nodes to match size.');
+		return;
+	}
+
+	const updates = matchNodeSelectionSize(toolbarContext.values, match);
+	if (updates.length === 0) {
+		showStatus('Selected nodes already match size.');
+		return;
+	}
+
+	geometryPersistence.applyElementBounds(updates, 'resize');
+	updateLocalElementToolbar();
+	showStatus('Matched selected node size.');
+}
+
+function distributeSelectedNodes(distribution: NodeSelectionDistribution): void {
+	const toolbarContext = localElementToolbarContext();
+	if (toolbarContext?.kind !== 'nodeSelection') {
+		showStatus('Select three or more nodes to distribute.');
+		return;
+	}
+
+	const updates = distributeNodeSelection(toolbarContext.values, distribution);
+	if (updates.length === 0) {
+		showStatus(toolbarContext.values.length < 3
+			? 'Select three or more nodes to distribute.'
+			: 'Selected nodes are already distributed.');
+		return;
+	}
+
+	geometryPersistence.applyElementBounds(updates, 'move');
+	updateLocalElementToolbar();
+	showStatus('Distributed selected nodes.');
 }
 
 function alignSubclassEndpointsForSelectedNodes(): void {

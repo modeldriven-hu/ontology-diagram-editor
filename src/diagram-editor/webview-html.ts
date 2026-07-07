@@ -90,6 +90,20 @@ function webviewBody(
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
 					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
 					<button class="local-element-action" id="showRelatedElementsLocalButton" type="button" title="Show related elements" aria-label="Show related elements"></button>
+					<button class="local-element-action" id="alignLeftLocalButton" type="button" title="Align selected nodes left" aria-label="Align selected nodes left"></button>
+					<button class="local-element-action" id="alignHorizontalCenterLocalButton" type="button" title="Align selected node horizontal centers" aria-label="Align selected node horizontal centers"></button>
+					<button class="local-element-action" id="alignRightLocalButton" type="button" title="Align selected nodes right" aria-label="Align selected nodes right"></button>
+					<button class="local-element-action" id="alignTopLocalButton" type="button" title="Align selected nodes top" aria-label="Align selected nodes top"></button>
+					<button class="local-element-action" id="alignVerticalCenterLocalButton" type="button" title="Align selected node vertical centers" aria-label="Align selected node vertical centers"></button>
+					<button class="local-element-action" id="alignBottomLocalButton" type="button" title="Align selected nodes bottom" aria-label="Align selected nodes bottom"></button>
+					<span class="local-element-action-separator" id="nodeSelectionSizeSeparator" aria-hidden="true"></span>
+					<button class="local-element-action" id="matchWidthLocalButton" type="button" title="Match selected node width" aria-label="Match selected node width"></button>
+					<button class="local-element-action" id="matchHeightLocalButton" type="button" title="Match selected node height" aria-label="Match selected node height"></button>
+					<button class="local-element-action" id="matchSizeLocalButton" type="button" title="Match selected node size" aria-label="Match selected node size"></button>
+					<span class="local-element-action-separator" id="nodeSelectionDistributeSeparator" aria-hidden="true"></span>
+					<button class="local-element-action" id="distributeHorizontalLocalButton" type="button" title="Distribute selected nodes horizontally" aria-label="Distribute selected nodes horizontally"></button>
+					<button class="local-element-action" id="distributeVerticalLocalButton" type="button" title="Distribute selected nodes vertically" aria-label="Distribute selected nodes vertically"></button>
+					<span class="local-element-action-separator" id="nodeSelectionSubclassSeparator" aria-hidden="true"></span>
 					<button class="local-element-action" id="alignSubclassEndpointsLocalButton" type="button" title="Align subclass endpoints" aria-label="Align subclass endpoints"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
@@ -320,6 +334,52 @@ function webviewStyles(): string {
 		display: none;
 	}
 
+	.local-element-action-separator {
+		width: 2px;
+		height: 22px;
+		margin: 0 2px;
+		border-radius: 1px;
+		background: color-mix(in srgb, var(--vscode-panel-border) 92%, var(--vscode-editor-foreground));
+	}
+
+	.local-element-action-separator[hidden] {
+		display: none;
+	}
+
+	.local-element-action[data-tooltip]::after,
+	.local-element-drag-handle[data-tooltip]::after {
+		content: attr(data-tooltip);
+		position: absolute;
+		left: 50%;
+		top: calc(100% + 8px);
+		z-index: 8;
+		max-width: 220px;
+		width: max-content;
+		padding: 5px 7px;
+		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+		border-radius: 4px;
+		background: var(--vscode-editorHoverWidget-background, var(--vscode-sideBar-background));
+		color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+		box-shadow: 0 6px 18px rgb(0 0 0 / 24%);
+		font-size: 11px;
+		line-height: 1.3;
+		letter-spacing: 0;
+		overflow-wrap: anywhere;
+		pointer-events: none;
+		opacity: 0;
+		transform: translate(-50%, -2px);
+		transition: opacity 90ms ease, transform 90ms ease;
+		white-space: normal;
+	}
+
+	.local-element-action[data-tooltip]:hover::after,
+	.local-element-action[data-tooltip]:focus-visible::after,
+	.local-element-drag-handle[data-tooltip]:hover::after,
+	.local-element-drag-handle[data-tooltip]:focus-visible::after {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+
 	.local-element-action:hover,
 	.local-element-action:focus-visible,
 	.local-element-action[aria-pressed="true"] {
@@ -340,6 +400,7 @@ function webviewStyles(): string {
 	}
 
 	.local-element-drag-handle {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

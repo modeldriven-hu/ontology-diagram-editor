@@ -86,6 +86,20 @@ export class CanvasGeometryPersistence {
 		this.persistedLabelText.set(id, text);
 	}
 
+	public applyElementBounds(bounds: readonly BoundsUpdate[], dragKind: BoundsDragKind): void {
+		if (bounds.length === 0) {
+			return;
+		}
+
+		this.suppressGeometryPersistence = true;
+		try {
+			this.options.canvas.restoreBounds(bounds);
+		} finally {
+			this.suppressGeometryPersistence = false;
+		}
+		this.persistChangedElementBounds(bounds, dragKind);
+	}
+
 	private persistChangedElementBounds(bounds: readonly BoundsUpdate[], dragKind: BoundsDragKind): void {
 		if (this.suppressGeometryPersistence) {
 			return;
