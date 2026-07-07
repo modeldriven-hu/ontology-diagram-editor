@@ -30,6 +30,7 @@ export const openOntologySourceCommand = 'ontology-diagram-editor.modelTree.open
 
 type ModelTreeNode = DiagramTreeNode | OntologyFileTreeNode | OntologyGroupTreeNode | OntologyItemTreeNode | ErrorTreeNode;
 type NodeKind = 'diagram' | 'ontologyFile' | 'ontologyGroup' | 'ontologyItem' | 'error';
+type OntologyGroupKind = 'itemType' | 'individualType';
 
 interface BaseTreeNode {
 	readonly kind: NodeKind;
@@ -48,9 +49,11 @@ interface OntologyFileTreeNode extends BaseTreeNode {
 
 interface OntologyGroupTreeNode extends BaseTreeNode {
 	readonly kind: 'ontologyGroup';
+	readonly groupKind: OntologyGroupKind;
 	readonly ontology: LoadedOntology;
 	readonly itemType: OntologyItemType;
 	readonly items: readonly OntologyItem[];
+	readonly individualTypeReferences?: readonly string[];
 }
 
 interface OntologyItemTreeNode extends BaseTreeNode {
@@ -267,7 +270,11 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		}
 
 		if (node.kind === 'ontologyGroup') {
-			return node.items.map((item) => this.createOntologyItemNode(node.ontology, node.itemType, item));
+			if (node.groupKind === 'itemType' && node.itemType === 'individual') {
+				return this.createIndividualTypeGroupNodes(node.ontology, node.items);
+			}
+
+			return node.items.map((item) => this.createOntologyItemNode(node.ontology, item));
 		}
 
 		return [];
@@ -279,11 +286,13 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		}
 
 		if (node.kind === 'ontologyGroup') {
-			return this.createOntologyFileNode(node.ontology);
+			return node.groupKind === 'individualType'
+				? this.createOntologyGroupNode(node.ontology, node.itemType)
+				: this.createOntologyFileNode(node.ontology);
 		}
 
 		if (node.kind === 'ontologyItem') {
-			return this.createOntologyGroupNode(node.ontology, node.item.type);
+			return this.createOntologyItemParentGroupNode(node.ontology, node.item);
 		}
 
 		if (node.kind === 'error') {
@@ -598,7 +607,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				continue;
 			}
 
-			await treeView.reveal(this.createOntologyItemNode(ontology, item.type, item), { select: true, focus: true });
+			await treeView.reveal(this.createOntologyItemNode(ontology, item), { select: true, focus: true });
 			return true;
 		}
 
@@ -630,6 +639,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 
 		return {
 			kind: 'ontologyGroup',
+			groupKind: 'itemType',
 			id: `${this.createOntologyFileNode(ontology).id}:group:${itemType}`,
 			label: getOntologyItemTypeLabel(itemType),
 			ontology,
@@ -638,14 +648,53 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		};
 	}
 
-	private createOntologyItemNode(ontology: LoadedOntology, itemType: OntologyItemType, item: OntologyItem): OntologyItemTreeNode {
+	private createIndividualTypeGroupNodes(ontology: LoadedOntology, items: readonly OntologyItem[]): OntologyGroupTreeNode[] {
+		const groups = new Map<string, OntologyGroupTreeNode>();
+
+		for (const item of items) {
+			const group = this.createIndividualTypeGroupNode(ontology, item);
+			const existingGroup = groups.get(group.id);
+			groups.set(group.id, {
+				...group,
+				items: [...(existingGroup?.items ?? []), item].sort(compareOntologyItemsByDisplayLabel),
+			});
+		}
+
+		return [...groups.values()].sort(compareIndividualTypeGroups);
+	}
+
+	private createIndividualTypeGroupNode(ontology: LoadedOntology, item: OntologyItem): OntologyGroupTreeNode {
+		const namespaces = this.parsedDiagram?.namespaces ?? new Map<string, string>();
+		const typeReferences = sortedIndividualTypeReferences(item, ontology, namespaces);
+		const groupLabel = individualTypeGroupLabel(typeReferences, ontology, namespaces);
+		const groupKey = individualTypeGroupKey(typeReferences, namespaces);
+
+		return {
+			kind: 'ontologyGroup',
+			groupKind: 'individualType',
+			id: `${this.createOntologyGroupNode(ontology, 'individual').id}:type:${groupKey}`,
+			label: groupLabel,
+			ontology,
+			itemType: 'individual',
+			items: [],
+			individualTypeReferences: typeReferences,
+		};
+	}
+
+	private createOntologyItemNode(ontology: LoadedOntology, item: OntologyItem): OntologyItemTreeNode {
 		return {
 			kind: 'ontologyItem',
-			id: `${this.createOntologyGroupNode(ontology, itemType).id}:item:${item.reference}:${item.displayLabel}`,
+			id: `${this.createOntologyItemParentGroupNode(ontology, item).id}:item:${item.reference}:${item.displayLabel}`,
 			label: item.displayLabel,
 			ontology,
 			item,
 		};
+	}
+
+	private createOntologyItemParentGroupNode(ontology: LoadedOntology, item: OntologyItem): OntologyGroupTreeNode {
+		return item.type === 'individual'
+			? this.createIndividualTypeGroupNode(ontology, item)
+			: this.createOntologyGroupNode(ontology, item.type);
 	}
 
 	private parentForErrorNode(node: ErrorTreeNode): ModelTreeNode | undefined {
@@ -684,7 +733,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		item.id = node.id;
 		item.contextValue = 'ontologyGroup';
 		item.description = String(node.items.length);
-		item.iconPath = this.iconPathForItemType(node.itemType);
+		item.iconPath = this.iconPathForItemType(node.groupKind === 'individualType' ? 'class' : node.itemType);
 		return item;
 	}
 
@@ -736,6 +785,59 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	}
 }
 
+const untypedIndividualTypeGroupLabel = 'No asserted type';
+const untypedIndividualTypeGroupKey = 'untyped';
+
+function compareOntologyItemsByDisplayLabel(left: OntologyItem, right: OntologyItem): number {
+	return compareText(left.displayLabel, right.displayLabel)
+		|| compareText(left.reference, right.reference);
+}
+
+function compareIndividualTypeGroups(left: OntologyGroupTreeNode, right: OntologyGroupTreeNode): number {
+	const leftUntyped = left.individualTypeReferences?.length === 0;
+	const rightUntyped = right.individualTypeReferences?.length === 0;
+	if (leftUntyped !== rightUntyped) {
+		return leftUntyped ? 1 : -1;
+	}
+
+	return compareText(left.label, right.label)
+		|| compareText(left.id, right.id);
+}
+
+function sortedIndividualTypeReferences(
+	item: OntologyItem,
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): readonly string[] {
+	return [...uniqueStrings(item.metadata.assertedClassReferences ?? [])].sort((left, right) =>
+		compareText(ontologyReferenceDisplayName(left, ontology, namespaces), ontologyReferenceDisplayName(right, ontology, namespaces))
+		|| compareText(left, right),
+	);
+}
+
+function individualTypeGroupLabel(
+	typeReferences: readonly string[],
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): string {
+	const displayNames = uniqueStrings(typeReferences.map((reference) => ontologyReferenceDisplayName(reference, ontology, namespaces)));
+	return displayNames.length === 0 ? untypedIndividualTypeGroupLabel : displayNames.join(' | ');
+}
+
+function individualTypeGroupKey(typeReferences: readonly string[], namespaces: ReadonlyMap<string, string>): string {
+	if (typeReferences.length === 0) {
+		return untypedIndividualTypeGroupKey;
+	}
+
+	return `typed:${typeReferences
+		.map((reference) => encodeURIComponent(expandedOntologyReference(reference, namespaces)))
+		.join('|')}`;
+}
+
+function compareText(left: string, right: string): number {
+	return left.localeCompare(right);
+}
+
 function ontologyItemDescription(
 	item: OntologyItem,
 	label: string,
@@ -756,6 +858,10 @@ function ontologyItemDescription(
 
 	if (item.type === 'objectPropertyAssertion') {
 		return assertionTupleDescription(item, ontology, namespaces);
+	}
+
+	if (item.type === 'individual') {
+		return endpointDisplayNames(item.metadata.assertedClassReferences, ontology, namespaces);
 	}
 
 	return item.reference === label ? undefined : item.reference;
