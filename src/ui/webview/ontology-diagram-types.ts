@@ -43,6 +43,7 @@ export interface DiagramNode {
 	readonly show_data_properties?: boolean;
 	readonly show_type?: boolean;
 	readonly show_property_values?: boolean;
+	readonly property_value_text_overflow?: 'truncate' | 'wrap';
 	readonly style?: DiagramElementStyle;
 }
 

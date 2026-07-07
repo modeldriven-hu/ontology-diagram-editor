@@ -1,4 +1,4 @@
-import type { EdgeRouteLayout } from '../documents/odiagram';
+import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 
 export interface ModelTreeItemDropPayload {
@@ -81,6 +81,7 @@ export type WebviewCommand =
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
 	| UpdateNodePropertyValuesVisibilityCommand
+	| UpdateNodePropertyValueTextOverflowCommand
 	| UpdateNoteExportVisibilityCommand
 	| UpdateImageSourceCommand
 	| PickNodeImageCommand
@@ -406,6 +407,17 @@ export class UpdateNodePropertyValuesVisibilityCommand {
 	public constructor(id: string, showPropertyValues: boolean) {
 		this.id = id;
 		this.showPropertyValues = showPropertyValues;
+	}
+}
+
+export class UpdateNodePropertyValueTextOverflowCommand {
+	public readonly type = 'updateNodePropertyValueTextOverflow';
+	public readonly id: string;
+	public readonly textOverflow: PropertyValueTextOverflow;
+
+	public constructor(id: string, textOverflow: PropertyValueTextOverflow) {
+		this.id = id;
+		this.textOverflow = textOverflow;
 	}
 }
 

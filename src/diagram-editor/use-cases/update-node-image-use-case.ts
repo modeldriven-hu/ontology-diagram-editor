@@ -27,6 +27,7 @@ export class UpdateNodeImageUseCase {
 					node.showDataProperties,
 					node.showType,
 					node.showPropertyValues,
+					node.propertyValueTextOverflow,
 				);
 			});
 

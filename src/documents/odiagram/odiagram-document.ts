@@ -12,6 +12,7 @@ export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
+export type PropertyValueTextOverflow = 'truncate' | 'wrap';
 
 export class OntologyDiagramValidationError extends Error {
 	public constructor(message: string, public readonly issues: readonly string[] = [message]) {
@@ -299,6 +300,7 @@ export class DiagramNode {
 		public readonly showDataProperties?: boolean,
 		public readonly showType?: boolean,
 		public readonly showPropertyValues?: boolean,
+		public readonly propertyValueTextOverflow?: PropertyValueTextOverflow,
 	) {
 		this.id = DiagramIdentifier.create(id, 'node');
 		this.ontologyRef = OntologyReference.create(ontologyRef);
@@ -319,6 +321,7 @@ export class DiagramNode {
 			show_data_properties: this.showDataProperties === true ? true : undefined,
 			show_type: this.showType,
 			show_property_values: this.showPropertyValues,
+			property_value_text_overflow: this.propertyValueTextOverflow === 'wrap' ? 'wrap' : undefined,
 		});
 	}
 }
@@ -560,6 +563,7 @@ const nodeSchema = boundsFieldsSchema.extend({
 	show_data_properties: z.boolean().optional(),
 	show_type: z.boolean().optional(),
 	show_property_values: z.boolean().optional(),
+	property_value_text_overflow: z.enum(['truncate', 'wrap']).optional(),
 }).passthrough();
 
 const edgeSchema = z.object({
@@ -648,10 +652,11 @@ function parseNode(value: z.infer<typeof nodeSchema>): DiagramNode {
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.style ? parseCommonStyle(value.style) : undefined,
 		value.image,
-		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties', 'show_type', 'show_property_values']),
+		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties', 'show_type', 'show_property_values', 'property_value_text_overflow']),
 		value.show_data_properties,
 		value.show_type,
 		value.show_property_values,
+		value.property_value_text_overflow,
 	);
 }
 

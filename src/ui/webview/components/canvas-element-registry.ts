@@ -135,6 +135,14 @@ export class CanvasElementRegistry {
 
 		const node = this.nodes.get(update.id);
 		if (node !== undefined) {
+			if (update.kind === 'nodePropertyValueTextOverflow') {
+				this.nodes.set(update.id, {
+					...node,
+					property_value_text_overflow: update.textOverflow === 'wrap' ? 'wrap' : undefined,
+				});
+				return;
+			}
+
 			this.nodes.set(update.id, { ...node, image: update.image });
 		}
 	}

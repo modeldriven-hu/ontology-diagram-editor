@@ -54,7 +54,7 @@ The panel shall expose these non-style editable fields in version 1:
 
 | Element type | Editable fields |
 |--------------|-----------------|
-| Node | `x`, `y`, `width`, `height`, `image`, `show_data_properties`. |
+| Node | `x`, `y`, `width`, `height`, `image`, `show_data_properties`, `show_type`, `show_property_values`, `property_value_text_overflow`. |
 | Edge | `route_layout`; delete edge action. |
 | Note | `text`, `x`, `y`, `width`, `height`, `export`. |
 | Label | `text`, `x`, `y`, `width`, `height`. |
@@ -82,6 +82,10 @@ For nodes, the panel shall show the number of available data properties whose do
 matches the node ontology reference and shall allow toggling `show_data_properties`.
 When toggling the field on, the panel may resize the node to fit the displayed data
 properties.
+
+For individual nodes, the panel shall allow toggling asserted type display, toggling
+property-value display, and choosing whether long property-value attributes are
+truncated with `...` or wrapped onto additional lines.
 
 For notes, the panel shall allow toggling whether the selected note is included in
 diagram exports. Excluded notes shall persist `export: false`.

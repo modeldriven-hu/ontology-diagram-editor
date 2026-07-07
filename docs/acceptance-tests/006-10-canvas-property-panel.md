@@ -10,6 +10,7 @@
 ## Editable Fields
 
 - Given a node is selected, when the panel is shown, then `x`, `y`, `width`, `height`, `image`, and `show_data_properties` are editable.
+- Given an individual node is selected, when the panel is shown, then `show_type`, `show_property_values`, and `property_value_text_overflow` are editable.
 - Given an edge is selected, when the panel is shown, then route layout is editable and endpoints, route points, and label position are not editable.
 - Given a note is selected, when the panel is shown, then `text`, geometry, and Include in Export are editable.
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.

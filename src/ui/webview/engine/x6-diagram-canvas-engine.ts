@@ -1,6 +1,6 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
-import { nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText } from '../components/node-data-properties';
+import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
@@ -262,6 +262,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			if (!hasAttributeSection) {
 				cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
 			}
+		} else if (update.kind === 'nodePropertyValueTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			this.updateOntologyNodePresentation(update.id);
 		}
 	}
 
@@ -791,7 +793,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		cell.attr(x6OntologyNodePresentation(element.value, payload, this.theme).attrs);
+		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme);
+		cell.setMarkup?.(x6OntologyNodeMarkup(presentation.markup));
+		cell.attr(presentation.attrs);
 	}
 
 	private flushEdgeRouteChanges(): void {
@@ -982,12 +986,7 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 		y: node.y,
 		width: node.width,
 		height: node.height,
-		markup: [
-			{ tagName: 'rect', selector: 'body' },
-			{ tagName: 'image', selector: 'nodeImage' },
-			{ tagName: 'text', selector: 'label' },
-			...presentation.markup,
-		],
+		markup: x6OntologyNodeMarkup(presentation.markup),
 		attrs: {
 			body: {
 				refWidth: '100%',
@@ -1020,12 +1019,22 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: node.height,
 		fontSize,
-		attributeCount: attributes.length,
+		attributeCount: 0,
 	});
-	const displayAttributeTexts = [
-		...attributes.slice(0, layout.visibleAttributeCount).map((attribute) => attribute.text),
-		...(layout.showOverflowIndicator ? ['...'] : []),
-	];
+	const allAttributeTexts = nodeAttributeTextLines({
+		attributes,
+		width: node.width - 20,
+		fontSize: layout.attributeFontSize,
+		fontFamily,
+		italic: fontItalic,
+		textOverflow: nodeAttributeTextOverflow(node),
+	});
+	const attributeLayout = nodeDataPropertyLayout({
+		nodeHeight: node.height,
+		fontSize,
+		attributeCount: allAttributeTexts.length,
+	});
+	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 	const titleWidth = Math.max(0, node.width - (hasImage && hasAttributes ? 56 : 20));
 	const title = truncateText({
 		text: nodeTitleText(node, payload),
@@ -1035,27 +1044,21 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 		bold: fontBold,
 		italic: fontItalic,
 	});
-	const attributeLineCount = hasAttributes ? attributes.length + 1 : 0;
+	const attributeLineCount = hasAttributes ? displayAttributeTexts.length : 0;
 	const attributeAttrs = Object.fromEntries([...Array(attributeLineCount).keys()].map((index) => [
 		`attribute${index}`,
 		{
-			text: displayAttributeTexts[index] === undefined ? '' : truncateText({
-				text: displayAttributeTexts[index],
-				width: node.width - 20,
-				fontSize: layout.attributeFontSize,
-				fontFamily,
-				italic: fontItalic,
-			}),
+			text: displayAttributeTexts[index] ?? '',
 			opacity: displayAttributeTexts[index] === undefined ? 0 : 1,
 			fill: node.style?.text_color ?? theme.editorForeground,
 			fontFamily,
-			fontSize: layout.attributeFontSize,
+			fontSize: attributeLayout.attributeFontSize,
 			fontWeight: 400,
 			fontStyle: fontItalic === true ? 'italic' : 'normal',
 			textAnchor: 'start',
 			textVerticalAnchor: 'middle',
 			refX: 10,
-			refY: layout.headerHeight + 12 + (index * layout.attributeLineHeight),
+			refY: attributeLayout.headerHeight + 12 + (index * attributeLayout.attributeLineHeight),
 		},
 	]));
 
@@ -1090,6 +1093,15 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 			...attributeAttrs,
 		},
 	};
+}
+
+function x6OntologyNodeMarkup(presentationMarkup: readonly Record<string, string>[]): readonly Record<string, string>[] {
+	return [
+		{ tagName: 'rect', selector: 'body' },
+		{ tagName: 'image', selector: 'nodeImage' },
+		{ tagName: 'text', selector: 'label' },
+		...presentationMarkup,
+	];
 }
 
 function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableElement>, theme: WebviewTheme): Record<string, unknown> {

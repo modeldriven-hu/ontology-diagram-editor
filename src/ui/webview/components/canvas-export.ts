@@ -2,7 +2,7 @@ import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText } from './node-data-properties';
+import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -35,6 +35,8 @@ interface TextBlockOptions {
 	readonly align: 'left' | 'center';
 	readonly verticalAlign: 'top' | 'middle';
 	readonly padding: number;
+	readonly lineHeight?: number;
+	readonly wrap?: boolean;
 }
 
 export function renderDiagramExportToolbarIcons(exportSvgButton: HTMLButtonElement, exportPngButton: HTMLButtonElement): void {
@@ -231,18 +233,22 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: bounds.height,
 		fontSize,
-		attributeCount: attributes.length,
+		attributeCount: 0,
 	});
-	const displayAttributeTexts = [
-		...attributes.slice(0, layout.visibleAttributeCount).map((attribute) => truncateText({
-			text: attribute.text,
-			width: bounds.width - 20,
-			fontSize: layout.attributeFontSize,
-			fontFamily,
-			italic: fontItalic,
-		})),
-		...(layout.showOverflowIndicator ? ['...'] : []),
-	];
+	const allAttributeTexts = nodeAttributeTextLines({
+		attributes,
+		width: bounds.width - 20,
+		fontSize: layout.attributeFontSize,
+		fontFamily,
+		italic: fontItalic,
+		textOverflow: nodeAttributeTextOverflow(node),
+	});
+	const attributeLayout = nodeDataPropertyLayout({
+		nodeHeight: bounds.height,
+		fontSize,
+		attributeCount: allAttributeTexts.length,
+	});
+	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 
 	const parts = [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
@@ -275,12 +281,14 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 				},
 				color: node.style?.text_color ?? theme.editorForeground,
 				fontFamily,
-				fontSize: layout.attributeFontSize,
+				fontSize: attributeLayout.attributeFontSize,
 				bold: false,
 				italic: fontItalic,
 				align: 'left',
 				verticalAlign: 'top',
 				padding: 10,
+				lineHeight: attributeLayout.attributeLineHeight,
+				wrap: false,
 			}),
 		);
 	}
@@ -368,8 +376,8 @@ function renderTextBlock(options: TextBlockOptions): string {
 	const clipId = `clip_${safeIdentifier(options.id)}`;
 	const contentWidth = Math.max(1, options.bounds.width - (options.padding * 2));
 	const contentHeight = Math.max(1, options.bounds.height - (options.padding * 2));
-	const lineHeight = options.fontSize * 1.25;
-	const lines = wrapLines(options.text, contentWidth, options.fontSize);
+	const lineHeight = options.lineHeight ?? options.fontSize * 1.25;
+	const lines = options.wrap === false ? explicitLines(options.text) : wrapLines(options.text, contentWidth, options.fontSize);
 	const maxLines = Math.max(1, Math.floor(contentHeight / lineHeight));
 	const visibleLines = lines.slice(0, maxLines);
 	const textX = options.align === 'center' ? options.bounds.x + (options.bounds.width / 2) : options.bounds.x + options.padding;
@@ -462,6 +470,12 @@ function wrapLines(text: string, width: number, fontSize: number): readonly stri
 	}
 
 	return wrappedLines.length === 0 ? [''] : wrappedLines;
+}
+
+function explicitLines(text: string): readonly string[] {
+	const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+
+	return lines.length === 0 ? [''] : lines;
 }
 
 function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds | undefined {

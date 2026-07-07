@@ -104,3 +104,15 @@ When the toggle is enabled from the property panel, the canvas may grow the node
 the available data properties while preserving the node position. If all data-property
 rows still cannot fit in the node bounds, the renderer shall show a deterministic
 overflow indicator rather than changing persisted geometry during rendering.
+
+# Individual Property Values
+
+For individual nodes, the property panel shall allow property assertion values to be
+shown in the node attribute area. The user shall be able to choose whether long
+property-value attribute text is truncated at the node width with `...` or wrapped onto
+additional lines. If wrapped rows still exceed the node bounds, the renderer shall show
+a deterministic overflow indicator.
+
+Property-value attributes shall omit resource-valued assertions whose target is already
+represented by another node in the diagram. This keeps object links on the canvas while
+still allowing primitive values and enum-like resource values to be shown in the node.

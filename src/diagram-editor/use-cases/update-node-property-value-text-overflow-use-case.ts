@@ -1,16 +1,17 @@
-import { DiagramNode, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { DiagramNode, type OntologyDiagramDocument, type PropertyValueTextOverflow } from '../../documents/odiagram';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 
-export class UpdateNodePropertyValuesVisibilityUseCase {
+export class UpdateNodePropertyValueTextOverflowUseCase {
 	public execute(
 		diagram: OntologyDiagramDocument,
 		id: string,
-		showPropertyValues: boolean,
+		textOverflow: PropertyValueTextOverflow,
 	): DiagramMutationResult {
+		const nextTextOverflow = textOverflow === 'wrap' ? 'wrap' : undefined;
 		let changed = false;
 		const nextNodes = diagram.nodes.map((node) => {
-			if (node.id.value !== id || node.showPropertyValues === showPropertyValues) {
+			if (node.id.value !== id || node.propertyValueTextOverflow === nextTextOverflow) {
 				return node;
 			}
 
@@ -24,8 +25,8 @@ export class UpdateNodePropertyValuesVisibilityUseCase {
 				node.extra,
 				node.showDataProperties,
 				node.showType,
-				showPropertyValues,
-				node.propertyValueTextOverflow,
+				node.showPropertyValues,
+				nextTextOverflow,
 			);
 		});
 

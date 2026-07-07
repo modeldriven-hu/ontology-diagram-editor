@@ -59,6 +59,7 @@ export interface X6Node extends X6Cell {
 	position(x: number, y: number): void;
 	size(): { readonly width: number; readonly height: number };
 	resize(width: number, height: number): void;
+	setMarkup?(markup: readonly Record<string, string>[], options?: Record<string, unknown>): void;
 	attr(path: string): unknown;
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;

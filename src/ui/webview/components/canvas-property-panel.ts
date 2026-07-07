@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -8,7 +8,7 @@ import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField } from './canvas-property-fields';
 import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
+import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttributes, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
 import { ontologyCommentsForReference } from './ontology-comments';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -297,6 +297,19 @@ export class CanvasPropertyPanel {
 								}
 								this.propertyEdited('node', node.id, ['show_property_values']);
 								this.options.messageBus.publishCommand(new UpdateNodePropertyValuesVisibilityCommand(node.id, value));
+							}),
+							selectField('Long Values', node.property_value_text_overflow ?? 'truncate', propertyValueTextOverflowOptions, (value) => {
+								const textOverflow = value ?? 'truncate';
+								const nextNode = {
+									...node,
+									property_value_text_overflow: textOverflow === 'wrap' ? textOverflow : undefined,
+								};
+								this.updateElementContent({ kind: 'nodePropertyValueTextOverflow', id: node.id, textOverflow });
+								if (node.show_property_values === true) {
+									this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
+								}
+								this.propertyEdited('node', node.id, ['property_value_text_overflow']);
+								this.options.messageBus.publishCommand(new UpdateNodePropertyValueTextOverflowCommand(node.id, textOverflow));
 							}),
 						]),
 					] : []),
@@ -804,17 +817,31 @@ export class CanvasPropertyPanel {
 	private resizeNodeToFitDetails(node: DiagramNode, attributes: readonly { readonly text: string }[]): void {
 		const theme = this.options.getTheme();
 		const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
+		const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
+		const attributeItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
+		const attributeTextOverflow = nodeAttributeTextOverflow(node);
 		const requiredWidth = requiredNodeWidthForDataProperties({
 			title: nodeTitleText(node, this.options.payload),
 			attributes,
 			fontSize,
-			fontFamily: node.style?.font?.family ?? theme.nodeFontFamily,
+			fontFamily,
 			titleBold: node.style?.font?.bold ?? theme.nodeFontBold,
-			attributeItalic: node.style?.font?.italic ?? theme.nodeFontItalic,
+			attributeItalic,
+			attributeTextOverflow,
 			minimumWidth: node.width,
 		});
+		const attributeFontSize = Math.max(9, fontSize - 1);
+		const attributeLineCount = nodeAttributeTextLines({
+			attributes,
+			width: requiredWidth - 20,
+			fontSize: attributeFontSize,
+			fontFamily,
+			italic: attributeItalic,
+			textOverflow: attributeTextOverflow,
+		}).length;
 		const requiredHeight = requiredNodeHeightForDataProperties({
 			attributeCount: attributes.length,
+			attributeLineCount,
 			fontSize,
 			minimumHeight: Math.max(minimumNodeHeight, node.height),
 		});
@@ -865,6 +892,11 @@ const edgeRouteLayoutOptions = [
 	{ value: 'manhattan', label: 'Manhattan' },
 	{ value: 'metro', label: 'Metro' },
 	{ value: 'entity_relation', label: 'Entity Relation' },
+] as const;
+
+const propertyValueTextOverflowOptions = [
+	{ value: 'truncate', label: 'Truncate' },
+	{ value: 'wrap', label: 'Wrap' },
 ] as const;
 
 const defaultFontFamilyOptions = [

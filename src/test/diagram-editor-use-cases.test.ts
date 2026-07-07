@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -1574,6 +1574,22 @@ suite('Diagram editor use cases', () => {
 		assert.ok(disabled.diagram);
 		assert.strictEqual(disabled.diagram.nodes[0].showPropertyValues, false);
 		assert.deepStrictEqual(disabled.diagram.nodes[0].toPersistenceObject().show_property_values, false);
+	});
+
+	test('updates node property value text overflow', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_requirement', 'ex:REQ-001', new Bounds(0, 0, 100, 50), undefined, undefined, { ontology_item_type: 'individual' }, undefined, true, true),
+		]);
+
+		const wrapped = new UpdateNodePropertyValueTextOverflowUseCase().execute(diagram, 'node_requirement', 'wrap');
+		assert.ok(wrapped.diagram);
+		assert.strictEqual(wrapped.diagram.nodes[0].propertyValueTextOverflow, 'wrap');
+		assert.deepStrictEqual(wrapped.diagram.nodes[0].toPersistenceObject().property_value_text_overflow, 'wrap');
+
+		const truncated = new UpdateNodePropertyValueTextOverflowUseCase().execute(wrapped.diagram, 'node_requirement', 'truncate');
+		assert.ok(truncated.diagram);
+		assert.strictEqual(truncated.diagram.nodes[0].propertyValueTextOverflow, undefined);
+		assert.strictEqual(truncated.diagram.nodes[0].toPersistenceObject().property_value_text_overflow, undefined);
 	});
 
 	test('creates a diagram image with persisted source and default bounds', () => {

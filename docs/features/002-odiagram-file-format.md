@@ -255,6 +255,9 @@ Each node shall contain:
 | `style` | map | No | Node style override. |
 | `image` | image source | No | Optional image displayed on the node. |
 | `show_data_properties` | boolean | No | Whether available data properties whose domain matches this node are shown inside the node. |
+| `show_type` | boolean | No | Whether an individual node shows its asserted type in the title. |
+| `show_property_values` | boolean | No | Whether an individual node shows property assertion values in its attribute section. |
+| `property_value_text_overflow` | enum | No | How long individual property-value attribute text is displayed: `truncate` or `wrap`. |
 
 The referenced ontology item is the ontology item represented by the node. Canvas
 behavior specifications define which ontology item types can be created or rendered as
@@ -263,6 +266,9 @@ nodes in a given version.
 If `show_data_properties` is omitted or `false`, the renderer shall not show the node's
 data-property attribute section. Writers should omit the field when the effective value
 is `false`.
+
+For individual nodes, `property_value_text_overflow` defaults to `truncate` when omitted.
+Writers should omit the field when the effective value is `truncate`.
 
 # Edges
 

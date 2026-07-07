@@ -33,6 +33,7 @@ import {
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
 	UpdateNodeImageUseCase,
+	UpdateNodePropertyValueTextOverflowUseCase,
 	UpdateNodePropertyValuesVisibilityUseCase,
 	UpdateNodeTypeVisibilityUseCase,
 	UpdateNoteBoundsUseCase,
@@ -73,6 +74,7 @@ interface DiagramEditorUseCases {
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeDataPropertiesVisibility: UpdateNodeDataPropertiesVisibilityUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
+	readonly updateNodePropertyValueTextOverflow: UpdateNodePropertyValueTextOverflowUseCase;
 	readonly updateNodePropertyValuesVisibility: UpdateNodePropertyValuesVisibilityUseCase;
 	readonly updateNodeTypeVisibility: UpdateNodeTypeVisibilityUseCase;
 	readonly updateNoteBounds: UpdateNoteBoundsUseCase;
@@ -186,6 +188,13 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.id,
 					command.showPropertyValues,
+				));
+				return;
+			case 'updateNodePropertyValueTextOverflow':
+				await this.handleResult(this.useCases.updateNodePropertyValueTextOverflow.execute(
+					this.repository.load(),
+					command.id,
+					command.textOverflow,
 				));
 				return;
 			case 'createNote':
@@ -583,6 +592,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeDataPropertiesVisibility: new UpdateNodeDataPropertiesVisibilityUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
+		updateNodePropertyValueTextOverflow: new UpdateNodePropertyValueTextOverflowUseCase(),
 		updateNodePropertyValuesVisibility: new UpdateNodePropertyValuesVisibilityUseCase(),
 		updateNodeTypeVisibility: new UpdateNodeTypeVisibilityUseCase(),
 		updateNoteBounds: new UpdateNoteBoundsUseCase(),

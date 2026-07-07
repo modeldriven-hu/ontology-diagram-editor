@@ -33,6 +33,7 @@ export class ArrangeDiagramUseCase {
 				node.showDataProperties,
 				node.showType,
 				node.showPropertyValues,
+				node.propertyValueTextOverflow,
 			);
 		});
 

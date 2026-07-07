@@ -4,6 +4,8 @@ export interface NodeDataPropertyAttribute {
 	readonly text: string;
 }
 
+export type NodeAttributeTextOverflow = 'truncate' | 'wrap';
+
 export interface NodeDataPropertyLayout {
 	readonly headerHeight: number;
 	readonly attributeFontSize: number;
@@ -41,9 +43,11 @@ export function availableNodeDataPropertyAttributes(node: DiagramNode, payload: 
 }
 
 export function availableNodePropertyValueAttributes(node: DiagramNode, payload: DiagramPayload): readonly NodeDataPropertyAttribute[] {
-	return (individualForNode(node, payload)?.propertyAssertions ?? []).map((assertion) => ({
-		text: propertyAssertionText(assertion, payload),
-	}));
+	return (individualForNode(node, payload)?.propertyAssertions ?? [])
+		.filter((assertion) => !propertyAssertionPointsToRenderedNode(assertion, node, payload))
+		.map((assertion) => ({
+			text: propertyAssertionText(assertion, payload),
+		}));
 }
 
 export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): string {
@@ -61,6 +65,12 @@ export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): strin
 
 export function nodeShowsType(node: DiagramNode): boolean {
 	return node.ontology_item_type === 'individual' && node.show_type !== false;
+}
+
+export function nodeAttributeTextOverflow(node: DiagramNode): NodeAttributeTextOverflow {
+	return node.ontology_item_type === 'individual' && node.property_value_text_overflow === 'wrap'
+		? 'wrap'
+		: 'truncate';
 }
 
 export function nodeDataPropertyLayout(options: {
@@ -90,21 +100,23 @@ export function nodeDataPropertyLayout(options: {
 
 export function requiredNodeHeightForDataProperties(options: {
 	readonly attributeCount: number;
+	readonly attributeLineCount?: number;
 	readonly fontSize: number;
 	readonly minimumHeight: number;
 }): number {
-	if (options.attributeCount === 0) {
+	const attributeLineCount = options.attributeLineCount ?? options.attributeCount;
+	if (attributeLineCount === 0) {
 		return options.minimumHeight;
 	}
 
-	const maximumReasonableHeight = Math.max(options.minimumHeight, 44 + 8 + (options.attributeCount * (Math.max(9, options.fontSize - 1) + 5)) + 16);
+	const maximumReasonableHeight = Math.max(options.minimumHeight, 44 + 8 + (attributeLineCount * (Math.max(9, options.fontSize - 1) + 5)) + 16);
 	for (let height = Math.ceil(options.minimumHeight); height <= maximumReasonableHeight; height += 1) {
 		const layout = nodeDataPropertyLayout({
 			nodeHeight: height,
 			fontSize: options.fontSize,
-			attributeCount: options.attributeCount,
+			attributeCount: attributeLineCount,
 		});
-		if (!layout.showOverflowIndicator && layout.visibleAttributeCount >= options.attributeCount) {
+		if (!layout.showOverflowIndicator && layout.visibleAttributeCount >= attributeLineCount) {
 			return height;
 		}
 	}
@@ -119,6 +131,7 @@ export function requiredNodeWidthForDataProperties(options: {
 	readonly fontFamily?: string;
 	readonly titleBold?: boolean;
 	readonly attributeItalic?: boolean;
+	readonly attributeTextOverflow?: NodeAttributeTextOverflow;
 	readonly minimumWidth: number;
 }): number {
 	const attributeFontSize = Math.max(9, options.fontSize - 1);
@@ -128,7 +141,7 @@ export function requiredNodeWidthForDataProperties(options: {
 		fontFamily: options.fontFamily,
 		bold: options.titleBold,
 	}) + 20;
-	const attributeWidth = options.attributes.length === 0 ? 0 : Math.max(...options.attributes.map((attribute) => measuredTextWidth({
+	const attributeWidth = options.attributeTextOverflow === 'wrap' || options.attributes.length === 0 ? 0 : Math.max(...options.attributes.map((attribute) => measuredTextWidth({
 		text: attribute.text,
 		fontSize: attributeFontSize,
 		fontFamily: options.fontFamily,
@@ -136,6 +149,46 @@ export function requiredNodeWidthForDataProperties(options: {
 	}) + 20));
 
 	return Math.ceil(Math.max(options.minimumWidth, titleWidth, attributeWidth));
+}
+
+export function nodeAttributeTextLines(options: {
+	readonly attributes: readonly NodeDataPropertyAttribute[];
+	readonly width: number;
+	readonly fontSize: number;
+	readonly fontFamily?: string;
+	readonly italic?: boolean;
+	readonly textOverflow: NodeAttributeTextOverflow;
+}): readonly string[] {
+	const width = Math.max(1, options.width);
+	return options.attributes.flatMap((attribute) => options.textOverflow === 'wrap'
+		? wrapText({
+			text: attribute.text,
+			width,
+			fontSize: options.fontSize,
+			fontFamily: options.fontFamily,
+			italic: options.italic,
+		})
+		: [truncateText({
+			text: attribute.text,
+			width,
+			fontSize: options.fontSize,
+			fontFamily: options.fontFamily,
+			italic: options.italic,
+		})]);
+}
+
+export function visibleNodeAttributeTextLines(lines: readonly string[], maximumLines: number): readonly string[] {
+	if (maximumLines <= 0) {
+		return [];
+	}
+	if (lines.length <= maximumLines) {
+		return lines;
+	}
+
+	return [
+		...lines.slice(0, Math.max(0, maximumLines - 1)),
+		'...',
+	];
 }
 
 export function truncateText(options: {
@@ -168,6 +221,50 @@ export function truncateText(options: {
 	}
 
 	return `${options.text.slice(0, lower)}${ellipsis}`;
+}
+
+export function wrapText(options: {
+	readonly text: string;
+	readonly width: number;
+	readonly fontSize: number;
+	readonly fontFamily?: string;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+}): readonly string[] {
+	const width = Math.max(1, options.width);
+	const wrappedLines: string[] = [];
+	for (const rawLine of options.text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n')) {
+		const words = rawLine.split(/\s+/u).filter((word) => word.length > 0);
+		if (words.length === 0) {
+			wrappedLines.push('');
+			continue;
+		}
+
+		let currentLine = '';
+		for (const word of words) {
+			const candidate = currentLine.length === 0 ? word : `${currentLine} ${word}`;
+			if (measuredTextWidth({ ...options, text: candidate }) <= width) {
+				currentLine = candidate;
+				continue;
+			}
+
+			if (currentLine.length > 0) {
+				wrappedLines.push(currentLine);
+				currentLine = '';
+			}
+			const wordLines = wrapLongWord({ ...options, text: word, width });
+			if (wordLines.length === 0) {
+				continue;
+			}
+			wrappedLines.push(...wordLines.slice(0, -1));
+			currentLine = wordLines[wordLines.length - 1] ?? '';
+		}
+		if (currentLine.length > 0) {
+			wrappedLines.push(currentLine);
+		}
+	}
+
+	return wrappedLines.length === 0 ? [''] : wrappedLines;
 }
 
 export function measuredTextWidth(options: {
@@ -234,6 +331,20 @@ function propertyAssertionText(assertion: {
 	return `${ontologyReferenceDisplayName(assertion.propertyReference, payload)} = ${propertyAssertionValueText(assertion, payload)}`;
 }
 
+function propertyAssertionPointsToRenderedNode(assertion: {
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+}, node: DiagramNode, payload: DiagramPayload): boolean {
+	if (assertion.valueType !== 'resource') {
+		return false;
+	}
+
+	const namespaces = payload.diagram?.namespaces ?? {};
+	return (payload.diagram?.nodes ?? []).some((candidate) =>
+		candidate.id !== node.id && ontologyReferencesEqual(candidate.ontology_ref, assertion.value, namespaces),
+	);
+}
+
 function propertyAssertionValueText(assertion: {
 	readonly value: string;
 	readonly valueType: 'literal' | 'resource';
@@ -250,6 +361,51 @@ function propertyAssertionValueText(assertion: {
 
 function estimatedTextWidth(text: string, fontSize: number): number {
 	return text.length * Math.max(1, fontSize * 0.62);
+}
+
+function wrapLongWord(options: {
+	readonly text: string;
+	readonly width: number;
+	readonly fontSize: number;
+	readonly fontFamily?: string;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+}): readonly string[] {
+	const lines: string[] = [];
+	let remaining = options.text;
+	while (remaining.length > 0) {
+		const prefixLength = fittingPrefixLength({ ...options, text: remaining });
+		lines.push(remaining.slice(0, prefixLength));
+		remaining = remaining.slice(prefixLength);
+	}
+
+	return lines;
+}
+
+function fittingPrefixLength(options: {
+	readonly text: string;
+	readonly width: number;
+	readonly fontSize: number;
+	readonly fontFamily?: string;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+}): number {
+	if (measuredTextWidth(options) <= options.width) {
+		return options.text.length;
+	}
+
+	let lower = 1;
+	let upper = options.text.length;
+	while (lower < upper) {
+		const middle = Math.ceil((lower + upper) / 2);
+		if (measuredTextWidth({ ...options, text: options.text.slice(0, middle) }) <= options.width) {
+			lower = middle;
+		} else {
+			upper = middle - 1;
+		}
+	}
+
+	return lower;
 }
 
 function individualForNode(node: DiagramNode, payload: DiagramPayload) {
