@@ -1,4 +1,5 @@
 export { ArrangeDiagramUseCase } from './arrange-diagram-use-case';
+export { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase } from './align-edge-start-points-use-case';
 export { AlignSubclassEndpointsUseCase } from './align-subclass-endpoints-use-case';
 export { CreateImageUseCase } from './create-image-use-case';
 export { CreateLabelUseCase } from './create-label-use-case';

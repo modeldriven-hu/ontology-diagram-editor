@@ -106,6 +106,8 @@ function webviewBody(
 					<span class="local-element-action-separator" id="nodeSelectionSubclassSeparator" aria-hidden="true"></span>
 					<button class="local-element-action" id="alignSubclassEndpointsLocalButton" type="button" title="Align subclass endpoints" aria-label="Align subclass endpoints"></button>
 					<button class="local-element-action" id="connectNoteLocalButton" type="button" title="Connect note" aria-label="Connect note" aria-pressed="false"></button>
+					<button class="local-element-action" id="alignEdgeStartPointsLocalButton" type="button" title="Align edge start positions" aria-label="Align edge start positions"></button>
+					<button class="local-element-action" id="alignEdgeEndPointsLocalButton" type="button" title="Align edge end positions" aria-label="Align edge end positions"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
 					<button class="local-element-action" id="straightenEdgeLocalButton" type="button" title="Straighten edge" aria-label="Straighten edge"></button>
 					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>

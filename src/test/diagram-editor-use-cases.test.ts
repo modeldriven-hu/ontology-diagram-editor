@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -1328,6 +1328,129 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges[0].target.value, 'node_target');
 	});
 
+	test('aligns selected edge start points for edges from the first selected source', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_otherSource', 'ex:OtherSource', new Bounds(0, 100, 100, 50)),
+				new DiagramNode('node_targetA', 'ex:TargetA', new Bounds(200, 0, 100, 50)),
+				new DiagramNode('node_targetB', 'ex:TargetB', new Bounds(200, 100, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_first',
+					'node_source',
+					'node_targetA',
+					'ex:first',
+					new Point(150, 25),
+					[new Point(100, 10), new Point(200, 10)],
+				),
+				new DiagramEdge(
+					'edge_sameSource',
+					'node_source',
+					'node_targetB',
+					'ex:sameSource',
+					new Point(150, 80),
+					[new Point(100, 45), new Point(200, 125)],
+				),
+				new DiagramEdge(
+					'edge_otherSource',
+					'node_otherSource',
+					'node_targetB',
+					'ex:otherSource',
+					new Point(150, 125),
+					[new Point(100, 145), new Point(200, 125)],
+				),
+			],
+		);
+
+		const result = new AlignEdgeStartPointsUseCase().execute(diagram, [
+			'edge_first',
+			'edge_sameSource',
+			'edge_otherSource',
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.points[0].toPersistenceObject()), [
+			{ x: 100, y: 10 },
+			{ x: 100, y: 10 },
+			{ x: 100, y: 145 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[1].points[1].toPersistenceObject(), {
+			x: 200,
+			y: 125,
+		});
+		assert.deepStrictEqual(result.diagram.edges[1].label.toPersistenceObject(), {
+			x: 150,
+			y: 80,
+		});
+	});
+
+	test('aligns selected edge end points for edges to the first selected target', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_sourceA', 'ex:SourceA', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_sourceB', 'ex:SourceB', new Bounds(0, 100, 100, 50)),
+				new DiagramNode('node_sourceC', 'ex:SourceC', new Bounds(0, 200, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+				new DiagramNode('node_otherTarget', 'ex:OtherTarget', new Bounds(200, 100, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_first',
+					'node_sourceA',
+					'node_target',
+					'ex:first',
+					new Point(150, 25),
+					[new Point(100, 10), new Point(200, 10)],
+				),
+				new DiagramEdge(
+					'edge_sameTarget',
+					'node_sourceB',
+					'node_target',
+					'ex:sameTarget',
+					new Point(150, 80),
+					[new Point(100, 125), new Point(200, 45)],
+				),
+				new DiagramEdge(
+					'edge_otherTarget',
+					'node_sourceC',
+					'node_otherTarget',
+					'ex:otherTarget',
+					new Point(150, 125),
+					[new Point(100, 225), new Point(200, 125)],
+				),
+			],
+		);
+
+		const result = new AlignEdgeEndPointsUseCase().execute(diagram, [
+			'edge_first',
+			'edge_sameTarget',
+			'edge_otherTarget',
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.points[edge.points.length - 1].toPersistenceObject()), [
+			{ x: 200, y: 10 },
+			{ x: 200, y: 10 },
+			{ x: 200, y: 125 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[1].points[0].toPersistenceObject(), {
+			x: 100,
+			y: 125,
+		});
+		assert.deepStrictEqual(result.diagram.edges[1].label.toPersistenceObject(), {
+			x: 150,
+			y: 80,
+		});
+	});
+
 	test('optimizes stale edge routes from current endpoint bounds', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
@@ -1429,6 +1552,44 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
 			x: 160,
 			y: 50,
+		});
+		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
+	});
+
+	test('straightens orthogonal side-by-side edges without moving a usable source anchor', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 80)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(220, 20, 100, 80)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(100, 35), new Point(160, 35), new Point(160, 120), new Point(220, 120)],
+					undefined,
+					{},
+					'orthogonal',
+				),
+			],
+		);
+
+		const result = new StraightenEdgeRouteUseCase().execute(diagram, 'edge_relates');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 100, y: 35 },
+			{ x: 220, y: 35 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
+			x: 160,
+			y: 35,
 		});
 		assert.strictEqual(result.diagram.edges[0].routeLayout, 'direct');
 	});

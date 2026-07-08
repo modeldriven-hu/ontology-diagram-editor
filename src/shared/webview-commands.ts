@@ -52,6 +52,8 @@ export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePa
 export type WebviewCommand =
 	| ArrangeDiagramCommand
 	| AlignSubclassEndpointsCommand
+	| AlignEdgeStartPointsCommand
+	| AlignEdgeEndPointsCommand
 	| UndoDiagramCommand
 	| RedoDiagramCommand
 	| CreateNodeCommand
@@ -102,6 +104,24 @@ export class AlignSubclassEndpointsCommand {
 
 	public constructor(nodeIds: readonly string[]) {
 		this.nodeIds = nodeIds;
+	}
+}
+
+export class AlignEdgeStartPointsCommand {
+	public readonly type = 'alignEdgeStartPoints';
+	public readonly edgeIds: readonly string[];
+
+	public constructor(edgeIds: readonly string[]) {
+		this.edgeIds = edgeIds;
+	}
+}
+
+export class AlignEdgeEndPointsCommand {
+	public readonly type = 'alignEdgeEndPoints';
+	public readonly edgeIds: readonly string[];
+
+	public constructor(edgeIds: readonly string[]) {
+		this.edgeIds = edgeIds;
 	}
 }
 

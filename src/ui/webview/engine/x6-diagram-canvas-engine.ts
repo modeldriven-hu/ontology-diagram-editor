@@ -31,6 +31,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly pendingEdgeRouteChanges = new Set<string>();
 	private readonly edgeLabelPoints = new Map<string, CanvasPoint>();
 	private readonly programmaticLabelChanges = new Set<string>();
+	private readonly selectedEdgeLineAttrs = new Map<string, unknown>();
 	private selectedIds: string[] = [];
 	private suppressBoundsEvents = false;
 	private suppressSelectionEvents = false;
@@ -39,9 +40,10 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private edgeRoutePublishTimer: number | undefined;
 	private labelDragHighlight: { readonly edgeId: string; readonly lineAttrs: unknown } | undefined;
 	private currentPayload?: DiagramPayload;
+	private selectionBeforePointerDown: readonly string[] = [];
 
 	public constructor(
-		container: HTMLElement,
+		private readonly container: HTMLElement,
 		private readonly elementRegistry: CanvasElementRegistry,
 		private theme: WebviewTheme,
 	) {
@@ -52,9 +54,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		installX6Styles(theme);
 		this.graph = new x6.Graph({
-			container,
-			width: Math.max(container.clientWidth, 1800),
-			height: Math.max(container.clientHeight, 1200),
+			container: this.container,
+			width: Math.max(this.container.clientWidth, 1800),
+			height: Math.max(this.container.clientHeight, 1200),
 			autoResize: false,
 			panning: false,
 			connecting: {
@@ -77,15 +79,15 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		this.graph.use(new x6.Selection({
 			rubberband: true,
 			rubberNode: true,
-			rubberEdge: false,
+			rubberEdge: true,
 			multiple: true,
 			multipleSelectionModifiers: ['ctrl', 'meta', 'shift'],
 			movable: false,
 			showNodeSelectionBox: true,
-			showEdgeSelectionBox: false,
+			showEdgeSelectionBox: true,
 			pointerEvents: 'none',
 			content: false,
-			filter: (cell: unknown) => isX6Node(cell) && this.elementRegistry.element(cell.id)?.kind !== 'edge',
+			filter: (cell: unknown) => (isX6Node(cell) || isX6Edge(cell)) && this.elementRegistry.element(cell.id) !== undefined,
 		}));
 		this.graph.use(new x6.Transform({
 			resizing: {
@@ -96,6 +98,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			},
 			rotating: false,
 		}));
+		this.container.addEventListener('pointerdown', () => {
+			this.selectionBeforePointerDown = [...this.selectedIds];
+		}, { capture: true });
 		this.registerGraphEvents();
 	}
 
@@ -110,6 +115,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.clearPendingEdgeRouteChanges();
 			this.edgeLabelPoints.clear();
 			this.programmaticLabelChanges.clear();
+			this.selectedEdgeLineAttrs.clear();
 			this.graph.clearCells();
 			for (const image of payload.diagram?.images ?? []) {
 				this.graph.addNode(x6Image(image, theme));
@@ -395,6 +401,56 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		return true;
 	}
 
+	public nudgeEdgeRoute(edgeId: string, delta: CanvasPoint): boolean {
+		if (delta.x !== 0 || delta.y === 0) {
+			return false;
+		}
+
+		const cell = this.graph.getCellById(edgeId);
+		const edgeElement = this.elementRegistry.element(edgeId);
+		if (!isX6Edge(cell) || edgeElement?.kind !== 'edge') {
+			return false;
+		}
+
+		const sourceElement = connectableElement(this.elementRegistry.element(edgeElement.value.source));
+		const targetElement = connectableElement(this.elementRegistry.element(edgeElement.value.target));
+		if (sourceElement === undefined || targetElement === undefined) {
+			return false;
+		}
+
+		const route = this.edgeRoute(edgeId, edgeElement.value.label);
+		if (route === undefined || route.points.length < 2) {
+			return false;
+		}
+
+		const adjustedDelta = boundedEdgeVerticalDelta(route, sourceElement, targetElement, delta.y);
+		if (adjustedDelta.y === 0) {
+			return false;
+		}
+
+		const points = route.points.map((point) => translateCanvasPoint(point, adjustedDelta));
+		const options = { ui: true };
+		cell.setSource({
+			cell: edgeElement.value.source,
+			anchor: anchorFromPoint(points[0], sourceElement),
+		}, options);
+		cell.setTarget({
+			cell: edgeElement.value.target,
+			anchor: anchorFromPoint(points[points.length - 1], targetElement),
+		}, options);
+		cell.setVertices(points.slice(1, -1), options);
+
+		this.edgeLabelPoints.set(edgeId, route.label);
+		if (cell.getLabels()[0] !== undefined) {
+			this.setEdgeLabelPosition(cell, route.label, points[0], options);
+		}
+		this.clearLabelDragHighlight(cell.id);
+		this.markEdgeRouteChanged(cell);
+		this.flushEdgeRouteChanges();
+
+		return true;
+	}
+
 	public resetEdgeLabel(edgeId: string): void {
 		const cell = this.graph.getCellById(edgeId);
 		if (!isX6Edge(cell)) {
@@ -457,7 +513,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 
 			stopEvent(event.e);
-			this.setSelectedIds([edge.id], { syncGraphSelection: true });
+			this.setSelectedIds(clickedElementSelectionIds(this.selectionBeforePointerDown, edge.id, event.e), { syncGraphSelection: true });
 		});
 		this.graph.on('edge:label:click', (event) => {
 			const edge = eventEdge(event);
@@ -466,7 +522,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 
 			stopEvent(event.e);
-			this.setSelectedIds([edge.id], { syncGraphSelection: true });
+			this.setSelectedIds(clickedElementSelectionIds(this.selectionBeforePointerDown, edge.id, event.e), { syncGraphSelection: true });
 		});
 		this.graph.on('selection:changed', (event) => {
 			if (this.suppressSelectionEvents) {
@@ -591,21 +647,29 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private syncGraphSelection(ids: readonly string[]): void {
 		this.suppressSelectionEvents = true;
 		try {
-			const nodeIds = ids.filter((id) => isX6Node(this.graph.getCellById(id)));
-			resetSelection(this.graph, nodeIds);
+			const cellIds = ids.filter((id) => this.graph.getCellById(id) !== undefined);
+			resetSelection(this.graph, cellIds);
 		} finally {
 			this.suppressSelectionEvents = false;
 		}
 	}
 
 	private updateSelectionPresentation(previousIds: readonly string[], nextIds: readonly string[]): void {
+		const nextSingleId = nextIds.length === 1 ? nextIds[0] : undefined;
+		this.container.classList.toggle('ontology-single-edge-selection', nextIds.length === 1 && isX6Edge(this.graph.getCellById(nextIds[0])));
 		for (const id of previousIds) {
-			if (!nextIds.includes(id)) {
+			if (id !== nextSingleId) {
 				this.removeEdgeTools(id);
+			}
+			if (!nextIds.includes(id)) {
+				this.removeEdgeSelectionPresentation(id);
 			}
 		}
 
 		clearTransformWidgets(this.graph);
+		for (const id of nextIds) {
+			this.addEdgeSelectionPresentation(id);
+		}
 		if (nextIds.length !== 1) {
 			return;
 		}
@@ -628,6 +692,33 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		const cell = this.graph.getCellById(id);
 		if (isX6Edge(cell)) {
 			cell.removeTools();
+		}
+	}
+
+	private addEdgeSelectionPresentation(id: string): void {
+		const cell = this.graph.getCellById(id);
+		if (!isX6Edge(cell) || this.selectedEdgeLineAttrs.has(id)) {
+			return;
+		}
+
+		this.selectedEdgeLineAttrs.set(id, cloneJsonCompatible(cell.attr('line')));
+		cell.attr('line/stroke', this.theme.focusBorder);
+		cell.attr('line/strokeWidth', Math.max(numberValue(cell.attr('line/strokeWidth')), this.theme.edgeWeight + 1));
+		if (cell.attr('line/targetMarker') !== undefined) {
+			cell.attr('line/targetMarker/stroke', this.theme.focusBorder);
+		}
+	}
+
+	private removeEdgeSelectionPresentation(id: string): void {
+		if (!this.selectedEdgeLineAttrs.has(id)) {
+			return;
+		}
+
+		const lineAttrs = this.selectedEdgeLineAttrs.get(id);
+		this.selectedEdgeLineAttrs.delete(id);
+		const cell = this.graph.getCellById(id);
+		if (isX6Edge(cell)) {
+			cell.attr('line', lineAttrs);
 		}
 	}
 
@@ -872,6 +963,9 @@ function installX6Styles(theme: WebviewTheme): void {
 		'.x6-edge { cursor: pointer; }',
 		'.x6-edge .connection { stroke-linejoin: round; }',
 		'.x6-edge .tools { opacity: 1; }',
+		'.ontology-single-edge-selection .x6-widget-selection-box-edge {',
+		'  display: none !important;',
+		'}',
 		'.x6-edge-tool-source-anchor circle,',
 		'.x6-edge-tool-target-anchor circle,',
 		'.x6-edge-tool-segment rect {',
@@ -1271,7 +1365,7 @@ function edgeEditTools(): Record<string, unknown> {
 			{
 				name: 'segments',
 				args: {
-					snapRadius: 20,
+					snapRadius: 0,
 					attrs: {
 						fill: '#444',
 						stroke: '#fff',
@@ -1294,7 +1388,7 @@ function edgeEditTools(): Record<string, unknown> {
 function anchorToolArgs(): Record<string, unknown> {
 	return {
 		restrictArea: true,
-		snapRadius: 20,
+		snapRadius: 0,
 		areaPadding: 6,
 		defaultAnchorAttrs: {
 			fill: '#444',
@@ -1327,7 +1421,11 @@ function percentage(value: number, size: number): string {
 		return '0%';
 	}
 
-	return `${Math.round((value / size) * 100)}%`;
+	return `${roundPercentage((value / size) * 100)}%`;
+}
+
+function roundPercentage(value: number): number {
+	return Math.round(value * 1000) / 1000;
 }
 
 function orthogonalDisplayPoints(points: readonly CanvasPoint[]): readonly CanvasPoint[] {
@@ -1787,6 +1885,30 @@ function translateCanvasPoint(point: CanvasPoint, delta: CanvasPoint): CanvasPoi
 	};
 }
 
+function boundedEdgeVerticalDelta(
+	route: EdgeRouteUpdate,
+	sourceElement: ConnectableElement,
+	targetElement: ConnectableElement,
+	deltaY: number,
+): CanvasPoint {
+	const firstPoint = route.points[0];
+	const lastPoint = route.points[route.points.length - 1];
+	const minimumDeltaY = Math.max(
+		...route.points.map((point) => -point.y),
+		sourceElement.y - firstPoint.y,
+		targetElement.y - lastPoint.y,
+	);
+	const maximumDeltaY = Math.min(
+		sourceElement.y + sourceElement.height - firstPoint.y,
+		targetElement.y + targetElement.height - lastPoint.y,
+	);
+
+	return {
+		x: 0,
+		y: Math.round(Math.min(Math.max(deltaY, minimumDeltaY), maximumDeltaY)),
+	};
+}
+
 function canvasPointsEqual(left: CanvasPoint, right: CanvasPoint): boolean {
 	return left.x === right.x && left.y === right.y;
 }
@@ -1888,7 +2010,29 @@ function eventSelectedIds(event: Record<string, unknown>): readonly string[] {
 		return [];
 	}
 
-	return selected.flatMap((cell) => isX6Node(cell) ? [cell.id] : []);
+	return selected.flatMap((cell) => isX6Node(cell) || isX6Edge(cell) ? [cell.id] : []);
+}
+
+function clickedElementSelectionIds(currentIds: readonly string[], id: string, event: unknown): readonly string[] {
+	if (!isAdditiveSelectionEvent(event)) {
+		return [id];
+	}
+
+	return currentIds.includes(id)
+		? currentIds.filter((currentId) => currentId !== id)
+		: [...currentIds, id];
+}
+
+function isAdditiveSelectionEvent(event: unknown): boolean {
+	if (event instanceof MouseEvent) {
+		return event.ctrlKey || event.metaKey || event.shiftKey;
+	}
+	if (typeof event !== 'object' || event === null) {
+		return false;
+	}
+
+	const keyboardState = event as { readonly ctrlKey?: unknown; readonly metaKey?: unknown; readonly shiftKey?: unknown };
+	return keyboardState.ctrlKey === true || keyboardState.metaKey === true || keyboardState.shiftKey === true;
 }
 
 function resetSelection(graph: X6Graph, ids: readonly string[]): void {

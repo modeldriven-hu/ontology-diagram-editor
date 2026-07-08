@@ -1,9 +1,9 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, MoveHorizontal, Redo2, RotateCcw, Route, Rows2, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Rows2, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { AlignSubclassEndpointsCommand, ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, ArrangeDiagramCommand, CreateCommentNoteCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, CreateNoteConnectionCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, OptimizeEdgeRouteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -112,6 +112,8 @@ const nodeSelectionDistributeSeparator = requiredElement('nodeSelectionDistribut
 const nodeSelectionSubclassSeparator = requiredElement('nodeSelectionSubclassSeparator');
 const alignSubclassEndpointsLocalButton = requiredElement('alignSubclassEndpointsLocalButton') as HTMLButtonElement;
 const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
+const alignEdgeStartPointsLocalButton = requiredElement('alignEdgeStartPointsLocalButton') as HTMLButtonElement;
+const alignEdgeEndPointsLocalButton = requiredElement('alignEdgeEndPointsLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
 const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') as HTMLButtonElement;
 const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
@@ -250,6 +252,14 @@ distributeVerticalLocalButton.addEventListener('click', () => {
 alignSubclassEndpointsLocalButton.addEventListener('click', () => {
 	cancelPendingNoteConnection();
 	alignSubclassEndpointsForSelectedNodes();
+});
+alignEdgeStartPointsLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignStartPointsForSelectedEdges();
+});
+alignEdgeEndPointsLocalButton.addEventListener('click', () => {
+	cancelPendingNoteConnection();
+	alignEndPointsForSelectedEdges();
 });
 connectNoteLocalButton.addEventListener('click', () => {
 	toggleNoteConnectionMode();
@@ -558,6 +568,12 @@ function renderLocalElementToolbarIcons(): void {
 	}));
 	setLocalActionTooltip(alignSubclassEndpointsLocalButton, 'Align subclass endpoints');
 
+	alignEdgeStartPointsLocalButton.replaceChildren(alignEdgeEndpointIcon('start'));
+	setLocalActionTooltip(alignEdgeStartPointsLocalButton, 'Align edge start positions');
+
+	alignEdgeEndPointsLocalButton.replaceChildren(alignEdgeEndpointIcon('end'));
+	setLocalActionTooltip(alignEdgeEndPointsLocalButton, 'Align edge end positions');
+
 	const badge = document.createElement('span');
 	badge.className = 'local-action-note-badge';
 	badge.textContent = 'N';
@@ -574,16 +590,10 @@ function renderLocalElementToolbarIcons(): void {
 	}));
 	setLocalActionTooltip(optimizeEdgeLocalButton, 'Optimize edge path');
 
-	straightenEdgeLocalButton.replaceChildren(createIconElement(MoveHorizontal, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
+	straightenEdgeLocalButton.replaceChildren(straightenEdgeIcon());
 	setLocalActionTooltip(straightenEdgeLocalButton, 'Straighten edge');
 
-	resetEdgeLabelLocalButton.replaceChildren(createIconElement(RotateCcw, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
+	resetEdgeLabelLocalButton.replaceChildren(resetEdgeLabelIcon());
 	setLocalActionTooltip(resetEdgeLabelLocalButton, 'Reset label position');
 
 	deleteEdgeLocalButton.replaceChildren(createIconElement(Trash2, {
@@ -597,6 +607,151 @@ function setLocalActionTooltip(element: HTMLElement, tooltip: string): void {
 	element.title = tooltip;
 	element.setAttribute('aria-label', tooltip);
 	element.dataset.tooltip = tooltip;
+}
+
+function alignEdgeEndpointIcon(endpoint: 'start' | 'end'): SVGElement {
+	const icon = toolbarSvgIcon();
+	if (endpoint === 'start') {
+		appendSvgElement(icon, 'path', {
+			d: 'M6 6v12',
+			opacity: '0.45',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M7 8h5l5-3',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M7 12h11',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M7 16h5l5 3',
+		});
+		appendSvgElement(icon, 'circle', {
+			cx: '6',
+			cy: '12',
+			r: '2',
+			fill: 'currentColor',
+			stroke: 'none',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'm4 4 4 4',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'm8 16-4 4',
+		});
+	} else {
+		appendSvgElement(icon, 'path', {
+			d: 'M18 6v12',
+			opacity: '0.45',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M17 8h-5L7 5',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M17 12H6',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'M17 16h-5l-5 3',
+		});
+		appendSvgElement(icon, 'circle', {
+			cx: '18',
+			cy: '12',
+			r: '2',
+			fill: 'currentColor',
+			stroke: 'none',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'm20 4-4 4',
+		});
+		appendSvgElement(icon, 'path', {
+			d: 'm16 16 4 4',
+		});
+	}
+
+	return icon;
+}
+
+function straightenEdgeIcon(): SVGElement {
+	const icon = toolbarSvgIcon();
+	appendSvgElement(icon, 'path', {
+		d: 'M5 6h6v5h8',
+		opacity: '0.45',
+	});
+	appendSvgElement(icon, 'path', {
+		d: 'M5 18h14',
+	});
+	appendSvgElement(icon, 'path', {
+		d: 'M12 12v4',
+	});
+	appendSvgElement(icon, 'path', {
+		d: 'm9.5 13.5 2.5 2.5 2.5-2.5',
+	});
+	appendSvgElement(icon, 'circle', {
+		cx: '5',
+		cy: '18',
+		r: '1.4',
+		fill: 'currentColor',
+		stroke: 'none',
+	});
+	appendSvgElement(icon, 'circle', {
+		cx: '19',
+		cy: '18',
+		r: '1.4',
+		fill: 'currentColor',
+		stroke: 'none',
+	});
+
+	return icon;
+}
+
+function resetEdgeLabelIcon(): SVGElement {
+	const icon = toolbarSvgIcon();
+	appendSvgElement(icon, 'path', {
+		d: 'M4 16h16',
+	});
+	appendSvgElement(icon, 'circle', {
+		cx: '12',
+		cy: '16',
+		r: '1.4',
+		fill: 'currentColor',
+		stroke: 'none',
+	});
+	appendSvgElement(icon, 'rect', {
+		x: '14',
+		y: '4',
+		width: '7',
+		height: '5',
+		rx: '1.2',
+	});
+	appendSvgElement(icon, 'path', {
+		d: 'M17.5 9.5c0 3.4-2.1 5.5-5.5 5.5',
+	});
+	appendSvgElement(icon, 'path', {
+		d: 'm14.2 12.8-2.2 2.2 3 1',
+	});
+
+	return icon;
+}
+
+function toolbarSvgIcon(): SVGElement {
+	const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	icon.setAttribute('aria-hidden', 'true');
+	icon.setAttribute('class', 'canvas-action-icon');
+	icon.setAttribute('viewBox', '0 0 24 24');
+	icon.setAttribute('fill', 'none');
+	icon.setAttribute('stroke', 'currentColor');
+	icon.setAttribute('stroke-width', '1.9');
+	icon.setAttribute('stroke-linecap', 'round');
+	icon.setAttribute('stroke-linejoin', 'round');
+
+	return icon;
+}
+
+function appendSvgElement(parent: SVGElement, tagName: string, attributes: Record<string, string>): void {
+	const element = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+	for (const [name, value] of Object.entries(attributes)) {
+		element.setAttribute(name, value);
+	}
+	parent.appendChild(element);
 }
 
 function registerViewportEventPublishing(): void {
@@ -730,6 +885,10 @@ type LocalElementToolbarContext = CanvasPropertyElement | {
 	readonly kind: 'nodeSelection';
 	readonly ids: readonly string[];
 	readonly values: readonly DiagramNode[];
+} | {
+	readonly kind: 'edgeSelection';
+	readonly ids: readonly string[];
+	readonly values: readonly DiagramEdge[];
 };
 
 function updateLocalElementToolbar(): void {
@@ -775,19 +934,30 @@ function localElementToolbarContext(): LocalElementToolbarContext | undefined {
 		const element = elementRegistry.element(id);
 		return element?.kind === 'node' ? [element.value] : [];
 	});
-	if (selectedNodes.length !== selectedElementIds.length) {
-		return undefined;
+	if (selectedNodes.length === selectedElementIds.length) {
+		return {
+			kind: 'nodeSelection',
+			ids: selectedElementIds,
+			values: selectedNodes,
+		};
 	}
 
-	return {
-		kind: 'nodeSelection',
-		ids: selectedElementIds,
-		values: selectedNodes,
-	};
+	const selectedEdges = selectedElementIds.flatMap((id) => {
+		const element = elementRegistry.element(id);
+		return element?.kind === 'edge' ? [element.value] : [];
+	});
+	return selectedEdges.length === selectedElementIds.length
+		? {
+			kind: 'edgeSelection',
+			ids: selectedElementIds,
+			values: selectedEdges,
+		}
+		: undefined;
 }
 
 function hasLocalElementToolbarActions(element: LocalElementToolbarContext): boolean {
 	return element.kind === 'nodeSelection'
+		|| element.kind === 'edgeSelection'
 		|| element.kind === 'node'
 		|| element.kind === 'note'
 		|| element.kind === 'image'
@@ -798,6 +968,7 @@ function hasLocalElementToolbarActions(element: LocalElementToolbarContext): boo
 function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): void {
 	const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 	const isNodeSelection = element.kind === 'nodeSelection';
+	const isEdgeSelection = element.kind === 'edgeSelection';
 	minimizeLocalButton.hidden = !canResize;
 	createCommentNoteLocalButton.hidden = element.kind !== 'node';
 	showRelatedElementsLocalButton.hidden = element.kind !== 'node';
@@ -817,6 +988,8 @@ function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): 
 	nodeSelectionSubclassSeparator.hidden = !isNodeSelection;
 	alignSubclassEndpointsLocalButton.hidden = !isNodeSelection;
 	connectNoteLocalButton.hidden = element.kind !== 'note';
+	alignEdgeStartPointsLocalButton.hidden = !isEdgeSelection;
+	alignEdgeEndPointsLocalButton.hidden = !isEdgeSelection;
 	optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 	straightenEdgeLocalButton.hidden = element.kind !== 'edge';
 	resetEdgeLabelLocalButton.hidden = element.kind !== 'edge';
@@ -831,6 +1004,24 @@ function updateLocalElementToolbarButtons(element: LocalElementToolbarContext): 
 	} else {
 		alignSubclassEndpointsLocalButton.disabled = false;
 		setLocalActionTooltip(alignSubclassEndpointsLocalButton, 'Align subclass endpoints');
+	}
+
+	if (element.kind === 'edgeSelection') {
+		const canAlignStarts = selectedEdgesSharingFirstSource(element.values).length > 1;
+		const canAlignEnds = selectedEdgesSharingFirstTarget(element.values).length > 1;
+		alignEdgeStartPointsLocalButton.disabled = !canAlignStarts;
+		alignEdgeEndPointsLocalButton.disabled = !canAlignEnds;
+		setLocalActionTooltip(alignEdgeStartPointsLocalButton, canAlignStarts
+			? 'Align same-source edge start positions'
+			: 'Selected edges do not share the first edge source');
+		setLocalActionTooltip(alignEdgeEndPointsLocalButton, canAlignEnds
+			? 'Align same-target edge end positions'
+			: 'Selected edges do not share the first edge target');
+	} else {
+		alignEdgeStartPointsLocalButton.disabled = false;
+		alignEdgeEndPointsLocalButton.disabled = false;
+		setLocalActionTooltip(alignEdgeStartPointsLocalButton, 'Align edge start positions');
+		setLocalActionTooltip(alignEdgeEndPointsLocalButton, 'Align edge end positions');
 	}
 
 	if (element.kind === 'node') {
@@ -1034,6 +1225,19 @@ function localElementToolbarAnchor(element: LocalElementToolbarContext): LocalEl
 		};
 	}
 
+	if (element.kind === 'edgeSelection') {
+		const bounds = edgeSelectionBounds(element.values);
+		if (bounds === undefined) {
+			return undefined;
+		}
+
+		return {
+			x: bounds.x + bounds.width / 2,
+			y: bounds.y,
+			belowY: bounds.y + bounds.height,
+		};
+	}
+
 	if (element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label') {
 		return {
 			x: element.value.x + element.value.width / 2,
@@ -1069,6 +1273,25 @@ function nodeSelectionBounds(nodes: readonly DiagramNode[]): { readonly x: numbe
 		y: minY,
 		width: maxX - minX,
 		height: maxY - minY,
+	};
+}
+
+function edgeSelectionBounds(edges: readonly DiagramEdge[]): ContentBounds | undefined {
+	const points = edges.flatMap((edge) => [...edgeRoutePoints(edge)]);
+	if (points.length === 0) {
+		return undefined;
+	}
+
+	const minX = Math.min(...points.map((point) => point.x));
+	const minY = Math.min(...points.map((point) => point.y));
+	const maxX = Math.max(...points.map((point) => point.x));
+	const maxY = Math.max(...points.map((point) => point.y));
+
+	return {
+		x: minX,
+		y: minY,
+		width: Math.max(1, maxX - minX),
+		height: Math.max(1, maxY - minY),
 	};
 }
 
@@ -1116,6 +1339,9 @@ function pointDistance(left: CanvasPoint, right: CanvasPoint): number {
 function localElementToolbarFallbackWidth(element: LocalElementToolbarContext): number {
 	if (element.kind === 'nodeSelection') {
 		return 410;
+	}
+	if (element.kind === 'edgeSelection') {
+		return 92;
 	}
 	if (element.kind === 'node' || element.kind === 'edge') {
 		return 123;
@@ -1283,6 +1509,52 @@ function alignSubclassEndpointsForSelectedNodes(): void {
 
 	messageBus.publishCommand(new AlignSubclassEndpointsCommand(toolbarContext.ids));
 	showStatus('Aligning subclass endpoints.');
+}
+
+function alignStartPointsForSelectedEdges(): void {
+	const toolbarContext = localElementToolbarContext();
+	if (toolbarContext?.kind !== 'edgeSelection') {
+		showStatus('Select two or more edges to align their start positions.');
+		return;
+	}
+
+	if (selectedEdgesSharingFirstSource(toolbarContext.values).length < 2) {
+		showStatus('Select two or more edges that share the first edge source.');
+		return;
+	}
+
+	messageBus.publishCommand(new AlignEdgeStartPointsCommand(toolbarContext.ids));
+	showStatus('Aligning edge start positions.');
+}
+
+function alignEndPointsForSelectedEdges(): void {
+	const toolbarContext = localElementToolbarContext();
+	if (toolbarContext?.kind !== 'edgeSelection') {
+		showStatus('Select two or more edges to align their end positions.');
+		return;
+	}
+
+	if (selectedEdgesSharingFirstTarget(toolbarContext.values).length < 2) {
+		showStatus('Select two or more edges that share the first edge target.');
+		return;
+	}
+
+	messageBus.publishCommand(new AlignEdgeEndPointsCommand(toolbarContext.ids));
+	showStatus('Aligning edge end positions.');
+}
+
+function selectedEdgesSharingFirstSource(edges: readonly DiagramEdge[]): readonly DiagramEdge[] {
+	const firstEdge = edges[0];
+	return firstEdge === undefined
+		? []
+		: edges.filter((edge) => edge.source === firstEdge.source);
+}
+
+function selectedEdgesSharingFirstTarget(edges: readonly DiagramEdge[]): readonly DiagramEdge[] {
+	const firstEdge = edges[0];
+	return firstEdge === undefined
+		? []
+		: edges.filter((edge) => edge.target === firstEdge.target);
 }
 
 function sharedSubclassTargetIds(nodeIds: readonly string[]): readonly string[] {
@@ -1839,7 +2111,7 @@ function registerKeyboardNudgeHandlers(): void {
 		if (noteEditorController.isOpen() || isKeyboardInputTarget(event.target)) {
 			return;
 		}
-		if (event.altKey || event.ctrlKey || event.metaKey) {
+		if (event.ctrlKey || event.metaKey) {
 			return;
 		}
 
@@ -1858,6 +2130,14 @@ function registerKeyboardNudgeHandlers(): void {
 		if (selectedElementId === undefined) {
 			return;
 		}
+		if (event.altKey) {
+			if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeRoute(selectedElementId, delta)) {
+				consumeKeyboardNudgeEvent(event);
+				showStatus(delta.y < 0 ? 'Moved edge up.' : 'Moved edge down.');
+			}
+			return;
+		}
+
 		if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeLabel(selectedElementId, delta)) {
 			consumeKeyboardNudgeEvent(event);
 			return;

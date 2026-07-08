@@ -37,6 +37,7 @@ export interface DiagramCanvasEngine {
 	nudgeSelectedElements(delta: CanvasPoint): boolean;
 	edgeRoute(edgeId: string, label: CanvasPoint): EdgeRouteUpdate | undefined;
 	nudgeEdgeLabel(edgeId: string, delta: CanvasPoint): boolean;
+	nudgeEdgeRoute(edgeId: string, delta: CanvasPoint): boolean;
 	resetEdgeLabel(edgeId: string): void;
 	onSelectionChanged(listener: CanvasSelectionListener): void;
 	onElementDoubleClicked(listener: CanvasDoubleClickListener): void;

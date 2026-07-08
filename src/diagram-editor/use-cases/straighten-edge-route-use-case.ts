@@ -25,7 +25,7 @@ export class StraightenEdgeRouteUseCase {
 				return edge;
 			}
 
-			const points = straightenedPoints(sourceBounds, targetBounds);
+			const points = straightenedPoints(edge, sourceBounds, targetBounds);
 			const label = midpoint(points[0], points[1]);
 			if (samePoints(edge.points, points) && pointEquals(edge.label, label) && edge.routeLayout === 'direct') {
 				return edge;
@@ -49,7 +49,7 @@ export class StraightenEdgeRouteUseCase {
 	}
 }
 
-function straightenedPoints(sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] {
+function straightenedPoints(edge: DiagramEdge, sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] {
 	const sourceCenter = center(sourceBounds);
 	const targetCenter = center(targetBounds);
 	const sourceRight = sourceBounds.x + sourceBounds.width;
@@ -60,6 +60,11 @@ function straightenedPoints(sourceBounds: Bounds, targetBounds: Bounds): readonl
 	const horizontalOverlap = rangesOverlap(sourceBounds.x, sourceRight, targetBounds.x, targetRight);
 
 	if (verticalOverlap && !horizontalOverlap) {
+		const sourcePreservingPoints = sourcePreservingHorizontalPoints(edge, sourceBounds, targetBounds);
+		if (sourcePreservingPoints !== undefined) {
+			return sourcePreservingPoints;
+		}
+
 		return horizontalPoints(sourceBounds, targetBounds);
 	}
 	if (horizontalOverlap && !verticalOverlap) {
@@ -78,6 +83,37 @@ function straightenedPoints(sourceBounds: Bounds, targetBounds: Bounds): readonl
 	return Math.abs(targetCenter.x - sourceCenter.x) >= Math.abs(targetCenter.y - sourceCenter.y)
 		? horizontalPoints(sourceBounds, targetBounds)
 		: verticalPoints(sourceBounds, targetBounds);
+}
+
+function sourcePreservingHorizontalPoints(edge: DiagramEdge, sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] | undefined {
+	if (!isOrthogonalRoute(edge)) {
+		return undefined;
+	}
+
+	const sourcePoint = edge.points[0];
+	if (!pointOnBoundsY(sourcePoint, sourceBounds) || !pointOnBoundsY(sourcePoint, targetBounds)) {
+		return undefined;
+	}
+
+	const sourceCenter = center(sourceBounds);
+	const targetCenter = center(targetBounds);
+	const targetX = sourceCenter.x <= targetCenter.x
+		? targetBounds.x
+		: targetBounds.x + targetBounds.width;
+	const y = roundCoordinate(sourcePoint.y);
+
+	return [
+		new Point(roundCoordinate(sourcePoint.x), y),
+		new Point(roundCoordinate(targetX), y),
+	];
+}
+
+function isOrthogonalRoute(edge: DiagramEdge): boolean {
+	return edge.routeLayout === undefined || edge.routeLayout === 'orthogonal';
+}
+
+function pointOnBoundsY(point: Point, bounds: Bounds): boolean {
+	return point.y >= bounds.y && point.y <= bounds.y + bounds.height;
 }
 
 function horizontalPoints(sourceBounds: Bounds, targetBounds: Bounds): readonly [Point, Point] {
