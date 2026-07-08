@@ -113,8 +113,7 @@ export class ShowRelatedElementsUseCase {
 				namespaces: nextNamespaces,
 				nodes: nextNodes,
 				edges: nextEdges,
-			}),
-			notification: `Added ${newNodes.length} related node${newNodes.length === 1 ? '' : 's'} and ${addedEdges} edge${addedEdges === 1 ? '' : 's'}.`,
+			})
 		};
 	}
 }

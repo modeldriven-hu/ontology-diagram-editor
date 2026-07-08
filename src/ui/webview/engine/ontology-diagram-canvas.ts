@@ -2133,7 +2133,6 @@ function registerKeyboardNudgeHandlers(): void {
 		if (event.altKey) {
 			if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeRoute(selectedElementId, delta)) {
 				consumeKeyboardNudgeEvent(event);
-				showStatus(delta.y < 0 ? 'Moved edge up.' : 'Moved edge down.');
 			}
 			return;
 		}
