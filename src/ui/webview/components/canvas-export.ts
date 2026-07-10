@@ -3,6 +3,7 @@ import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
+import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import type { WebviewTheme } from '../webview-theme';
 
@@ -299,10 +300,11 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {
 	const border = borderStyle(note.style, theme.noteBorder, 1);
 	const bounds = elementBounds(note);
+	const noteBackground = note.style?.bg_color ?? theme.noteBackground;
 
 	return [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(note.style, theme.noteCornerRadius))}" fill="${escapeAttribute(note.style?.bg_color ?? theme.noteBackground)}" ${borderAttributes(border)}${shadowAttribute(note.style, theme.elementShadow)}/>`,
-		renderNoteFold(bounds, border, theme),
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(note.style, theme.noteCornerRadius))}" fill="${escapeAttribute(noteBackground)}" ${borderAttributes(border)}${shadowAttribute(note.style, theme.elementShadow)}/>`,
+		renderNoteFold(bounds, border, noteBackground, theme),
 		renderNoteHtmlBlock(note, bounds, theme),
 	].join('\n');
 }
@@ -328,7 +330,7 @@ function renderNoteHtmlBlock(note: DiagramNote, bounds: ExportBounds, theme: Web
 	].join('\n');
 }
 
-function renderNoteFold(bounds: ExportBounds, border: { readonly color: string; readonly weight: number; readonly type: string | undefined }, theme: WebviewTheme): string {
+function renderNoteFold(bounds: ExportBounds, border: { readonly color: string; readonly weight: number; readonly type: string | undefined }, noteBackground: string, theme: WebviewTheme): string {
 	const size = Math.min(14, bounds.width, bounds.height);
 	if (size <= 0) {
 		return '';
@@ -341,7 +343,7 @@ function renderNoteFold(bounds: ExportBounds, border: { readonly color: string; 
 		: escapeAttribute(border.color);
 	const strokeWidth = border.type === 'none' ? 0 : border.weight;
 
-	return `<path d="M ${numberValue(x - size)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y + size)} Z" fill="${escapeAttribute(theme.noteFoldBackground)}" stroke="${stroke}" stroke-width="${numberValue(strokeWidth)}"/>`;
+	return `<path d="M ${numberValue(x - size)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y)} L ${numberValue(x)} ${numberValue(y + size)} Z" fill="${escapeAttribute(noteFoldBackground(noteBackground, theme))}" stroke="${stroke}" stroke-width="${numberValue(strokeWidth)}"/>`;
 }
 
 function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {

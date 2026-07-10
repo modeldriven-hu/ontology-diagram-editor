@@ -1,11 +1,11 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { DeleteEdgeCommand, PickImageSourceCommand, PickNodeImageCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
-import type { BorderStylePatch, CommonStylePatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
-import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField } from './canvas-property-fields';
+import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField, textField } from './canvas-property-fields';
 import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttributes, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
@@ -219,6 +219,7 @@ export class CanvasPropertyPanel {
 	private renderDiagramContext(): void {
 		const file = this.options.payload.file;
 		const diagram = this.options.payload.diagram;
+		const metadata = diagram?.metadata;
 		this.renderTabs('diagram', [
 			{
 				id: 'summary',
@@ -226,8 +227,19 @@ export class CanvasPropertyPanel {
 				sections: [
 					sectionElement('Diagram', [
 						readonlyField('File', file?.fsPath ?? ''),
-						readonlyField('Title', diagram?.metadata?.title ?? ''),
-						readonlyField('Theme', diagram?.metadata?.theme_file ?? ''),
+						readonlyField('Schema', metadata?.schema_version ?? ''),
+						textField('Title', metadata?.title ?? '', (value) => {
+							this.updateDiagramMetadata({ title: value }, ['title']);
+						}),
+						textField('Authors', authorsText(metadata?.authors ?? []), (value) => {
+							this.updateDiagramMetadata({ authors: parseAuthorsText(value) }, ['authors']);
+						}),
+						textField('Version', metadata?.diagram_version ?? '', (value) => {
+							this.updateDiagramMetadata({ diagram_version: value }, ['diagram_version']);
+						}),
+						textField('Theme', metadata?.theme_file ?? '', (value) => {
+							this.updateDiagramMetadata({ theme_file: blankToUndefined(value) }, ['theme_file']);
+						}),
 						readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
 					]),
 				],
@@ -365,9 +377,6 @@ export class CanvasPropertyPanel {
 							this.propertyEdited('edge', edge.id, ['route_layout']);
 							this.options.messageBus.publishCommand(new UpdateEdgeRouteLayoutCommand(edge.id, value));
 						}),
-						actionButton('Delete Edge', 'danger', () => {
-							this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
-						}),
 					]),
 				],
 			},
@@ -376,20 +385,6 @@ export class CanvasPropertyPanel {
 				label: 'Style',
 				sections: [
 					this.edgeStyleSection(edge.id, edge.style),
-				],
-			},
-			{
-				id: 'actions',
-				label: 'Actions',
-				sections: [
-					sectionElement('Actions', [
-						actionButton('Reset Label Position', 'secondary', () => {
-							this.options.resetEdgeLabel(edge.id);
-						}),
-						actionButton('Delete Edge', 'danger', () => {
-							this.options.messageBus.publishCommand(new DeleteEdgeCommand(edge.id));
-						}),
-					]),
 				],
 			},
 		];
@@ -785,6 +780,11 @@ export class CanvasPropertyPanel {
 		this.options.messageBus.publishCommand(new UpdateElementStyleCommand(elementType, id, style));
 	}
 
+	private updateDiagramMetadata(patch: DiagramMetadataPatch, changedFields: readonly string[]): void {
+		this.propertyEdited('diagram', 'diagram', changedFields);
+		this.options.messageBus.publishCommand(new UpdateDiagramMetadataCommand(patch));
+	}
+
 	private fontField(value: string | undefined, commit: (value: string) => void): HTMLElement {
 		return selectField('Font', value ?? '', fontFamilyOptions(value), (selectedValue) => {
 			commit(selectedValue ?? '');
@@ -866,6 +866,17 @@ export class CanvasPropertyPanel {
 
 function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function authorsText(authors: readonly string[]): string {
+	return authors.join(', ');
+}
+
+function parseAuthorsText(value: string): readonly string[] {
+	return value
+		.split(',')
+		.map((author) => author.trim())
+		.filter((author) => author.length > 0);
 }
 
 const borderTypeOptions = [

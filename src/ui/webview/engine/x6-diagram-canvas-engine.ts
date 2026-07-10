@@ -2,6 +2,7 @@ import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
+import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -1522,6 +1523,7 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 
 function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {
 	const radius = cornerRadius(note.style, theme.noteCornerRadius);
+	const noteBackground = note.style?.bg_color ?? theme.noteBackground;
 
 	return {
 		id: note.id,
@@ -1556,7 +1558,7 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 				refHeight: '100%',
 				rx: radius,
 				ry: radius,
-				fill: note.style?.bg_color ?? theme.noteBackground,
+				fill: noteBackground,
 				...borderAttrs(note.style?.border, theme.noteBorder, 1),
 				filter: shadowFilter(note.style, theme.elementShadow, theme),
 			},
@@ -1565,7 +1567,7 @@ function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown>
 				refX: '100%',
 				refX2: -14,
 				refY: 0,
-				fill: theme.noteFoldBackground,
+				fill: noteFoldBackground(noteBackground, theme),
 				stroke: note.style?.border?.color ?? theme.noteBorder,
 				strokeWidth: note.style?.border?.type === 'none' ? 0 : note.style?.border?.weight ?? 1,
 				pointerEvents: 'none',

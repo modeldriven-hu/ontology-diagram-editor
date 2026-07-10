@@ -12,6 +12,13 @@ export interface ModelTreeItemDropPayload {
 export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label';
 export type DiagramThemeMode = 'light' | 'dark';
 
+export interface DiagramMetadataPatch {
+	readonly title?: string;
+	readonly authors?: readonly string[];
+	readonly diagram_version?: string;
+	readonly theme_file?: string;
+}
+
 export interface FontStylePatch {
 	readonly family?: string;
 	readonly bold?: boolean;
@@ -89,6 +96,7 @@ export type WebviewCommand =
 	| PickNodeImageCommand
 	| PickImageSourceCommand
 	| UpdateLabelTextCommand
+	| UpdateDiagramMetadataCommand
 	| UpdateNoteTextCommand
 	| UpdateThemeModeCommand
 	| RevealModelTreeItemCommand
@@ -500,6 +508,15 @@ export class UpdateLabelTextCommand {
 	public constructor(id: string, text: string) {
 		this.id = id;
 		this.text = text;
+	}
+}
+
+export class UpdateDiagramMetadataCommand {
+	public readonly type = 'updateDiagramMetadata';
+	public readonly metadata: DiagramMetadataPatch;
+
+	public constructor(metadata: DiagramMetadataPatch) {
+		this.metadata = metadata;
 	}
 }
 

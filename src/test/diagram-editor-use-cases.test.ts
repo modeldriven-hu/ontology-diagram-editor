@@ -13,7 +13,7 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 
 suite('Diagram editor use cases', () => {
@@ -2066,6 +2066,50 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.metadata.themeMode, 'dark');
 		const metadata = result.diagram.metadata.toPersistenceObject() as { readonly theme_mode?: unknown };
 		assert.strictEqual(metadata.theme_mode, 'dark');
+	});
+
+	test('updates editable diagram metadata fields', () => {
+		const diagram = new OntologyDiagramDocument(
+			new DiagramMetadata('1.0', 'Example', ['Old Author'], '0.1.0', 'themes/base.otheme', { status: 'draft' }, { custom_metadata: true }, 'dark'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[],
+			[],
+		);
+
+		const result = new UpdateDiagramMetadataUseCase().execute(diagram, {
+			title: 'Published diagram',
+			authors: ['Ada Lovelace', 'Grace Hopper'],
+			diagram_version: '1.2.3',
+		});
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.metadata.schemaVersion, '1.0');
+		assert.strictEqual(result.diagram.metadata.title, 'Published diagram');
+		assert.deepStrictEqual(result.diagram.metadata.authors, ['Ada Lovelace', 'Grace Hopper']);
+		assert.strictEqual(result.diagram.metadata.diagramVersion, '1.2.3');
+		assert.strictEqual(result.diagram.metadata.themeFile, 'themes/base.otheme');
+		assert.deepStrictEqual(result.diagram.metadata.additional, { status: 'draft' });
+		assert.deepStrictEqual(result.diagram.metadata.extra, { custom_metadata: true });
+		assert.strictEqual(result.diagram.metadata.themeMode, 'dark');
+	});
+
+	test('clears diagram theme file metadata', () => {
+		const diagram = new OntologyDiagramDocument(
+			new DiagramMetadata('1.0', 'Example', [], '0.1.0', 'themes/base.otheme'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[],
+			[],
+		);
+
+		const result = new UpdateDiagramMetadataUseCase().execute(diagram, {
+			theme_file: undefined,
+		});
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.metadata.themeFile, undefined);
+		assert.strictEqual(result.diagram.metadata.title, 'Example');
 	});
 
 	test('arranges ontology nodes in directed layers and reroutes edges', () => {

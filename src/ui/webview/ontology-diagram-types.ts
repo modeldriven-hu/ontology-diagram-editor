@@ -9,7 +9,10 @@ export interface DiagramPayload {
 	};
 	readonly diagram?: {
 		readonly metadata?: {
+			readonly schema_version?: string;
 			readonly title?: string;
+			readonly authors?: readonly string[];
+			readonly diagram_version?: string;
 			readonly theme_file?: string;
 			readonly theme_mode?: 'light' | 'dark';
 		};
