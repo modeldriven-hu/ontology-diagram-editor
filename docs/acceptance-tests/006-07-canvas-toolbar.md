@@ -7,6 +7,9 @@
 - Given the user chooses Undo or Redo from the toolbar, when the action runs, then the opened `.odiagram` document undo or redo operation is requested.
 - Given the user chooses Export SVG or Export PNG, when the diagram has exportable content, then the export workflow defined in `006-11-canvas-export.md` starts.
 - Given the user chooses Arrange Diagram with ontology nodes present, when persistence completes, then nodes are arranged and connected edges are rerouted as one logical edit.
+- Given the user selects Directed Layers, ELK Layered, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
+- Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.
+- Given the user changes only the layout algorithm selection, when the document is inspected, then the `.odiagram` content is unchanged.
 - Given the user chooses Fit, Reset, Zoom In, or Zoom Out, when the viewport changes, then persisted diagram coordinates are unchanged.
 - Given an ontology-backed node or edge is selected, when the user chooses Select corresponding model-tree item, then the matching model-tree item is revealed when one exists.
 - Given no ontology-backed canvas element is selected, when the user chooses Select corresponding model-tree item, then the user sees a concise problem message.

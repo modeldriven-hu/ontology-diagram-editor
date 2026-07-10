@@ -1,5 +1,6 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
+import { defaultDiagramLayoutAlgorithmId, isDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../../shared/diagram-layout';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
 import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
@@ -49,6 +50,7 @@ interface WebviewState {
 	readonly localToolbarOffsetX?: number;
 	readonly localToolbarOffsetY?: number;
 	readonly themeMode?: WebviewThemeMode;
+	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -74,6 +76,7 @@ const undoDiagramButton = requiredElement('undoDiagramButton') as HTMLButtonElem
 const redoDiagramButton = requiredElement('redoDiagramButton') as HTMLButtonElement;
 const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
 const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
+const diagramLayoutAlgorithmSelect = requiredElement('diagramLayoutAlgorithmSelect') as HTMLSelectElement;
 const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
 const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
@@ -117,6 +120,10 @@ const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
 const propertyPanelTitle = requiredElement('propertyPanelTitle');
 const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
 const propertyPanelBody = requiredElement('propertyPanelBody');
+const savedLayoutAlgorithmId = vscode.getState()?.layoutAlgorithmId;
+diagramLayoutAlgorithmSelect.value = savedLayoutAlgorithmId !== undefined && isDiagramLayoutAlgorithmId(savedLayoutAlgorithmId)
+	? savedLayoutAlgorithmId
+	: defaultDiagramLayoutAlgorithmId;
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
 let theme = readTheme(themeMode, webviewConfig.payload.theme);
 const messageBus = new CanvasMessageBus();
@@ -295,8 +302,20 @@ arrangeDiagramButton.addEventListener('click', () => {
 		return;
 	}
 
-	showStatus('Arranging diagram.');
-	messageBus.publishCommand(new ArrangeDiagramCommand());
+	const algorithmId = diagramLayoutAlgorithmSelect.value;
+	if (!isDiagramLayoutAlgorithmId(algorithmId)) {
+		showStatus('The selected diagram layout algorithm is not available.');
+		return;
+	}
+
+	showStatus(`Arranging diagram using ${diagramLayoutAlgorithmSelect.selectedOptions[0]?.text ?? algorithmId}.`);
+	messageBus.publishCommand(new ArrangeDiagramCommand(algorithmId));
+});
+diagramLayoutAlgorithmSelect.addEventListener('change', () => {
+	const algorithmId = diagramLayoutAlgorithmSelect.value;
+	if (isDiagramLayoutAlgorithmId(algorithmId)) {
+		updateWebviewState({ layoutAlgorithmId: algorithmId });
+	}
 });
 zoomOutButton.addEventListener('click', () => {
 	zoomBy(1 / 1.2, 'zoom');

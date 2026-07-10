@@ -26,7 +26,8 @@ Version 1 toolbar actions are:
 | Redo | Requests redo for the current `.odiagram` document edit. |
 | Export SVG | Saves the diagram as an SVG export, as defined in `006-11-canvas-export.md`. |
 | Export PNG | Saves the diagram as a PNG export, as defined in `006-11-canvas-export.md`. |
-| Arrange diagram | Automatically positions ontology-backed nodes and reroutes connected edges. |
+| Layout algorithm | Selects the algorithm used by Arrange Diagram without changing diagram content. |
+| Arrange diagram | Automatically positions ontology-backed nodes with the selected algorithm and reroutes connected edges. |
 | Zoom out | Decreases canvas zoom without changing persisted coordinates. |
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
 | Fit diagram to view | Fits all rendered content in the visible viewport. |
@@ -50,12 +51,17 @@ and theme settings.
 
 Arranging the diagram shall:
 
-- Position ontology-backed nodes in a deterministic left-to-right layout derived from
-  directed ontology-backed edges.
+- Allow the user to select from the available layout algorithms.
+- Provide a deterministic left-to-right directed-layers layout derived from
+  ontology-backed edges, an ELK layered layout with orthogonal edge routing, and a
+  deterministic grid layout.
 - Preserve each node's persisted width and height.
 - Reroute connected edges so endpoints remain on element boundaries.
 - Update edge label positions to reasonable route midpoints.
 - Persist the result as one logical `.odiagram` document edit.
+
+The selected layout algorithm is viewport state rather than diagram content. Changing the
+selection alone shall not modify the `.odiagram` document.
 
 If the diagram has no ontology-backed nodes, the toolbar action shall be disabled or show
 a concise user-visible problem without changing the `.odiagram` document.

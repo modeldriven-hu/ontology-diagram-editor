@@ -6,6 +6,7 @@ import { readOntologyDiagramThemeFile, resolveNodeStyle } from '../documents/oth
 import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
+import { diagramLayoutAlgorithms } from '../shared/diagram-layout';
 import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
 
 export async function buildDiagramWebviewHtml(
@@ -66,6 +67,9 @@ function webviewBody(
 				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
+				<select class="canvas-action-select" id="diagramLayoutAlgorithmSelect" title="Diagram layout algorithm" aria-label="Diagram layout algorithm">
+					${diagramLayoutAlgorithmOptions()}
+				</select>
 				<button class="canvas-action" id="arrangeDiagramButton" type="button" title="Arrange diagram" aria-label="Arrange diagram"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
@@ -135,6 +139,12 @@ function webviewBody(
 	<script nonce="${nonce}" src="${x6ScriptUri.toString()}"></script>
 	<script nonce="${nonce}" src="${scriptUri.toString()}"></script>
 </body>`;
+}
+
+function diagramLayoutAlgorithmOptions(): string {
+	return diagramLayoutAlgorithms
+		.map((algorithm) => `<option value="${escapeHtml(algorithm.id)}">${escapeHtml(algorithm.label)}</option>`)
+		.join('\n');
 }
 
 function webviewStyles(): string {
@@ -258,6 +268,25 @@ function webviewStyles(): string {
 		background: transparent;
 		color: var(--vscode-foreground);
 		cursor: pointer;
+	}
+
+	.canvas-action-select {
+		height: 28px;
+		max-width: 140px;
+		padding: 0 24px 0 7px;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: var(--vscode-dropdown-background);
+		color: var(--vscode-dropdown-foreground);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+	}
+
+	.canvas-action-select:hover,
+	.canvas-action-select:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
 	}
 
 	.canvas-action:hover,

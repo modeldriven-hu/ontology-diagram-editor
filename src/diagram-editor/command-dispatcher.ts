@@ -127,8 +127,9 @@ export class DiagramCommandDispatcher {
 				));
 				return;
 			case 'arrangeDiagram':
-				await this.handleResult(this.useCases.arrangeDiagram.execute(
+				await this.handleResult(await this.useCases.arrangeDiagram.execute(
 					this.repository.load(),
+					command.algorithmId,
 				));
 				return;
 			case 'undoDiagram':

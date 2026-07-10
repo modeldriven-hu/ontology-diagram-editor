@@ -1,19 +1,30 @@
 import { Bounds, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../shared/diagram-layout';
+import { createDefaultDiagramLayoutAlgorithms, type DiagramLayoutAlgorithm, type DiagramLayoutEdgeRoute } from '../layout';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { boundaryPoint, closestBoundaryPointPair, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
 
-const canvasMargin = 80;
-const horizontalGap = 180;
-const verticalGap = 72;
-
 export class ArrangeDiagramUseCase {
-	public execute(diagram: OntologyDiagramDocument): DiagramMutationResult {
+	public constructor(
+		private readonly algorithms: readonly DiagramLayoutAlgorithm[] = createDefaultDiagramLayoutAlgorithms(),
+	) {}
+
+	public async execute(
+		diagram: OntologyDiagramDocument,
+		algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId,
+	): Promise<DiagramMutationResult> {
 		if (diagram.nodes.length === 0) {
 			return { notification: 'There are no ontology nodes to arrange.' };
 		}
 
-		const arrangedBoundsById = arrangeNodeBounds(diagram);
+		const algorithm = this.algorithms.find((candidate) => candidate.id === algorithmId);
+		if (algorithm === undefined) {
+			return { notification: `The diagram layout algorithm "${algorithmId}" is not available.` };
+		}
+
+		const layout = await algorithm.layout(diagram);
+		const arrangedBoundsById = layout.nodeBoundsById;
 		const arrangedNodeIds = new Set(arrangedBoundsById.keys());
 		const movedNodeIds = new Set<string>();
 		const nextNodes = diagram.nodes.map((node) => {
@@ -42,7 +53,12 @@ export class ArrangeDiagramUseCase {
 			...diagram.notes.map((note) => [note.id.value, note.bounds] as const),
 			...diagram.images.map((image) => [image.id.value, image.bounds] as const),
 		]);
-		const nextEdges = diagram.edges.map((edge) => arrangeEdge(edge, boundsByElementId, arrangedNodeIds));
+		const nextEdges = diagram.edges.map((edge) => arrangeEdge(
+			edge,
+			boundsByElementId,
+			arrangedNodeIds,
+			layout.edgeRoutesById?.get(edge.id.value),
+		));
 		const changed = movedNodeIds.size > 0 || nextEdges.some((edge, index) => edge !== diagram.edges[index]);
 		if (!changed) {
 			return {};
@@ -57,95 +73,11 @@ export class ArrangeDiagramUseCase {
 	}
 }
 
-function arrangeNodeBounds(diagram: OntologyDiagramDocument): ReadonlyMap<string, Bounds> {
-	const layerByNodeId = nodeLayers(diagram);
-	const nodesByLayer = new Map<number, DiagramNode[]>();
-	for (const node of diagram.nodes) {
-		const layer = layerByNodeId.get(node.id.value) ?? 0;
-		const nodes = nodesByLayer.get(layer) ?? [];
-		nodes.push(node);
-		nodesByLayer.set(layer, nodes);
-	}
-
-	const arranged = new Map<string, Bounds>();
-	let x = canvasMargin;
-	for (const layer of [...nodesByLayer.keys()].sort((left, right) => left - right)) {
-		const nodes = nodesByLayer.get(layer) ?? [];
-		const layerWidth = Math.max(...nodes.map((node) => node.bounds.width));
-		let y = canvasMargin;
-		for (const node of nodes) {
-			arranged.set(node.id.value, new Bounds(
-				roundCoordinate(x),
-				roundCoordinate(y),
-				node.bounds.width,
-				node.bounds.height,
-			));
-			y += node.bounds.height + verticalGap;
-		}
-
-		x += layerWidth + horizontalGap;
-	}
-
-	return arranged;
-}
-
-function nodeLayers(diagram: OntologyDiagramDocument): ReadonlyMap<string, number> {
-	const nodeIds = new Set(diagram.nodes.map((node) => node.id.value));
-	const nodeOrder = new Map(diagram.nodes.map((node, index) => [node.id.value, index]));
-	const outgoing = new Map<string, Set<string>>();
-	const incomingCount = new Map(diagram.nodes.map((node) => [node.id.value, 0]));
-
-	for (const edge of diagram.edges) {
-		if (!nodeIds.has(edge.source.value) || !nodeIds.has(edge.target.value) || edge.source.value === edge.target.value) {
-			continue;
-		}
-
-		const targets = outgoing.get(edge.source.value) ?? new Set<string>();
-		if (targets.has(edge.target.value)) {
-			continue;
-		}
-
-		targets.add(edge.target.value);
-		outgoing.set(edge.source.value, targets);
-		incomingCount.set(edge.target.value, (incomingCount.get(edge.target.value) ?? 0) + 1);
-	}
-
-	const layerByNodeId = new Map<string, number>();
-	const queue = diagram.nodes
-		.filter((node) => incomingCount.get(node.id.value) === 0)
-		.map((node) => node.id.value);
-	for (const nodeId of queue) {
-		layerByNodeId.set(nodeId, 0);
-	}
-
-	for (let index = 0; index < queue.length; index += 1) {
-		const sourceId = queue[index];
-		const sourceLayer = layerByNodeId.get(sourceId) ?? 0;
-		const targets = [...(outgoing.get(sourceId) ?? [])].sort((left, right) => (nodeOrder.get(left) ?? 0) - (nodeOrder.get(right) ?? 0));
-		for (const targetId of targets) {
-			layerByNodeId.set(targetId, Math.max(layerByNodeId.get(targetId) ?? 0, sourceLayer + 1));
-			const nextIncomingCount = (incomingCount.get(targetId) ?? 0) - 1;
-			incomingCount.set(targetId, nextIncomingCount);
-			if (nextIncomingCount === 0) {
-				queue.push(targetId);
-			}
-		}
-	}
-
-	const fallbackLayer = layerByNodeId.size === 0 ? 0 : Math.max(...layerByNodeId.values()) + 1;
-	for (const node of diagram.nodes) {
-		if (!layerByNodeId.has(node.id.value)) {
-			layerByNodeId.set(node.id.value, fallbackLayer);
-		}
-	}
-
-	return layerByNodeId;
-}
-
 function arrangeEdge(
 	edge: DiagramEdge,
 	boundsByElementId: ReadonlyMap<string, Bounds>,
 	arrangedNodeIds: ReadonlySet<string>,
+	providedRoute?: DiagramLayoutEdgeRoute,
 ): DiagramEdge {
 	if (!arrangedNodeIds.has(edge.source.value) && !arrangedNodeIds.has(edge.target.value)) {
 		return edge;
@@ -157,9 +89,9 @@ function arrangeEdge(
 		return edge;
 	}
 
-	const nextRoute = edge.source.value === edge.target.value
+	const nextRoute = providedRoute ?? (edge.source.value === edge.target.value
 		? selfLoopRoute(sourceBounds)
-		: edgeRoute(edge, sourceBounds, targetBounds);
+		: edgeRoute(edge, sourceBounds, targetBounds));
 	if (samePoints(edge.points, nextRoute.points) && pointEquals(edge.label, nextRoute.label)) {
 		return edge;
 	}

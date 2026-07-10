@@ -15,6 +15,7 @@ import {
 } from '../documents/odiagram';
 import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
+import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
 
 suite('Diagram editor use cases', () => {
 	test('creates a diagram node from a supported model-tree item', () => {
@@ -2112,7 +2113,7 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.metadata.title, 'Example');
 	});
 
-	test('arranges ontology nodes in directed layers and reroutes edges', () => {
+	test('arranges ontology nodes in directed layers and reroutes edges', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -2153,7 +2154,7 @@ suite('Diagram editor use cases', () => {
 			[new DiagramNote('note_context', new Bounds(0, 200, 100, 80), 'Context')],
 		);
 
-		const result = new ArrangeDiagramUseCase().execute(diagram);
+		const result = await new ArrangeDiagramUseCase().execute(diagram);
 
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
@@ -2183,14 +2184,14 @@ suite('Diagram editor use cases', () => {
 		]);
 	});
 
-	test('reports empty diagrams when arranging', () => {
-		const result = new ArrangeDiagramUseCase().execute(emptyDiagram());
+	test('reports empty diagrams when arranging', async () => {
+		const result = await new ArrangeDiagramUseCase().execute(emptyDiagram());
 
 		assert.strictEqual(result.diagram, undefined);
 		assert.strictEqual(result.notification, 'There are no ontology nodes to arrange.');
 	});
 
-	test('reroutes stale edges when arranging already placed nodes', () => {
+	test('reroutes stale edges when arranging already placed nodes', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -2211,7 +2212,7 @@ suite('Diagram editor use cases', () => {
 			],
 		);
 
-		const result = new ArrangeDiagramUseCase().execute(diagram);
+		const result = await new ArrangeDiagramUseCase().execute(diagram);
 
 		assert.ok(result.diagram);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
@@ -2224,6 +2225,113 @@ suite('Diagram editor use cases', () => {
 			{ x: 270, y: 109 },
 			{ x: 360, y: 109 },
 		]);
+	});
+
+	test('selects the grid layout algorithm while preserving node sizes', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_a', 'ex:A', new Bounds(500, 300, 100, 50)),
+				new DiagramNode('node_b', 'ex:B', new Bounds(20, 20, 120, 60)),
+				new DiagramNode('node_c', 'ex:C', new Bounds(20, 220, 80, 40)),
+			],
+			[],
+		);
+
+		const result = await new ArrangeDiagramUseCase().execute(diagram, 'grid');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 80, y: 80, width: 100, height: 50 },
+			{ x: 252, y: 80, width: 120, height: 60 },
+			{ x: 80, y: 212, width: 80, height: 40 },
+		]);
+	});
+
+	test('uses ELK layered layout for cyclic diagrams and routed edges', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_a', 'ex:A', new Bounds(500, 300, 100, 50)),
+				new DiagramNode('node_b', 'ex:B', new Bounds(20, 20, 120, 60)),
+				new DiagramNode('node_c', 'ex:C', new Bounds(20, 220, 80, 40)),
+			],
+			[
+				new DiagramEdge('edge_ab', 'node_a', 'node_b', 'ex:ab', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+				new DiagramEdge('edge_bc', 'node_b', 'node_c', 'ex:bc', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+				new DiagramEdge('edge_ca', 'node_c', 'node_a', 'ex:ca', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+			],
+		);
+
+		const result = await new ArrangeDiagramUseCase().execute(diagram, 'elk-layered');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => ({
+			width: node.bounds.width,
+			height: node.bounds.height,
+		})), [
+			{ width: 100, height: 50 },
+			{ width: 120, height: 60 },
+			{ width: 80, height: 40 },
+		]);
+		assert.ok(new Set(result.diagram.nodes.map((node) => node.bounds.x)).size > 1);
+		assert.ok(result.diagram.nodes.every((node) => node.bounds.x >= 80 && node.bounds.y >= 80));
+		assert.ok(result.diagram.edges.every((edge) => edge.points.length >= 2));
+		assert.ok(result.diagram.edges.some((edge) => edge.points.length > 2));
+		assert.ok(result.diagram.edges.every((edge) => edge.label.x > 0 && edge.label.y > 0));
+	});
+
+	test('uses routes supplied by an injected layout algorithm', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(10, 20, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(300, 20, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_relates',
+					'node_source',
+					'node_target',
+					'ex:relates',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+			],
+		);
+		const algorithm: DiagramLayoutAlgorithm = {
+			id: 'grid',
+			layout: async () => ({
+				nodeBoundsById: new Map([
+					['node_source', new Bounds(80, 80, 100, 50)],
+					['node_target', new Bounds(320, 80, 100, 50)],
+				]),
+				edgeRoutesById: new Map([[
+					'edge_relates',
+					{
+						label: new Point(250, 60),
+						points: [new Point(180, 105), new Point(250, 105), new Point(250, 105), new Point(320, 105)],
+					},
+				]]),
+			}),
+		};
+
+		const result = await new ArrangeDiagramUseCase([algorithm]).execute(diagram, 'grid');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 180, y: 105 },
+			{ x: 250, y: 105 },
+			{ x: 250, y: 105 },
+			{ x: 320, y: 105 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), { x: 250, y: 60 });
 	});
 
 	test('saves UTF-8 diagram exports through the export save port', async () => {
