@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Rows2, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import type { WebviewThemeMode } from '../webview-theme';
 import { setActionTooltip } from './canvas-dom';
@@ -208,6 +208,15 @@ export function renderUndoRedoToolbarIcons(undoDiagramButton: HTMLButtonElement,
 	}));
 	redoDiagramButton.title = 'Redo diagram edit';
 	redoDiagramButton.setAttribute('aria-label', 'Redo diagram edit');
+}
+
+export function renderAddOntologyItemToolbarIcon(addOntologyItemButton: HTMLButtonElement): void {
+	addOntologyItemButton.replaceChildren(createIconElement(Search, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	addOntologyItemButton.title = 'Search and add ontology item';
+	addOntologyItemButton.setAttribute('aria-label', 'Search and add ontology item');
 }
 
 export function renderArrangeDiagramToolbarIcon(arrangeDiagramButton: HTMLButtonElement): void {

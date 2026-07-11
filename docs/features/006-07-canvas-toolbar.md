@@ -19,6 +19,7 @@ Version 1 toolbar actions are:
 
 | Action | Result |
 |--------|--------|
+| Search and add ontology item | Opens a searchable ontology-item picker and adds the selection at the current viewport. |
 | Add note | Opens the note text entry flow and creates a note. |
 | Add label | Opens the label text entry flow and creates a standalone label. |
 | Add image | Opens the image picker and creates a standalone image. |
@@ -42,6 +43,24 @@ empty export file.
 Toolbar action groups shall be visually separated where this improves scanning. In
 version 1, creation, edit history, export, layout, viewport, model-tree reveal, and
 theme-mode actions are separate toolbar groups.
+
+# Search And Add Ontology Item
+
+The canvas toolbar shall provide a keyboard-accessible action for adding ontology items
+without drag and drop. Invoking the action shall open a Visual Studio Code Quick Pick
+containing supported classes, individuals, datatypes, object properties, data
+properties, subclass relationships, and object-property assertions from every ontology
+referenced by the diagram. Annotation properties are not addable in version 1.
+
+The picker shall be searchable by display label, compact or full ontology reference,
+item type, and source ontology file. Equal display labels shall remain distinguishable
+by reference and source file. Nodes and concrete relationships already materialized on
+the diagram shall be omitted from the picker so this workflow does not produce duplicate
+notifications. Selecting a node-capable item shall create its node at the current
+viewport's center insertion point. Selecting a relationship shall use the normal edge
+materialization rules, including creation of unambiguous missing endpoint nodes.
+Canceling the picker shall leave the diagram unchanged. Ambiguous selections shall use
+the same validation messages as model-tree drag and drop.
 
 # Arrange Diagram
 

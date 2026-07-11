@@ -60,6 +60,8 @@ function webviewBody(
 		</header>
 		<div class="canvas-shell">
 			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
+				<button class="canvas-action" id="addOntologyItemButton" type="button" title="Add ontology item" aria-label="Add ontology item"></button>
+				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
 				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>

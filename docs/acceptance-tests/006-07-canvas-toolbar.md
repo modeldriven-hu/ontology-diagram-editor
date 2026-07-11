@@ -3,6 +3,13 @@
 ## Canvas Toolbar
 
 - Given the canvas view is open, when the user pans, scrolls, or zooms, then the canvas toolbar remains visible over the viewport.
+- Given supported ontology items are loaded, when the user chooses Search and Add Ontology Item, then a Quick Pick searchable by label, reference, type, and ontology file is shown.
+- Given the user selects a class, individual, or datatype in the ontology picker, when persistence completes, then its node is added at the current viewport center insertion point.
+- Given the user selects an object property, data property, subclass relationship, or object-property assertion in the ontology picker, when its endpoints are unambiguous, then the relationship and any missing endpoint nodes are materialized using the normal edge creation rules.
+- Given equal ontology-item labels occur in different ontology files, when the picker is shown, then their references and source files distinguish the entries.
+- Given a node or concrete relationship is already materialized on the diagram, when the ontology picker opens, then that item is omitted and no duplicate notification can be triggered from the picker.
+- Given every supported ontology item is already materialized, when the ontology picker opens, then it shows no available matches without displaying a separate notification.
+- Given the ontology picker is canceled, when it closes, then the `.odiagram` document is unchanged.
 - Given the user chooses Add Note, Add Label, or Add Image, when the action completes, then the corresponding element is created through the canvas workflow.
 - Given the user chooses Undo or Redo from the toolbar, when the action runs, then the opened `.odiagram` document undo or redo operation is requested.
 - Given the user chooses Export SVG or Export PNG, when the diagram has exportable content, then the export workflow defined in `006-11-canvas-export.md` starts.

@@ -53,6 +53,7 @@ import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview
 import { DiagramDocumentRepository } from './document-repository';
 import { isConnectionCapableOntologyItem } from './use-cases/ontology-edge-endpoints';
 import { loadReferencedOntologies, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
+import { availableOntologyItemPickerEntries } from './ontology-item-picker';
 
 interface DiagramEditorUseCases {
 	readonly alignEdgeEndPoints: AlignEdgeEndPointsUseCase;
@@ -145,6 +146,9 @@ export class DiagramCommandDispatcher {
 				return;
 			case 'redoDiagram':
 				await this.undoOrRedo('redo');
+				return;
+			case 'addOntologyItem':
+				await this.addOntologyItem(command.position);
 				return;
 			case 'createNode':
 				await this.createNode(command);
@@ -376,6 +380,30 @@ export class DiagramCommandDispatcher {
 			depth,
 			relationshipPayloads(loadedOntologies),
 		));
+	}
+
+	private async addOntologyItem(position: { readonly x: number; readonly y: number }): Promise<void> {
+		const diagram = this.repository.load();
+		const entries = availableOntologyItemPickerEntries(await loadReferencedOntologies(this.repository.uri.fsPath, diagram), diagram);
+
+		const selected = await vscode.window.showQuickPick(entries, {
+			title: 'Add Ontology Item to Diagram',
+			placeHolder: entries.length === 0
+				? 'All supported ontology items are already on the diagram.'
+				: 'Search by name, reference, type, or ontology file.',
+			matchOnDescription: true,
+			matchOnDetail: true,
+		});
+		if (selected === undefined) {
+			return;
+		}
+
+		if (isConnectionCapableOntologyItem(selected.payload.ontologyItemType)) {
+			await this.handleResult(this.useCases.createEdge.execute(diagram, selected.payload, position));
+			return;
+		}
+
+		await this.handleResult(this.useCases.createNode.execute(diagram, selected.payload, position));
 	}
 
 	private async undoOrRedo(command: 'undo' | 'redo'): Promise<void> {

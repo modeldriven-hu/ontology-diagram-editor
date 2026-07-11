@@ -19,6 +19,8 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
   tree item.
 - Drag ontology items from the model tree onto the canvas to create nodes or
   relationship edges.
+- Search ontology items from the canvas toolbar and add the selected node or
+  relationship at the current viewport without using drag and drop.
 - Materialize object property, data property, and subclass relationship edges, including
   missing endpoint nodes when the relationship metadata is unambiguous.
 - Render ontology-backed nodes and edges with UML-style conventions.

@@ -17,6 +17,7 @@
 
 ## Actions And Errors
 
+- Given the canvas has loaded ontology items, when the user invokes Search and Add Ontology Item, then the selected supported item can be added without model-tree drag and drop.
 - Given the create-new-diagram command runs without an Explorer resource, when the user chooses a target folder and enters a file name, then a valid empty `.odiagram` file is created in that folder and opened in the canvas view.
 - Given the create-new-diagram command runs from a selected Explorer folder, when the user enters a file name, then the new `.odiagram` file is created in that selected folder.
 - Given an action cannot run in the current state, when the user invokes it, then it is disabled or fails without changing the `.odiagram` document.

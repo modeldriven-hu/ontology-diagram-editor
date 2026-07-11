@@ -3,7 +3,7 @@ import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabel
 import { defaultDiagramLayoutAlgorithmId, isDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -22,7 +22,7 @@ import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
 import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, showTransientStatus } from './canvas-dom';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
-import { renderArrangeDiagramToolbarIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderUndoRedoToolbarIcons, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
+import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderUndoRedoToolbarIcons, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand): void;
@@ -72,6 +72,7 @@ const vscode = acquireVsCodeApi();
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
 const status = requiredElement('status');
+const addOntologyItemButton = requiredElement('addOntologyItemButton') as HTMLButtonElement;
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
 const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
@@ -227,6 +228,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 });
 
 renderNoteToolbarIcon(addNoteButton);
+renderAddOntologyItemToolbarIcon(addOntologyItemButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderMetadataToolbarIcon(addMetadataButton);
@@ -278,6 +280,10 @@ registerPropertyPanel();
 restoreSelection();
 restoreViewport();
 noteEditorController.register();
+addOntologyItemButton.addEventListener('click', () => {
+	localElementToolbarController.cancelPendingNoteConnection();
+	messageBus.publishCommand(new AddOntologyItemCommand(viewportCenterInsertionPosition()));
+});
 addImageButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
 	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
@@ -510,7 +516,18 @@ function registerViewportEventPublishing(): void {
 }
 
 function updateToolbarActionStates(): void {
+	addOntologyItemButton.disabled = !(webviewConfig.payload.ontology?.items ?? []).some((item) => isAddableOntologyItemType(item.type));
 	arrangeDiagramButton.disabled = (webviewConfig.payload.diagram?.nodes?.length ?? 0) === 0;
+}
+
+function isAddableOntologyItemType(type: string): boolean {
+	return type === 'class'
+		|| type === 'individual'
+		|| type === 'datatype'
+		|| type === 'objectProperty'
+		|| type === 'dataProperty'
+		|| type === 'subclassRelationship'
+		|| type === 'objectPropertyAssertion';
 }
 
 function commentTextForNode(node: DiagramNode): string {
@@ -1121,6 +1138,14 @@ function insertionPosition(): CanvasPoint {
 	return {
 		x: Math.max(0, Math.round((canvasScroll.scrollLeft + 80) / zoom)),
 		y: Math.max(0, Math.round((canvasScroll.scrollTop + 80) / zoom)),
+	};
+}
+
+function viewportCenterInsertionPosition(): CanvasPoint {
+	const position = viewportClientPointToCanvasPoint(viewportCenterClientPoint(), canvas.zoom());
+	return {
+		x: Math.max(0, Math.round(position.x)),
+		y: Math.max(0, Math.round(position.y)),
 	};
 }
 

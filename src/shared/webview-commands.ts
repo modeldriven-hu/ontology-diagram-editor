@@ -65,6 +65,7 @@ export type WebviewCommand =
 	| AlignEdgeEndPointsCommand
 	| UndoDiagramCommand
 	| RedoDiagramCommand
+	| AddOntologyItemCommand
 	| CreateNodeCommand
 	| CreateNoteCommand
 	| CreateCommentNoteCommand
@@ -158,6 +159,12 @@ export class UndoDiagramCommand {
 
 export class RedoDiagramCommand {
 	public readonly type = 'redoDiagram';
+}
+
+export class AddOntologyItemCommand {
+	public readonly type = 'addOntologyItem';
+
+	public constructor(public readonly position: CanvasPoint) {}
 }
 
 export class CreateNodeCommand {

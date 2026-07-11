@@ -129,6 +129,7 @@ keyboard shortcuts where supported, and webview commands handled by the extensio
 Version 1 shall define actions for:
 
 - Create new diagram.
+- Search and add ontology item.
 - Add note.
 - Add standalone label.
 - Add standalone image.
