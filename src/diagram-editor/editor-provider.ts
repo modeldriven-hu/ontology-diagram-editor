@@ -7,12 +7,16 @@ import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
 import { buildDiagramWebviewHtml } from './webview-html';
 import { CanvasViewportPersistence } from './canvas-viewport-persistence';
+import { ActiveDiagramEditorRegistry } from './active-diagram-editor-registry';
 
 export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
 export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
+	private readonly editorRegistry = new ActiveDiagramEditorRegistry<vscode.WebviewPanel, vscode.TextDocument>();
+	private diagramStateQueue = Promise.resolve();
+
 	public constructor(
-		private readonly onDidOpenDiagram: (document: vscode.TextDocument) => void | Promise<void>,
+		private readonly onDidActivateDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
@@ -25,7 +29,10 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		webviewPanel: vscode.WebviewPanel,
 		_token: vscode.CancellationToken,
 	): Promise<void> {
-		await this.onDidOpenDiagram(document);
+		const initiallyActiveDocument = this.editorRegistry.open(webviewPanel, document);
+		if (initiallyActiveDocument !== undefined) {
+			await this.queueDiagramStateUpdate(() => this.onDidActivateDiagram(initiallyActiveDocument));
+		}
 
 		webviewPanel.webview.options = {
 			enableScripts: true,
@@ -55,6 +62,12 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		const ontologySaveDisposable = this.onDidSaveReferencedOntology((event) => {
 			if (event.diagramUri.toString() === document.uri.toString()) {
 				void updateWebview();
+			}
+		});
+		const viewStateDisposable = webviewPanel.onDidChangeViewState((event) => {
+			const activeDocument = this.editorRegistry.activate(event.webviewPanel);
+			if (activeDocument !== undefined) {
+				void this.queueDiagramStateUpdate(() => this.onDidActivateDiagram(activeDocument));
 			}
 		});
 		const repository = new DiagramDocumentRepository(document);
@@ -89,12 +102,26 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
 			ontologySaveDisposable.dispose();
+			viewStateDisposable.dispose();
 			commandDisposable.dispose();
 			void viewportPersistence.save();
-			void this.onDidCloseDiagram(document);
+			const closedEditor = this.editorRegistry.close(webviewPanel);
+			if (closedEditor !== undefined) {
+				void this.queueDiagramStateUpdate(async () => {
+					await this.onDidCloseDiagram(closedEditor.closedDocument);
+					if (closedEditor.replacementDocument !== undefined) {
+						await this.onDidActivateDiagram(closedEditor.replacementDocument);
+					}
+				});
+			}
 		});
 
 		void updateWebview();
+	}
+
+	private queueDiagramStateUpdate(update: () => void | Promise<void>): Promise<void> {
+		this.diagramStateQueue = this.diagramStateQueue.then(update, update);
+		return this.diagramStateQueue;
 	}
 }
 

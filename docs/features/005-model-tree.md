@@ -114,6 +114,7 @@ minimum viable product model tree group.
 The model tree is refreshed when:
 
 - A `.odiagram` file is opened.
+- An already-open `.odiagram` custom-editor tab becomes the active editor.
 - The currently displayed `.odiagram` diagram editor is closed.
 - The `.odiagram` file changes on disk or in the editor.
 - An ontology file referenced by the `.odiagram` file changes.
@@ -127,9 +128,15 @@ The refresh must preserve the current selection and expanded state when the same
 still exist after the refresh.
 
 When the currently displayed `.odiagram` diagram editor is closed, the model tree shall
-clear the diagram document, parsed ontology data, current selection, and last dragged
-ontology item. The model tree shall then render no root node and shall disable commands
-that require an open diagram.
+switch to another visible `.odiagram` custom-editor tab when one is available. If no
+other diagram editor is active, it shall clear the diagram document, parsed ontology
+data, current selection, and last dragged ontology item. The model tree shall then render
+no root node and shall disable commands that require an open diagram.
+
+When several diagram files are open, the model tree shall always represent the active
+`.odiagram` custom-editor tab. Switching tabs shall not require reopening the diagram,
+and closing an inactive diagram tab shall not clear or replace the active diagram's
+model tree.
 
 ## Events
 

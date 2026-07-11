@@ -5,7 +5,10 @@
 - Given a `.odiagram` file references ontology files, when the model tree loads, then the root node represents the diagram and direct children represent referenced ontology files in document order.
 - Given an ontology file loads successfully, when the tree expands it, then ontology items are grouped by supported item type and sorted by display label or stable source order.
 - Given an ontology file cannot be loaded, when the tree refreshes, then the ontology file node remains visible with an error status.
-- Given the currently displayed diagram editor is closed, when the model tree refreshes, then the tree is empty and diagram-dependent commands are disabled.
+- Given the currently displayed diagram editor is closed and no other diagram editor is active, when the model tree refreshes, then the tree is empty and diagram-dependent commands are disabled.
+- Given two diagram custom-editor tabs are open, when the user activates the other tab, then the model tree refreshes from that tab's `.odiagram` document.
+- Given two diagram custom-editor tabs are open, when the user closes the inactive tab, then the active diagram remains displayed in the model tree.
+- Given the active diagram custom-editor tab is closed while another diagram tab becomes visible, when editor state settles, then the model tree displays the remaining active diagram.
 
 ## Ontology Metadata
 
