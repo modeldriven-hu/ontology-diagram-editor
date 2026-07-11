@@ -6,7 +6,6 @@ export type JsonObject = { [key: string]: JsonValue };
 
 const identifierLocalPartPattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const compactIriPattern = /^([^:/?#]+):(.+)$/;
-const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
@@ -876,11 +875,8 @@ function assertImageSource(source: string): void {
 	if (source.trim().length === 0) {
 		throw new OntologyDiagramValidationError('Image source must be a non-empty string.');
 	}
-	if (source.startsWith('data:image/')) {
-		return;
-	}
-	if (source.startsWith('/') || /^[A-Za-z]:[\\/]/.test(source) || uriSchemePattern.test(source)) {
-		throw new OntologyDiagramValidationError('Image source must be a relative file path or data image URI.');
+	if (!source.startsWith('data:image/')) {
+		throw new OntologyDiagramValidationError('Image source must be an embedded data image URI.');
 	}
 }
 

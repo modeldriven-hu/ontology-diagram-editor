@@ -17,9 +17,13 @@ export function activate(context: vscode.ExtensionContext) {
 			await modelTree.setDiagramDocument(document);
 		}, async (document) => {
 			await modelTree.clearDiagramDocument(document);
+		}, async (document, event) => {
+			if (event.kind === 'ontology') {
+				await modelTree.refreshDiagramDependency(document);
+			}
 		}, () => modelTree.getLastDraggedItem(), async (diagramElementId) => {
 			return modelTree.revealDiagramElement(diagramElementId);
-		}, modelTree.onDidSaveReferencedOntology, context.workspaceState),
+		}, modelTree.onDidRequestDiagramRefresh, context.workspaceState),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},

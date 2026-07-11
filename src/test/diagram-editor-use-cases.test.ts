@@ -338,7 +338,7 @@ suite('Diagram editor use cases', () => {
 				new DiagramNote('note_keep', new Bounds(150, 80, 120, 80), 'Keep'),
 			],
 			[
-				new DiagramImage('image_selected', new Bounds(10, 180, 100, 80), 'images/logo.png'),
+				new DiagramImage('image_selected', new Bounds(10, 180, 100, 80), 'data:image/png;base64,aW1hZ2U='),
 			],
 			[
 				new DiagramLabel('label_selected', new Bounds(10, 280, 100, 40), 'Selected'),
@@ -489,7 +489,7 @@ suite('Diagram editor use cases', () => {
 				),
 			],
 			[new DiagramNote('note_context', new Bounds(200, 0, 120, 64), 'Context')],
-			[new DiagramImage('image_logo', new Bounds(400, 0, 80, 40), 'images/logo.png')],
+			[new DiagramImage('image_logo', new Bounds(400, 0, 80, 40), 'data:image/png;base64,aW1hZ2U=')],
 			[new DiagramLabel('label_caption', new Bounds(500, 0, 120, 30), 'Caption')],
 		);
 
@@ -1797,7 +1797,7 @@ suite('Diagram editor use cases', () => {
 
 	test('updates image bounds', () => {
 		const diagram = diagramWithImages([
-			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'data:image/png;base64,aW1hZ2U='),
 		]);
 
 		const result = new UpdateImageBoundsUseCase().execute(diagram, [
@@ -1813,9 +1813,9 @@ suite('Diagram editor use cases', () => {
 		});
 	});
 
-	test('updates image source from property edits', () => {
+	test('replaces an embedded image source selected from the property panel', () => {
 		const diagram = diagramWithImages([
-			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'data:image/png;base64,b2xk'),
 		]);
 
 		const result = new UpdateImageSourceUseCase().execute(diagram, 'image_logo', 'data:image/png;base64,aW1hZ2U=');
@@ -1824,15 +1824,15 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.images[0].source, 'data:image/png;base64,aW1hZ2U=');
 	});
 
-	test('reports invalid image source property edits without changing the diagram', () => {
+	test('rejects non-embedded image source changes without changing the diagram', () => {
 		const diagram = diagramWithImages([
-			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'data:image/png;base64,b2xk'),
 		]);
 
 		const result = new UpdateImageSourceUseCase().execute(diagram, 'image_logo', 'https://example.com/logo.png');
 
 		assert.strictEqual(result.diagram, undefined);
-		assert.strictEqual(result.notification, 'Image source must be a relative file path or data image URI.');
+		assert.strictEqual(result.notification, 'Image source must be an embedded data image URI.');
 	});
 
 	test('reports invalid image sizes without changing the diagram', () => {
@@ -1846,8 +1846,8 @@ suite('Diagram editor use cases', () => {
 
 	test('deletes an image from the diagram', () => {
 		const diagram = diagramWithImages([
-			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
-			new DiagramImage('image_banner', new Bounds(40, 50, 120, 90), 'images/banner.png'),
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'data:image/png;base64,bG9nbw=='),
+			new DiagramImage('image_banner', new Bounds(40, 50, 120, 90), 'data:image/png;base64,YmFubmVy'),
 		]);
 
 		const result = new DeleteImageUseCase().execute(diagram, 'image_logo');
@@ -2040,7 +2040,7 @@ suite('Diagram editor use cases', () => {
 
 	test('updates image border and shadow style overrides', () => {
 		const diagram = diagramWithImages([
-			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'images/logo.png'),
+			new DiagramImage('image_logo', new Bounds(10, 20, 100, 80), 'data:image/png;base64,aW1hZ2U='),
 		]);
 
 		const result = new UpdateElementStyleUseCase().execute(diagram, 'image', 'image_logo', {

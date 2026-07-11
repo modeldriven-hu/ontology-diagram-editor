@@ -16,7 +16,6 @@ export type CanvasEdgeRouteChangeListener = (edgeIds: readonly string[]) => void
 export type CanvasElementContentUpdate =
 	| { readonly kind: 'nodeImage'; readonly id: string; readonly image?: string }
 	| { readonly kind: 'nodePropertyValueTextOverflow'; readonly id: string; readonly textOverflow: 'truncate' | 'wrap' }
-	| { readonly kind: 'imageSource'; readonly id: string; readonly source: string }
 	| { readonly kind: 'noteExport'; readonly id: string; readonly exported: boolean }
 	| { readonly kind: 'noteText'; readonly id: string; readonly text: string }
 	| { readonly kind: 'labelText'; readonly id: string; readonly text: string };

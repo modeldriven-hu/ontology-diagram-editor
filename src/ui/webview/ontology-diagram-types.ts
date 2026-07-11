@@ -114,7 +114,6 @@ export interface DiagramImage {
 	readonly width: number;
 	readonly height: number;
 	readonly source: string;
-	readonly webview_src: string;
 	readonly style?: DiagramElementStyle;
 }
 

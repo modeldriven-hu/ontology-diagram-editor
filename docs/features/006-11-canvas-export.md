@@ -52,9 +52,8 @@ therefore remain embedded in the export.
 
 # PNG Export
 
-PNG export shall first produce the same SVG representation using webview-safe image
-references, rasterize it in the webview, and write the resulting PNG bytes to a `.png`
-file.
+PNG export shall first produce the same SVG representation with embedded image sources,
+rasterize it in the webview, and write the resulting PNG bytes to a `.png` file.
 
 The PNG export should use a scale factor high enough to avoid visibly blurry output on
 high-density displays.

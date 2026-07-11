@@ -18,7 +18,8 @@ feature specifications.
 - The file extension shall be `.odiagram`.
 - The file content shall be valid YAML.
 - The YAML document shall contain a single mapping at the root.
-- Relative file paths in the document shall be resolved relative to the `.odiagram` file.
+- Relative file paths in fields that support them, such as ontology and theme
+  references, shall be resolved relative to the `.odiagram` file.
 - Implementations shall preserve unknown fields when rewriting a file whenever practical.
 - Implementations shall treat missing required fields, invalid references, and invalid
   scalar types as format errors.
@@ -149,12 +150,10 @@ values such as border weight, font size, and corner radius shall be non-negative
 
 ## Image Source
 
-An image source is a string that shall be either:
-
-- A relative file path resolved relative to the `.odiagram` file.
-- A data URI.
-
-Remote URL image sources are not supported in version 1.
+An image source shall be an embedded `data:image/...` URI. Relative file paths, absolute
+file paths, and remote URLs are not supported in version 1. Keeping the image bytes in
+the `.odiagram` document makes the diagram portable and avoids external image
+dependencies.
 
 # Metadata
 
@@ -371,7 +370,7 @@ Each image shall contain:
 | `y` | number | Yes | Top position. |
 | `width` | number | Yes | Image width. |
 | `height` | number | Yes | Image height. |
-| `source` | image source | Yes | Image file path or data URI. |
+| `source` | image source | Yes | Embedded data image URI. |
 
 # Labels
 
@@ -410,7 +409,7 @@ A conforming reader shall validate at least the following rules:
 - Every bounds object has positive `width` and `height`.
 - Every edge has at least two route points.
 - Every label `style` map, when present, contains only label-supported style fields.
-- Every ontology path and relative image path resolves relative to the `.odiagram` file.
+- Every ontology path resolves relative to the `.odiagram` file.
 - Every `metadata.theme_mode`, when present, is either `light` or `dark`.
 - Every edge `route_layout`, when present, is one of the version 1 route layout values.
 

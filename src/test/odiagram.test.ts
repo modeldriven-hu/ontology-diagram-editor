@@ -172,7 +172,7 @@ images:
     y: 20
     width: 64
     height: 64
-    source: "images/logo.png"
+    source: "data:image/png;base64,aW1hZ2U="
 edges:
   - id: "edge_noteNode"
     source: "note_context"
@@ -285,7 +285,7 @@ images:
     y: 20
     width: 160
     height: 80
-    source: "images/logo.png"
+    source: "data:image/png;base64,aW1hZ2U="
     style:
       border:
         type: dashed
@@ -422,7 +422,7 @@ custom_section:
 		);
 	});
 
-	test('accepts relative and data URI image sources', () => {
+	test('accepts embedded data URI image sources', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
   schema_version: "1.0"
@@ -447,16 +447,17 @@ images:
     y: 0
     width: 100
     height: 80
-    source: "images/logo.png"
+    source: "data:image/png;base64,aW1hZ2U="
 `);
 
 		assert.strictEqual(document.nodes[0].image, 'data:image/png;base64,iVBORw0KGgo=');
-		assert.strictEqual(document.images[0].source, 'images/logo.png');
+		assert.strictEqual(document.images[0].source, 'data:image/png;base64,aW1hZ2U=');
 	});
 
-	test('rejects remote image sources', () => {
-		assert.throws(
-			() => parseOntologyDiagramYaml(`
+	test('rejects relative and remote image sources', () => {
+		for (const source of ['images/logo.png', 'https://example.com/logo.png']) {
+			assert.throws(
+				() => parseOntologyDiagramYaml(`
 metadata:
   schema_version: "1.0"
   title: "Example"
@@ -473,9 +474,10 @@ images:
     y: 0
     width: 100
     height: 80
-    source: "https://example.com/logo.png"
+    source: "${source}"
 `),
-			OntologyDiagramValidationError,
-		);
+				OntologyDiagramValidationError,
+			);
+		}
 	});
 });

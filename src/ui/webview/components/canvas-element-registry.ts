@@ -140,14 +140,6 @@ export class CanvasElementRegistry {
 			return;
 		}
 
-		if (update.kind === 'imageSource') {
-			const image = this.images.get(update.id);
-			if (image !== undefined) {
-				this.images.set(update.id, { ...image, source: update.source, webview_src: update.source });
-			}
-			return;
-		}
-
 		const node = this.nodes.get(update.id);
 		if (node !== undefined) {
 			if (update.kind === 'nodePropertyValueTextOverflow') {

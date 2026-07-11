@@ -32,6 +32,8 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
   shadows without editing the referenced theme file.
 - Use `.otheme` YAML files for reusable visual defaults, with light and dark mode
   overrides.
+- Automatically reload referenced ontology and theme files when they change, or reload
+  them explicitly through Refresh Diagram Dependencies.
 - Toggle the rendered light or dark theme mode and persist the selected mode in
   `.odiagram` metadata.
 - Pan, zoom, fit, and reset the canvas viewport without changing persisted coordinates.
@@ -42,12 +44,11 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
 
 The `.odiagram` format is YAML-based and stores diagram metadata, ontology references,
 namespace shortcuts, positioned nodes and edges, plus optional notes, images, labels,
-and element-level style overrides. Relative paths are resolved from the `.odiagram`
-file.
+and element-level style overrides. Relative ontology and theme paths are resolved from
+the `.odiagram` file.
 
 Images added through the canvas are embedded as data URI sources so diagrams remain
-portable. Relative image paths are also supported for compatibility when edited through
-text or the property panel. Remote image URLs are not supported in version 1.
+portable. Relative image paths and remote image URLs are not supported in version 1.
 
 Detailed feature specifications are available in `docs/features/`.
 

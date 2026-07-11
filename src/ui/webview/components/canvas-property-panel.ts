@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -344,13 +344,12 @@ export class CanvasPropertyPanel {
 						]),
 					] : []),
 					sectionElement('Image', [
-						imageField('Image', node.image ?? '', (value) => {
-							const image = value.trim() === '' ? undefined : value;
-							this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
-							this.propertyEdited('node', node.id, ['image']);
-							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
-						}, () => {
+						imageField('Image', node.image !== undefined, () => {
 							this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
+						}, node.image === undefined ? undefined : () => {
+							this.updateElementContent({ kind: 'nodeImage', id: node.id, image: undefined });
+							this.propertyEdited('node', node.id, ['image']);
+							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
 						}),
 					]),
 				],
@@ -490,11 +489,7 @@ export class CanvasPropertyPanel {
 				sections: [
 					identitySection,
 					sectionElement('Image', [
-						imageField('Source', image.source, (value) => {
-							this.updateElementContent({ kind: 'imageSource', id: image.id, source: value });
-							this.propertyEdited('image', image.id, ['source']);
-							this.options.messageBus.publishCommand(new UpdateImageSourceCommand(image.id, value));
-						}, () => {
+						imageField('Source', true, () => {
 							this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
 						}),
 					]),

@@ -263,8 +263,6 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			cell.attr(noteExportIndicatorAttrs(update.exported, this.theme));
 		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
 			cell.attr('label/text', update.text);
-		} else if (update.kind === 'imageSource' && this.elementRegistry.element(update.id)?.kind === 'image') {
-			cell.attr('image/xlink:href', update.source);
 		} else if (update.kind === 'nodeImage' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			const hasAttributeSection = cell.attr('separator/refY') !== undefined;
 			cell.attr('nodeImage/xlink:href', update.image ?? '');
@@ -1755,7 +1753,7 @@ function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string, unkno
 			image: {
 				refWidth: '100%',
 				refHeight: '100%',
-				'xlink:href': image.webview_src,
+				'xlink:href': image.source,
 				preserveAspectRatio: 'xMidYMid meet',
 			},
 			border: {

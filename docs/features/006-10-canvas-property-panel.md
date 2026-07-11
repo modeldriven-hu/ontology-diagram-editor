@@ -68,8 +68,9 @@ interpretation rather than structural endpoints.
 Node `image` fields and standalone image `source` fields shall use the same image
 source rules. The property panel shall provide a file picker for choosing a local image
 file for either field and persist the selected image as an embedded data URI. The panel
-shall allow direct text entry for data URI or relative file-path image sources. Remote
-URL image sources are not supported in version 1.
+shall show whether an embedded image is present without exposing the data URI as an
+editable text field. Node images may be cleared; a standalone image source may be
+replaced by choosing another file. Relative paths and remote URLs are not supported.
 
 The panel shall display effective read-only values when a field is derived from the
 ontology, renderer, or active theme rather than stored directly on the element.

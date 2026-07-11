@@ -97,7 +97,6 @@ export type WebviewCommand =
 	| UpdateNodePropertyValuesVisibilityCommand
 	| UpdateNodePropertyValueTextOverflowCommand
 	| UpdateNoteExportVisibilityCommand
-	| UpdateImageSourceCommand
 	| PickNodeImageCommand
 	| PickImageSourceCommand
 	| UpdateLabelTextCommand
@@ -498,17 +497,6 @@ export class UpdateNoteExportVisibilityCommand {
 	public constructor(id: string, exported: boolean) {
 		this.id = id;
 		this.exported = exported;
-	}
-}
-
-export class UpdateImageSourceCommand {
-	public readonly type = 'updateImageSource';
-	public readonly id: string;
-	public readonly source: string;
-
-	public constructor(id: string, source: string) {
-		this.id = id;
-		this.source = source;
 	}
 }
 

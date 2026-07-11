@@ -84,9 +84,8 @@ export interface ModelTreeItemDraggedEvent {
 	readonly ontologyItemMetadata: unknown;
 }
 
-export interface ReferencedOntologySavedEvent {
+export interface DiagramRefreshRequestedEvent {
 	readonly diagramUri: vscode.Uri;
-	readonly ontologyUri: vscode.Uri;
 }
 
 export const modelTreeDragMimeType = 'application/vnd.code.tree.ontology-diagram-editor.model-tree';
@@ -98,18 +97,18 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<ModelTreeNode | undefined>();
 	private readonly onDidChangeSelectionEmitter = new vscode.EventEmitter<ModelTreeSelectionEvent>();
 	private readonly onDidDragItemEmitter = new vscode.EventEmitter<ModelTreeItemDraggedEvent>();
-	private readonly onDidSaveReferencedOntologyEmitter = new vscode.EventEmitter<ReferencedOntologySavedEvent>();
+	private readonly onDidRequestDiagramRefreshEmitter = new vscode.EventEmitter<DiagramRefreshRequestedEvent>();
 	private readonly disposables: vscode.Disposable[] = [
 		this.onDidChangeTreeDataEmitter,
 		this.onDidChangeSelectionEmitter,
 		this.onDidDragItemEmitter,
-		this.onDidSaveReferencedOntologyEmitter,
+		this.onDidRequestDiagramRefreshEmitter,
 	];
 
 	public readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 	public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 	public readonly onDidDragItem = this.onDidDragItemEmitter.event;
-	public readonly onDidSaveReferencedOntology = this.onDidSaveReferencedOntologyEmitter.event;
+	public readonly onDidRequestDiagramRefresh = this.onDidRequestDiagramRefreshEmitter.event;
 
 	private treeView?: vscode.TreeView<ModelTreeNode>;
 	private diagramDocument?: vscode.TextDocument;
@@ -119,6 +118,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private selectedNode?: ModelTreeNode;
 	private lastDraggedItem?: ModelTreeItemDraggedEvent;
 	private extensionUri?: vscode.Uri;
+	private refreshQueue = Promise.resolve();
 
 	public register(context: vscode.ExtensionContext): void {
 		this.extensionUri = context.extensionUri;
@@ -130,6 +130,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 
 		const refreshDisposable = vscode.commands.registerCommand(refreshModelTreeCommand, async () => {
 			await this.refresh();
+			if (this.diagramDocument !== undefined) {
+				this.onDidRequestDiagramRefreshEmitter.fire({ diagramUri: this.diagramDocument.uri });
+			}
 		});
 		const addDisposable = vscode.commands.registerCommand(addOntologyCommand, async () => {
 			await this.addOntology();
@@ -154,10 +157,6 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				await this.refresh();
 			}
 		});
-		const ontologySaveDisposable = vscode.workspace.onDidSaveTextDocument(async (document) => {
-			await this.handleSavedTextDocument(document);
-		});
-
 		this.disposables.push(
 			this.treeView,
 			refreshDisposable,
@@ -167,7 +166,6 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			openOntologySourceDisposable,
 			selectionDisposable,
 			documentChangeDisposable,
-			ontologySaveDisposable,
 		);
 		context.subscriptions.push(this);
 		this.updateDiagramContext();
@@ -195,7 +193,24 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		this.updateSelectionContext();
 	}
 
-	public async refresh(): Promise<void> {
+	public async refreshDiagramDependency(document: vscode.TextDocument): Promise<void> {
+		if (document.uri.toString() !== this.diagramDocument?.uri.toString()) {
+			return;
+		}
+
+		this.diagramDocument = document;
+		await this.refresh();
+	}
+
+	public refresh(): Promise<void> {
+		this.refreshQueue = this.refreshQueue.then(
+			() => this.performRefresh(),
+			() => this.performRefresh(),
+		);
+		return this.refreshQueue;
+	}
+
+	private async performRefresh(): Promise<void> {
 		if (this.diagramDocument === undefined) {
 			this.parsedDiagram = undefined;
 			this.loadedOntologies = [];
@@ -370,28 +385,6 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		for (const disposable of this.disposables) {
 			disposable.dispose();
 		}
-	}
-
-	private async handleSavedTextDocument(document: vscode.TextDocument): Promise<void> {
-		const diagramDocument = this.diagramDocument;
-		if (diagramDocument === undefined || !this.isReferencedOntologyDocument(document)) {
-			return;
-		}
-
-		await this.refresh();
-		this.onDidSaveReferencedOntologyEmitter.fire({
-			diagramUri: diagramDocument.uri,
-			ontologyUri: document.uri,
-		});
-	}
-
-	private isReferencedOntologyDocument(document: vscode.TextDocument): boolean {
-		if (document.uri.scheme !== 'file') {
-			return false;
-		}
-
-		const documentPath = normalizeAbsolutePath(document.uri.fsPath);
-		return this.loadedOntologies.some((ontology) => normalizeAbsolutePath(ontology.absolutePath) === documentPath);
 	}
 
 	private async openOntologyFile(node?: ModelTreeNode): Promise<void> {
@@ -1024,10 +1017,6 @@ function dragPayloadForItemNode(node: OntologyItemTreeNode): ModelTreeItemDragge
 
 function normalizePath(value: string): string {
 	return value.replaceAll('\\', '/');
-}
-
-function normalizeAbsolutePath(value: string): string {
-	return normalizePath(path.resolve(value));
 }
 
 function ontologyReferencesEqual(left: string, right: string, namespaces: ReadonlyMap<string, string>): boolean {

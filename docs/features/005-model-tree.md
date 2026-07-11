@@ -120,9 +120,15 @@ The model tree is refreshed when:
 - An ontology file referenced by the `.odiagram` file changes.
 - An ontology is added or removed through the model tree toolbar.
 
-When a referenced ontology file is saved in the built-in text editor, the model tree
-shall reload the referenced ontology files and any open diagram editor for the current
-`.odiagram` file shall refresh its ontology-derived canvas data.
+Each open diagram editor shall watch the exact ontology files referenced by its
+`.odiagram` document. A referenced ontology change, creation, deletion, or recreation
+shall reload the ontology data and rerender that diagram, whether the filesystem change
+originates inside or outside Visual Studio Code. If the changed dependency belongs to
+the active diagram, its model tree shall refresh as well.
+
+When the diagram's ontology or theme references change, the editor shall stop watching
+dependencies that are no longer referenced and start watching the newly referenced
+files. Dependency paths may resolve outside the workspace when selected by the user.
 
 The refresh must preserve the current selection and expanded state when the same nodes
 still exist after the refresh.
@@ -228,7 +234,7 @@ The toolbar shall contain:
 |---------|--------------|--------|
 | Add ontology | A `.odiagram` file is open | Opens the add ontology flow |
 | Remove ontology | An ontology file node is selected | Opens the remove ontology confirmation flow |
-| Refresh | A `.odiagram` file is open | Reloads the `.odiagram` file and referenced ontology files |
+| Refresh diagram dependencies | A `.odiagram` file is open | Reloads the model tree, referenced ontology files, active theme, and open canvas for the current diagram. |
 
 Commands must be disabled when they cannot be executed.
 

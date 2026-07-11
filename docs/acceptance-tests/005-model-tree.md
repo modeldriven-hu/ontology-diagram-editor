@@ -32,10 +32,13 @@
 - Given an ontology item node is selected, when the user invokes Open Ontology Source, then the ontology file opens and reveals the best available source location for that item.
 - Given an ontology item source location cannot be found, when Open Ontology Source runs, then the ontology file still opens and the user receives a concise informational message.
 
-## Refresh On Ontology Save
+## Dependency Refresh
 
 - Given an open `.odiagram` references an ontology file, when that ontology file is saved in the built-in text editor, then the model tree reloads the referenced ontology data.
-- Given a diagram editor is open for the current `.odiagram`, when a referenced ontology file is saved, then the diagram editor refreshes ontology-derived canvas data.
+- Given a diagram editor is open, when a referenced ontology file changes inside or outside Visual Studio Code, then the editor refreshes its ontology-derived canvas data.
+- Given a referenced ontology is deleted or recreated, when the filesystem event is received, then the canvas and active model tree refresh to show the current dependency state.
+- Given the diagram changes an ontology reference, when dependency tracking refreshes, then the old file is no longer watched and the new file is watched.
+- Given Refresh Diagram Dependencies is invoked, when reloading completes, then both the active model tree and the current diagram canvas are refreshed.
 
 ## Add And Remove Ontologies
 

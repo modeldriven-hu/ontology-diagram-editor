@@ -8,7 +8,6 @@ import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-htm
 import type { WebviewTheme } from '../webview-theme';
 
 type ExportFormat = 'svg' | 'png';
-type ImageHrefMode = 'source' | 'webview';
 
 interface DiagramExport {
 	readonly svg: string;
@@ -55,7 +54,7 @@ function exportTextIcon(label: string): HTMLSpanElement {
 }
 
 export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTheme): SaveDiagramExportCommand | undefined {
-	const diagramExport = createSvgExport(payload, theme, 'source');
+	const diagramExport = createSvgExport(payload, theme);
 	if (diagramExport === undefined) {
 		return undefined;
 	}
@@ -69,7 +68,7 @@ export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTh
 }
 
 export async function createPngExportCommand(payload: DiagramPayload, theme: WebviewTheme): Promise<SaveDiagramExportCommand | undefined> {
-	const diagramExport = createSvgExport(payload, theme, 'webview');
+	const diagramExport = createSvgExport(payload, theme);
 	if (diagramExport === undefined) {
 		return undefined;
 	}
@@ -84,7 +83,7 @@ export async function createPngExportCommand(payload: DiagramPayload, theme: Web
 	});
 }
 
-function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHrefMode: ImageHrefMode): DiagramExport | undefined {
+function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramExport | undefined {
 	const diagram = payload.diagram;
 	if (diagram === undefined) {
 		return undefined;
@@ -128,7 +127,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		'</defs>',
 		`<style>${noteHtmlResetStyle()}</style>`,
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
-		...images.map((image) => renderImage(image, theme, imageHrefMode)),
+		...images.map((image) => renderImage(image, theme)),
 		...edges.map((edge) => renderEdge(edge, theme)),
 		...nodes.map((node) => renderNode(node, payload, theme)),
 		...notes.map((note) => renderNote(note, theme)),
@@ -390,14 +389,13 @@ function renderMetadataElement(element: DiagramMetadataElement, payload: Diagram
 	return parts.join('\n');
 }
 
-function renderImage(image: DiagramImage, theme: WebviewTheme, imageHrefMode: ImageHrefMode): string {
+function renderImage(image: DiagramImage, theme: WebviewTheme): string {
 	const bounds = elementBounds(image);
-	const href = imageHrefMode === 'webview' ? image.webview_src : image.source;
 	const border = borderStyle(image.style, theme.nodeBorder, 0);
 
 	return [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="${escapeAttribute(theme.canvasBackground)}"${shadowAttribute(image.style, false)}/>`,
-		`<image href="${escapeAttribute(href)}" x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" preserveAspectRatio="xMidYMid meet"/>`,
+		`<image href="${escapeAttribute(image.source)}" x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" preserveAspectRatio="xMidYMid meet"/>`,
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" fill="none" ${borderAttributes(border)}/>`,
 	].join('\n');
 }

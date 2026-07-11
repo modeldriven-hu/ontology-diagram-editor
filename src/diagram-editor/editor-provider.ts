@@ -1,13 +1,14 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { ModelTreeItemDraggedEvent, ReferencedOntologySavedEvent } from '../ui/model-tree/model-tree';
+import type { DiagramRefreshRequestedEvent, ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
 import { buildDiagramWebviewHtml } from './webview-html';
 import { CanvasViewportPersistence } from './canvas-viewport-persistence';
 import { ActiveDiagramEditorRegistry } from './active-diagram-editor-registry';
+import { DiagramDependencyWatcher, type DiagramDependencyChangedEvent } from './diagram-dependency-watcher';
 
 export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
@@ -18,9 +19,10 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 	public constructor(
 		private readonly onDidActivateDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
+		private readonly onDidChangeDiagramDependency: (document: vscode.TextDocument, event: DiagramDependencyChangedEvent) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
-		private readonly onDidSaveReferencedOntology: vscode.Event<ReferencedOntologySavedEvent>,
+		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
 		private readonly workspaceState: vscode.Memento,
 	) {}
 
@@ -43,14 +45,28 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		};
 		const viewportPersistence = new CanvasViewportPersistence(document.uri.toString(), this.workspaceState);
 
-		const updateWebview = async (): Promise<void> => {
+		const buildAndApplyWebview = async (): Promise<void> => {
 			webviewPanel.webview.html = await buildDiagramWebviewHtml(document, webviewPanel.webview, viewportPersistence.current());
 		};
+		let webviewUpdateQueue = Promise.resolve();
+		const updateWebview = (): Promise<void> => {
+			webviewUpdateQueue = webviewUpdateQueue.then(buildAndApplyWebview, buildAndApplyWebview);
+			return webviewUpdateQueue;
+		};
+		const dependencyWatcher = new DiagramDependencyWatcher(document, (event) => {
+			void Promise.all([
+				updateWebview(),
+				this.onDidChangeDiagramDependency(document, event),
+			]).catch(async (error: unknown) => {
+				await vscode.window.showErrorMessage(`Could not refresh diagram dependencies: ${error instanceof Error ? error.message : String(error)}`);
+			});
+		});
 
 		let nextSuppressedRefreshId = 0;
 		const suppressedLocalDocumentRefreshes = new Set<number>();
 		const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.uri.toString() === document.uri.toString()) {
+				dependencyWatcher.refresh();
 				const suppressedRefreshId = suppressedLocalDocumentRefreshes.values().next().value;
 				if (suppressedRefreshId !== undefined) {
 					suppressedLocalDocumentRefreshes.delete(suppressedRefreshId);
@@ -59,7 +75,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				void updateWebview();
 			}
 		});
-		const ontologySaveDisposable = this.onDidSaveReferencedOntology((event) => {
+		const diagramRefreshDisposable = this.onDidRequestDiagramRefresh((event) => {
 			if (event.diagramUri.toString() === document.uri.toString()) {
 				void updateWebview();
 			}
@@ -101,9 +117,10 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
-			ontologySaveDisposable.dispose();
+			diagramRefreshDisposable.dispose();
 			viewStateDisposable.dispose();
 			commandDisposable.dispose();
+			dependencyWatcher.dispose();
 			void viewportPersistence.save();
 			const closedEditor = this.editorRegistry.close(webviewPanel);
 			if (closedEditor !== undefined) {

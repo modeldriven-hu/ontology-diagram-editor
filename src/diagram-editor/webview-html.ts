@@ -15,7 +15,7 @@ export async function buildDiagramWebviewHtml(
 	webview: vscode.Webview,
 	initialViewport?: CanvasViewport,
 ): Promise<string> {
-	const payload = await getDiagramPayload(document, webview);
+	const payload = await getDiagramPayload(document);
 	const nonce = createNonce();
 	const scriptUri = webview.asWebviewUri(
 		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'ontology-diagram-canvas.js'),
@@ -1011,7 +1011,7 @@ function webviewStyles(): string {
 	}`;
 }
 
-async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.Webview): Promise<JsonPayload> {
+async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPayload> {
 	try {
 		const diagram = parseOntologyDiagramTextDocument(document);
 		const persistenceObject = diagram.toPersistenceObject();
@@ -1023,13 +1023,7 @@ async function getDiagramPayload(document: vscode.TextDocument, webview: vscode.
 				uri: document.uri.toString(),
 				directory: path.dirname(document.uri.fsPath),
 			},
-			diagram: {
-				...persistenceObject,
-				images: diagram.images.map((image) => ({
-					...image.toPersistenceObject(),
-					webview_src: imageWebviewSource(document, webview, image.source),
-				})),
-			},
+			diagram: persistenceObject,
 			ontology: {
 				items: loadedOntologies.flatMap((ontology) =>
 					ontology.items.map((item) => ({
@@ -1107,16 +1101,6 @@ function nodeThemeOverrides(theme: Awaited<ReturnType<typeof readOntologyDiagram
 		nodeFontItalic: nodeStyle.font?.italic,
 		nodeFontSize: nodeStyle.font?.size,
 	};
-}
-
-function imageWebviewSource(document: vscode.TextDocument, webview: vscode.Webview, source: string): string {
-	if (source.startsWith('data:image/')) {
-		return source;
-	}
-
-	const imagePath = path.resolve(path.dirname(document.uri.fsPath), source);
-
-	return webview.asWebviewUri(vscode.Uri.file(imagePath)).toString();
 }
 
 interface JsonPayload {

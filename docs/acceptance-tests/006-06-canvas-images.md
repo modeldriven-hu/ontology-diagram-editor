@@ -5,7 +5,7 @@
 - Given the add-image command runs, when the user selects a valid local image file, then an `image_` element is added to the `.odiagram` `images` section.
 - Given an image is created from a local file selection, when it is persisted, then the selected image bytes are embedded in `source` as a `data:image/...` URI.
 - Given an image is created from a local file selection, when the `.odiagram` file is moved without the original image file, then the embedded image source remains renderable.
-- Given a remote URL image source is entered, when validation runs, then the value is rejected.
+- Given a relative path, absolute path, or remote URL image source is supplied, when validation runs, then the value is rejected.
 
 ## Move And Resize
 

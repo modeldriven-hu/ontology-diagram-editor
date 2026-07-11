@@ -21,3 +21,10 @@
 - Given the `.odiagram` file cannot be parsed as YAML, when rendering runs, then rendering fails with a fatal error.
 - Given an ontology, theme, or image cannot be loaded, when rendering runs, then the diagram renders in degraded mode and exposes the warning.
 - Given note HTML contains scripts, remote resources, or event handlers, when rendering runs, then unsafe content is sanitized and not executed.
+
+## Dependency Refresh
+
+- Given an open diagram references a theme file, when the theme changes inside or outside Visual Studio Code, then the canvas rerenders with the updated theme.
+- Given a referenced theme is deleted or recreated, when the filesystem event is received, then the canvas rerenders using the current fallback or restored theme.
+- Given the diagram changes its theme reference, when dependency tracking refreshes, then the old theme is no longer watched and the new theme is watched.
+- Given Refresh Diagram Dependencies is invoked, when reloading completes, then the current ontology and theme dependencies are reread and the canvas rerenders.

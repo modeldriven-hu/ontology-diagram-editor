@@ -15,7 +15,8 @@
 - Given a note is selected, when the panel is shown, then `text`, geometry, and Include in Export are editable.
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.
 - Given a node image or standalone image source is edited, when a local file is selected, then the selected image bytes are embedded as a `data:image/...` URI.
-- Given a data URI image source is entered, when validation succeeds, then it is persisted.
+- Given a node or standalone image is selected, when its image field is displayed, then the panel indicates that the image is embedded without exposing an editable data URI.
+- Given a node has an embedded image, when the user clears it, then the node image field is removed.
 - Given an image is selected, when the Style tab is shown, then image border type, border weight, border color, and drop shadow are editable.
 
 ## Validation And Persistence

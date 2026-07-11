@@ -258,8 +258,7 @@ inline monospace presentation within the note.
 Each item in the `.odiagram` `images` section shall render the referenced image at its
 persisted `x`, `y`, `width`, and `height`.
 
-Image sources shall be loaded from either a data URI or a path resolved relative to the
-`.odiagram` file.
+Image sources shall be loaded from their embedded data image URIs.
 
 Images shall preserve their aspect ratio by default and fit within the persisted bounds.
 If the image aspect ratio differs from the bounds, the renderer should center the image
@@ -339,7 +338,11 @@ In the Visual Studio Code webview, rendering shall update when:
 - The `.odiagram` document changes.
 - The active theme file changes.
 - A referenced ontology file changes and ontology metadata is reloaded.
-- A referenced image file changes.
+
+The editor shall watch the exact referenced ontology and theme files for changes,
+creation, deletion, and recreation. These watchers shall be updated when the `.odiagram`
+document changes its dependency paths. Invoking Refresh Diagram Dependencies shall also
+reload both dependency types and rerender the canvas.
 
 The webview renderer shall preserve the user's viewport state, such as zoom and pan,
 when rerendering the same diagram where practical.

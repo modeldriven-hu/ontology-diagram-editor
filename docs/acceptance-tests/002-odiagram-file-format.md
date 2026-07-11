@@ -23,5 +23,6 @@
 ## Templates And References
 
 - Given the create-new-diagram command runs, when the file is created, then it contains all required top-level sections and the default `rdfs` namespace.
-- Given a relative ontology, theme, or image path, when it is resolved, then it is resolved relative to the `.odiagram` file.
+- Given a relative ontology or theme path, when it is resolved, then it is resolved relative to the `.odiagram` file.
+- Given a relative, absolute, or remote image source, when validation runs, then it is rejected because image sources must be embedded data image URIs.
 - Given unknown fields are present, when the file is rewritten by a supported edit, then unknown fields are preserved whenever the writer can preserve them.

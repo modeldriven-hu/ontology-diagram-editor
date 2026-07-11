@@ -301,13 +301,6 @@ export class DiagramCommandDispatcher {
 					command.updates,
 				));
 				return;
-			case 'updateImageSource':
-				await this.handleResult(this.useCases.updateImageSource.execute(
-					this.repository.load(),
-					command.id,
-					command.source,
-				));
-				return;
 			case 'pickNodeImage':
 				await this.pickNodeImage(command.id);
 				return;

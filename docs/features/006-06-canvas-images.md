@@ -24,11 +24,8 @@ The new image shall:
 - Store the embedded data URI image source as `source`.
 - Use the default image appearance, which has no border and no drop shadow.
 
-Relative file path image sources are valid `.odiagram` values for compatibility and
-typed/property-panel editing, but the add-image command shall not create external file
-links.
-
-Remote URL image sources are not supported in version 1.
+Relative file paths, absolute file paths, and remote URLs are not supported image
+sources in version 1.
 
 # Move Images
 

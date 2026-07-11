@@ -148,22 +148,28 @@ export function selectField<TValue extends string>(
 	return editableField(label, input);
 }
 
-export function imageField(label: string, value: string, commit: (value: string) => void, pick: () => void): HTMLElement {
+export function imageField(label: string, hasImage: boolean, pick: () => void, clear?: () => void): HTMLElement {
 	const wrapper = document.createElement('span');
 	wrapper.className = 'property-inline';
 	const input = document.createElement('input');
 	input.className = 'property-input';
 	input.type = 'text';
-	input.value = value;
-	registerCommit(input, () => {
-		commit(input.value);
-	});
+	input.value = hasImage ? 'Embedded image' : 'No image selected';
+	input.readOnly = true;
 	const button = document.createElement('button');
 	button.className = 'property-button';
 	button.type = 'button';
 	button.textContent = 'Pick';
 	button.addEventListener('click', pick);
 	wrapper.append(input, button);
+	if (clear !== undefined) {
+		const clearButton = document.createElement('button');
+		clearButton.className = 'property-button';
+		clearButton.type = 'button';
+		clearButton.textContent = 'Clear';
+		clearButton.addEventListener('click', clear);
+		wrapper.appendChild(clearButton);
+	}
 
 	return editableField(label, wrapper);
 }
