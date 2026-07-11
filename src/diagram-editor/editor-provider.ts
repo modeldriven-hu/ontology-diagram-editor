@@ -6,6 +6,7 @@ import type { WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
 import { buildDiagramWebviewHtml } from './webview-html';
+import { CanvasViewportPersistence } from './canvas-viewport-persistence';
 
 export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
@@ -16,6 +17,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidSaveReferencedOntology: vscode.Event<ReferencedOntologySavedEvent>,
+		private readonly workspaceState: vscode.Memento,
 	) {}
 
 	public async resolveCustomTextEditor(
@@ -32,9 +34,10 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				vscode.Uri.file(path.dirname(document.uri.fsPath)),
 			],
 		};
+		const viewportPersistence = new CanvasViewportPersistence(document.uri.toString(), this.workspaceState);
 
 		const updateWebview = async (): Promise<void> => {
-			webviewPanel.webview.html = await buildDiagramWebviewHtml(document, webviewPanel.webview);
+			webviewPanel.webview.html = await buildDiagramWebviewHtml(document, webviewPanel.webview, viewportPersistence.current());
 		};
 
 		let nextSuppressedRefreshId = 0;
@@ -58,6 +61,10 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem, this.revealModelTreeItem);
 		let dispatchQueue = Promise.resolve();
 		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
+			if (command.type === 'updateCanvasViewport') {
+				viewportPersistence.capture(command.viewport);
+				return;
+			}
 			const suppressedRefreshId = isInPlaceBoundsUpdate(command)
 				? nextSuppressedRefreshId++
 				: undefined;
@@ -83,6 +90,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			documentChangeDisposable.dispose();
 			ontologySaveDisposable.dispose();
 			commandDisposable.dispose();
+			void viewportPersistence.save();
 			void this.onDidCloseDiagram(document);
 		});
 

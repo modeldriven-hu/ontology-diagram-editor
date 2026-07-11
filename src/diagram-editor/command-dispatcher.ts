@@ -114,6 +114,8 @@ export class DiagramCommandDispatcher {
 
 	public async dispatch(command: WebviewCommand): Promise<void> {
 		switch (command.type) {
+			case 'updateCanvasViewport':
+				return;
 			case 'alignEdgeEndPoints':
 				await this.handleResult(this.useCases.alignEdgeEndPoints.execute(
 					this.repository.load(),

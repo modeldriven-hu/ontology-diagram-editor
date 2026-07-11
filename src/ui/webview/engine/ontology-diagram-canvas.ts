@@ -1,8 +1,9 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, isDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../../shared/diagram-layout';
+import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -38,6 +39,7 @@ declare global {
 interface WebviewConfig {
 	readonly payload: DiagramPayload;
 	readonly modelTreeDragMimeType: string;
+	readonly initialViewport?: CanvasViewport;
 }
 
 interface WebviewState {
@@ -455,11 +457,17 @@ function registerCanvasStateSubscriptions(): void {
 			updateWebviewState({ propertyPanelCollapsed: event.collapsed });
 		}
 		if (event.type === 'canvasViewportChanged') {
-			updateWebviewState({
+			const viewport = {
 				viewportPanX: event.panX,
 				viewportPanY: event.panY,
 				viewportZoom: event.zoom,
-			});
+			};
+			updateWebviewState(viewport);
+			messageBus.publishCommand(new UpdateCanvasViewportCommand({
+				panX: event.panX,
+				panY: event.panY,
+				zoom: event.zoom,
+			}));
 		}
 	});
 }
@@ -754,9 +762,9 @@ function restoreSelection(): void {
 
 function restoreViewport(): void {
 	const state = vscode.getState();
-	const viewportPanX = state?.viewportPanX;
-	const viewportPanY = state?.viewportPanY;
-	const viewportZoom = state?.viewportZoom;
+	const viewportPanX = state?.viewportPanX ?? webviewConfig.initialViewport?.panX;
+	const viewportPanY = state?.viewportPanY ?? webviewConfig.initialViewport?.panY;
+	const viewportZoom = state?.viewportZoom ?? webviewConfig.initialViewport?.zoom;
 	if (viewportPanX === undefined && viewportPanY === undefined && viewportZoom === undefined) {
 		return;
 	}

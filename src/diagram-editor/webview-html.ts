@@ -8,10 +8,12 @@ import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
 import { diagramLayoutAlgorithms } from '../shared/diagram-layout';
 import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
+import type { CanvasViewport } from '../shared/canvas-viewport';
 
 export async function buildDiagramWebviewHtml(
 	document: vscode.TextDocument,
 	webview: vscode.Webview,
+	initialViewport?: CanvasViewport,
 ): Promise<string> {
 	const payload = await getDiagramPayload(document, webview);
 	const nonce = createNonce();
@@ -25,7 +27,7 @@ export async function buildDiagramWebviewHtml(
 	return `<!DOCTYPE html>
 <html lang="en">
 ${webviewHead(document, nonce, webview.cspSource)}
-${webviewBody(document, nonce, x6ScriptUri, scriptUri, payload)}
+${webviewBody(document, nonce, x6ScriptUri, scriptUri, payload, initialViewport)}
 </html>`;
 }
 
@@ -45,6 +47,7 @@ function webviewBody(
 	x6ScriptUri: vscode.Uri,
 	scriptUri: vscode.Uri,
 	payload: JsonPayload,
+	initialViewport?: CanvasViewport,
 ): string {
 	return `<body>
 	<div class="editor">
@@ -143,6 +146,7 @@ function webviewBody(
 	<script nonce="${nonce}">
 		window.ontologyDiagramEditorConfig = {
 			payload: ${jsonForScript(payload)},
+			initialViewport: ${jsonForScript(initialViewport)},
 			modelTreeDragMimeType: '${modelTreeDragMimeType.toLowerCase()}'
 		};
 	</script>
@@ -1127,8 +1131,9 @@ interface JsonPayload {
 	readonly error?: string;
 }
 
-function jsonForScript(value: unknown): string {
-	return JSON.stringify(value).replaceAll('<', '\\u003c');
+export function jsonForScript(value: unknown): string {
+	const json = JSON.stringify(value);
+	return json === undefined ? 'undefined' : json.replaceAll('<', '\\u003c');
 }
 
 function createNonce(): string {

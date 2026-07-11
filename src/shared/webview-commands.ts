@@ -1,5 +1,6 @@
 import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from './diagram-layout';
 
 export interface ModelTreeItemDropPayload {
@@ -103,6 +104,7 @@ export type WebviewCommand =
 	| UpdateDiagramMetadataCommand
 	| UpdateNoteTextCommand
 	| UpdateThemeModeCommand
+	| UpdateCanvasViewportCommand
 	| RevealModelTreeItemCommand
 	| UpdateElementStyleCommand;
 
@@ -112,6 +114,15 @@ export class ArrangeDiagramCommand {
 
 	public constructor(algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId) {
 		this.algorithmId = algorithmId;
+	}
+}
+
+export class UpdateCanvasViewportCommand {
+	public readonly type = 'updateCanvasViewport';
+	public readonly viewport: CanvasViewport;
+
+	public constructor(viewport: CanvasViewport) {
+		this.viewport = viewport;
 	}
 }
 

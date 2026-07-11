@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 			await modelTree.clearDiagramDocument(document);
 		}, () => modelTree.getLastDraggedItem(), async (diagramElementId) => {
 			return modelTree.revealDiagramElement(diagramElementId);
-		}, modelTree.onDidSaveReferencedOntology),
+		}, modelTree.onDidSaveReferencedOntology, context.workspaceState),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},
