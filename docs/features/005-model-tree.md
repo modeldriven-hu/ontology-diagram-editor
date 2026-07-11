@@ -30,9 +30,11 @@ tree structure.
 - Groups and items are sorted alphabetically by display label unless the ontology
   parser provides a stable source order.
 
-Version 1 loads only the ontology files directly referenced by the `.odiagram` file and
-does not resolve ontology imports unless a later specification explicitly adds that
-behavior.
+Version 1 displays only ontology files directly referenced by the `.odiagram` file.
+When the user adds an ontology, the editor also discovers workspace ontology files
+referenced through matching `@prefix` and `@base` declarations and appends those files
+as direct `.odiagram` references, as specified in `005-02-model-tree-import.md`. The
+editor does not resolve arbitrary remote ontology imports.
 
 An ontology item is any parsed item from an ontology file that the editor exposes to the
 user or to diagram features. Ontology items include named entities such as classes,

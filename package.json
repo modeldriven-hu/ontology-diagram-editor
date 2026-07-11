@@ -1,9 +1,25 @@
 {
   "name": "ontology-diagram-editor",
   "displayName": "Ontology Diagram Editor",
-  "description": "",
-  "version": "0.0.1",
+  "description": "Create and edit ontology-backed diagrams from RDF and OWL files.",
+  "version": "1.0.0",
   "publisher": "modeldriven-hu",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/modeldriven-hu/ontology-diagram-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/modeldriven-hu/ontology-diagram-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/modeldriven-hu/ontology-diagram-editor/issues"
+  },
+  "keywords": [
+    "ontology",
+    "RDF",
+    "OWL",
+    "diagram",
+    "UML"
+  ],
   "engines": {
     "vscode": "^1.125.0"
   },
