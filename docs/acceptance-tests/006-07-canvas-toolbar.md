@@ -24,7 +24,9 @@
 
 - Given a node is selected, when the local toolbar appears, then Resize to minimum, Create note from ontology comment, and Show related elements are available.
 - Given a selected node has no ontology comment, when the local toolbar appears, then Create note from ontology comment is disabled or reports a concise problem.
-- Given a node is selected, when the user chooses Show related elements and selects a depth, then related object property, data property, and subclass relationship endpoints up to that depth are added without duplicating existing nodes or edges.
+- Given a node is selected, when the user chooses Show related elements and selects a depth, then related object-property relationships, object-property assertions, and subclass relationships up to that depth are added without duplicating existing nodes or edges.
+- Given related data properties exist, when Show related elements runs, then it does not create datatype nodes or data-property edges because data properties are displayed inside nodes.
+- Given Show related elements adds nodes or edges, when persistence succeeds, then the canvas shows the added elements without an additional success notification.
 - Given a note is selected, when the local toolbar appears, then Resize to compact size and Connect Note are available.
 - Given an image or label is selected, when the local toolbar appears, then Resize to minimum is available.
 - Given an edge is selected, when the local toolbar appears, then Optimize edge path, a routing-type combobox, Straighten edge, and Remove edge are available.

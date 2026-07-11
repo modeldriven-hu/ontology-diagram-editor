@@ -2,6 +2,8 @@
 
 ## Visibility And Selection
 
+- Given a diagram editor is opened without previous webview state, when the canvas initializes, then the property panel starts collapsed and its toggle remains visible.
+- Given the user explicitly expands or collapses the property panel, when the same open editor rerenders, then that panel state is restored.
 - Given the canvas view is open, when the property panel is expanded, then it is docked to the side and does not permanently block work on the selected element.
 - Given the user resizes or collapses the panel, when the `.odiagram` file is saved, then panel width and collapsed state are not persisted.
 - Given no element is selected, when the panel is shown, then it displays read-only diagram context.

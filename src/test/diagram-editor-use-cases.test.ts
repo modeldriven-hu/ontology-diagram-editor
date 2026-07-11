@@ -1171,7 +1171,7 @@ suite('Diagram editor use cases', () => {
 		]);
 
 		assert.ok(result.diagram);
-		assert.strictEqual(result.notification, 'Added 2 related nodes and 2 edges.');
+		assert.strictEqual(result.notification, undefined);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value).sort(), ['ex:Employee', 'ex:Organization', 'ex:Person']);
 		const employeeNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Employee');
 		const organizationNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Organization');
@@ -1215,7 +1215,7 @@ suite('Diagram editor use cases', () => {
 		]);
 
 		assert.ok(result.diagram);
-		assert.strictEqual(result.notification, 'Added 1 related node and 1 edge.');
+		assert.strictEqual(result.notification, undefined);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value).sort(), ['ex:Organization', 'ex:Person']);
 		assert.deepStrictEqual(result.diagram.edges.map((edge) => edge.ontologyRef.value), ['ex:memberOf']);
 	});
@@ -1259,7 +1259,7 @@ suite('Diagram editor use cases', () => {
 		]);
 
 		assert.ok(result.diagram);
-		assert.strictEqual(result.notification, 'Added 1 related node and 1 edge.');
+		assert.strictEqual(result.notification, undefined);
 		const targetNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:AuthenticationService');
 		assert.ok(targetNode);
 		assert.strictEqual(targetNode.extra.ontology_item_type, 'individual');

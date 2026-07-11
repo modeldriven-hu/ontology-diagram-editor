@@ -39,7 +39,7 @@ interface PropertyTab {
 }
 
 export class CanvasPropertyPanel {
-	private collapsed = false;
+	private collapsed = true;
 	private panelWidth?: number;
 	private selectedElement: CanvasPropertyElement | undefined;
 	private selectedElementCount = 0;
@@ -51,7 +51,7 @@ export class CanvasPropertyPanel {
 		if (this.options.initialWidth !== undefined) {
 			this.applyWidth(this.options.initialWidth, false);
 		}
-		this.setCollapsed(this.options.initialCollapsed ?? false, false);
+		this.setCollapsed(resolvedPropertyPanelCollapsed(this.options.initialCollapsed), false);
 		this.registerResizeHandle();
 		this.options.toggleButton.addEventListener('click', () => {
 			this.setCollapsed(!this.collapsed);
@@ -870,6 +870,10 @@ export class CanvasPropertyPanel {
 		this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
 	}
 
+}
+
+export function resolvedPropertyPanelCollapsed(initialCollapsed?: boolean): boolean {
+	return initialCollapsed ?? true;
 }
 
 function capitalize(value: string): string {

@@ -96,10 +96,14 @@ Version 1 local toolbar actions are:
 | Edge | Optimize edge path, choose a routing type, straighten the route, and remove edge. |
 
 The show-related-elements node action shall ask the user for a relationship depth. It
-shall add unambiguous connection-capable object property, data property, and subclass
-relationship endpoints reachable from the selected node up to that depth. Existing
-nodes and edges shall not be duplicated. The expansion shall be persisted as one
-logical `.odiagram` document edit.
+shall add unambiguous object-property relationships, object-property assertions, and
+subclass relationships reachable from the selected node up to that depth. Existing
+nodes and edges shall not be duplicated. Data properties shall not create datatype
+nodes or edges through this action; they remain available in a node's data-property
+attribute section. The expansion shall be persisted as one logical `.odiagram` document
+edit. A successful expansion does not require a notification because the added elements
+are immediately visible on the canvas. Rejected and no-op expansions shall still show a
+concise explanation.
 
 The local toolbar shall be hidden while on-canvas note or label text editing is active.
 

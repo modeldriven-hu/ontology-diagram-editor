@@ -113,7 +113,7 @@ export class ShowRelatedElementsUseCase {
 				namespaces: nextNamespaces,
 				nodes: nextNodes,
 				edges: nextEdges,
-			})
+			}),
 		};
 	}
 }

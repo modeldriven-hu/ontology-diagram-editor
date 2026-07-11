@@ -50,7 +50,7 @@ function webviewBody(
 	initialViewport?: CanvasViewport,
 ): string {
 	return `<body>
-	<div class="editor">
+	<div class="editor property-panel-collapsed">
 		<header class="header">
 			<div class="title-group">
 				<span class="title-mark" aria-hidden="true"></span>
@@ -134,11 +134,11 @@ function webviewBody(
 				<p class="status" id="status"></p>
 			</div>
 		</div>
-		<section class="property-panel" id="propertyPanel">
+		<section class="property-panel collapsed" id="propertyPanel">
 			<div class="property-panel-resize-handle" id="propertyPanelResizeHandle" role="separator" aria-orientation="vertical" tabindex="0" title="Resize properties panel"></div>
 			<header class="property-panel-header">
 				<strong id="propertyPanelTitle">Properties</strong>
-				<button class="property-panel-toggle" id="propertyPanelToggle" type="button" aria-expanded="true" title="Toggle properties">Properties</button>
+				<button class="property-panel-toggle" id="propertyPanelToggle" type="button" aria-expanded="false" title="Toggle properties">Properties</button>
 			</header>
 			<div class="property-panel-body" id="propertyPanelBody"></div>
 		</section>

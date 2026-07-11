@@ -13,6 +13,11 @@ theme file editing, ontology source editing, or canvas toolbar behavior.
 
 The canvas shall provide a property panel docked to the side of the canvas view.
 
+When a diagram editor is opened without previous webview state, the property panel shall
+start collapsed so the canvas receives the maximum available space. The user can expand
+the panel with its visible toggle. An explicit collapsed or expanded state shall be
+preserved across rerenders of the same open editor.
+
 The panel shall be collapsible. When expanded, it shall use a stable docked layout and
 shall not cover the selected element without allowing the user to pan or scroll the
 canvas to keep working.
