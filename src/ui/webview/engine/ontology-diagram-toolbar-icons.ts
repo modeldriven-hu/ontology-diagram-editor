@@ -38,6 +38,14 @@ export interface ViewportToolbarIconElements {
 	readonly themeModeButton: HTMLButtonElement;
 }
 
+export function renderCanvasToolbarDragHandle(canvasToolbarDragHandle: HTMLButtonElement): void {
+	canvasToolbarDragHandle.replaceChildren(createIconElement(GripVertical, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setActionTooltip(canvasToolbarDragHandle, 'Move toolbar');
+}
+
 export function renderLocalElementToolbarIcons(elements: LocalElementToolbarIconElements): void {
 	elements.localElementDragHandle.replaceChildren(createIconElement(GripVertical, {
 		'aria-hidden': 'true',

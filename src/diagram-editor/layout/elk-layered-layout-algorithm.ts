@@ -1,4 +1,5 @@
 import { Bounds, Point, type DiagramEdge, type OntologyDiagramDocument } from '../../documents/odiagram';
+import type { DiagramLayoutAlgorithmId } from '../../shared/diagram-layout';
 import type { DiagramLayoutAlgorithm, DiagramLayoutEdgeRoute, DiagramLayoutResult } from './diagram-layout-algorithm';
 import { roundLayoutCoordinate } from './layout-coordinate';
 
@@ -56,35 +57,69 @@ const edgeLabelHeight = 24;
 const minimumEdgeLabelWidth = 80;
 
 export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
-	public readonly id = 'elk-layered';
+	public readonly id: DiagramLayoutAlgorithmId = 'elk-layered';
 
-	public constructor(private readonly elk: ElkLayoutEngine = new ElkConstructor()) {}
+	public constructor(protected readonly elk: ElkLayoutEngine = new ElkConstructor()) {}
 
 	public async layout(diagram: OntologyDiagramDocument): Promise<DiagramLayoutResult> {
-		const graph = await this.elk.layout(elkGraph(diagram));
+		const graph = await this.elk.layout(elkGraph(diagram, this.layoutOptions));
 		return {
 			nodeBoundsById: nodeBounds(graph, diagram),
 			edgeRoutesById: edgeRoutes(graph, diagram),
 		};
 	}
+
+	protected readonly layoutOptions: Readonly<Record<string, string>> = {
+		'elk.algorithm': 'layered',
+		'elk.direction': 'RIGHT',
+		'elk.edgeRouting': 'ORTHOGONAL',
+		'elk.padding': '[top=80,left=80,bottom=80,right=80]',
+		'elk.spacing.nodeNode': '72',
+		'elk.layered.spacing.nodeNodeBetweenLayers': '180',
+		'elk.spacing.edgeNode': '24',
+		'elk.spacing.edgeEdge': '16',
+		'elk.separateConnectedComponents': 'true',
+		'elk.randomSeed': '1',
+	};
 }
 
-function elkGraph(diagram: OntologyDiagramDocument): ElkNode {
+export class ElkForceLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
+	public override readonly id: DiagramLayoutAlgorithmId = 'elk-force';
+
+	protected override readonly layoutOptions: Readonly<Record<string, string>> = {
+		'elk.algorithm': 'force',
+		'elk.edgeRouting': 'POLYLINE',
+		'elk.padding': '[top=80,left=80,bottom=80,right=80]',
+		'elk.spacing.nodeNode': '96',
+		'elk.spacing.edgeNode': '24',
+		'elk.separateConnectedComponents': 'true',
+		'elk.randomSeed': '1',
+		'elk.force.iterations': '300',
+	};
+}
+
+export class ElkMrTreeLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
+	public override readonly id: DiagramLayoutAlgorithmId = 'elk-mrtree';
+
+	protected override readonly layoutOptions: Readonly<Record<string, string>> = {
+		'elk.algorithm': 'mrtree',
+		'elk.direction': 'RIGHT',
+		'elk.edgeRouting': 'ORTHOGONAL',
+		'elk.padding': '[top=80,left=80,bottom=80,right=80]',
+		'elk.spacing.nodeNode': '72',
+		'elk.spacing.edgeNode': '48',
+		'elk.separateConnectedComponents': 'true',
+	};
+}
+
+function elkGraph(
+	diagram: OntologyDiagramDocument,
+	layoutOptions: Readonly<Record<string, string>>,
+): ElkNode {
 	const nodeIds = new Set(diagram.nodes.map((node) => node.id.value));
 	return {
 		id: 'root',
-		layoutOptions: {
-			'elk.algorithm': 'layered',
-			'elk.direction': 'RIGHT',
-			'elk.edgeRouting': 'ORTHOGONAL',
-			'elk.padding': '[top=80,left=80,bottom=80,right=80]',
-			'elk.spacing.nodeNode': '72',
-			'elk.layered.spacing.nodeNodeBetweenLayers': '180',
-			'elk.spacing.edgeNode': '24',
-			'elk.spacing.edgeEdge': '16',
-			'elk.separateConnectedComponents': 'true',
-			'elk.randomSeed': '1',
-		},
+		layoutOptions,
 		children: [...diagram.nodes]
 			.sort((left, right) => left.id.value.localeCompare(right.id.value))
 			.map((node) => ({

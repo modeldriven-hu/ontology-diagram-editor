@@ -13,7 +13,9 @@ controls. It does not define selected-element property editing or theme file edi
 # Canvas Actions
 
 The canvas shall show a toolbar over the canvas viewport. The toolbar shall remain
-visible while the user pans, scrolls, or zooms the diagram.
+visible while the user pans, scrolls, or zooms the diagram. The user shall be able to
+move it within the canvas viewport using its drag handle; its position shall be restored
+for the current webview.
 
 Version 1 toolbar actions are:
 
@@ -72,8 +74,8 @@ Arranging the diagram shall:
 
 - Allow the user to select from the available layout algorithms.
 - Provide a deterministic left-to-right directed-layers layout derived from
-  ontology-backed edges, an ELK layered layout with orthogonal edge routing, and a
-  deterministic grid layout.
+  ontology-backed edges, an ELK layered layout with orthogonal edge routing, an ELK
+  force-directed layout, an ELK Mr. Tree layout, and a deterministic grid layout.
 - Preserve each node's persisted width and height.
 - Reroute connected edges so endpoints remain on element boundaries.
 - Update edge label positions to reasonable route midpoints.

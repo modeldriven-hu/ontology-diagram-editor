@@ -1,6 +1,8 @@
 export const diagramLayoutAlgorithms = [
 	{ id: 'directed-layers', label: 'Directed layers' },
 	{ id: 'elk-layered', label: 'ELK layered' },
+	{ id: 'elk-force', label: 'ELK Force' },
+	{ id: 'elk-mrtree', label: 'ELK Mr. Tree' },
 	{ id: 'grid', label: 'Grid' },
 ] as const;
 

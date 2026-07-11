@@ -58,8 +58,9 @@ function webviewBody(
 			</div>
 			<p class="file-location">${escapeHtml(document.uri.fsPath)}</p>
 		</header>
-		<div class="canvas-shell">
-			<div class="canvas-actions" role="toolbar" aria-label="Canvas tools">
+		<div class="canvas-shell" id="canvasShell">
+			<div class="canvas-actions" id="canvasActions" role="toolbar" aria-label="Canvas tools">
+				<button class="canvas-toolbar-drag-handle" id="canvasToolbarDragHandle" type="button" title="Move toolbar" aria-label="Move toolbar"></button>
 				<button class="canvas-action" id="addOntologyItemButton" type="button" title="Add ontology item" aria-label="Add ontology item"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
@@ -269,6 +270,33 @@ function webviewStyles(): string {
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, var(--vscode-editor-background));
 		box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+	}
+
+	.canvas-toolbar-drag-handle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 28px;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--vscode-descriptionForeground);
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.canvas-toolbar-drag-handle:hover,
+	.canvas-toolbar-drag-handle:focus-visible {
+		border-color: color-mix(in srgb, var(--vscode-focusBorder) 72%, transparent);
+		background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+		color: var(--vscode-foreground);
+		outline: none;
+	}
+
+	.canvas-actions.dragging .canvas-toolbar-drag-handle {
+		cursor: grabbing;
 	}
 
 	.canvas-action {

@@ -22,7 +22,8 @@ import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
 import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, showTransientStatus } from './canvas-dom';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
-import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderUndoRedoToolbarIcons, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
+import { FixedToolbarController } from './fixed-toolbar-controller';
+import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderLocalElementToolbarIcons, renderThemeModeButton, renderUndoRedoToolbarIcons, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand): void;
@@ -52,6 +53,8 @@ interface WebviewState {
 	readonly viewportZoom?: number;
 	readonly localToolbarOffsetX?: number;
 	readonly localToolbarOffsetY?: number;
+	readonly canvasToolbarOffsetX?: number;
+	readonly canvasToolbarOffsetY?: number;
 	readonly themeMode?: WebviewThemeMode;
 	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
 }
@@ -71,6 +74,9 @@ const webviewConfig = config;
 const vscode = acquireVsCodeApi();
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
+const canvasShell = requiredElement('canvasShell');
+const canvasActions = requiredElement('canvasActions');
+const canvasToolbarDragHandle = requiredElement('canvasToolbarDragHandle') as HTMLButtonElement;
 const status = requiredElement('status');
 const addOntologyItemButton = requiredElement('addOntologyItemButton') as HTMLButtonElement;
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
@@ -226,7 +232,23 @@ const localElementToolbarController = new LocalElementToolbarController({
 	deleteElement,
 	showStatus,
 });
+const fixedToolbarController = new FixedToolbarController({
+	toolbar: canvasActions,
+	dragHandle: canvasToolbarDragHandle,
+	container: canvasShell,
+	initialOffset: {
+		x: vscode.getState()?.canvasToolbarOffsetX ?? 0,
+		y: vscode.getState()?.canvasToolbarOffsetY ?? 0,
+	},
+	persistOffset: (offset) => {
+		updateWebviewState({
+			canvasToolbarOffsetX: offset.x,
+			canvasToolbarOffsetY: offset.y,
+		});
+	},
+});
 
+renderCanvasToolbarDragHandle(canvasToolbarDragHandle);
 renderNoteToolbarIcon(addNoteButton);
 renderAddOntologyItemToolbarIcon(addOntologyItemButton);
 renderLabelToolbarIcon(addLabelButton);
@@ -276,6 +298,7 @@ render();
 registerSelectionEventPublishing();
 registerViewportEventPublishing();
 localElementToolbarController.register();
+fixedToolbarController.register();
 registerPropertyPanel();
 restoreSelection();
 restoreViewport();

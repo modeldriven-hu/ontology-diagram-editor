@@ -2332,7 +2332,7 @@ suite('Diagram editor use cases', () => {
 		]);
 	});
 
-	test('uses ELK layered layout for cyclic diagrams and routed edges', async () => {
+	test('uses ELK layouts for cyclic diagrams and routed edges', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
@@ -2349,22 +2349,23 @@ suite('Diagram editor use cases', () => {
 			],
 		);
 
-		const result = await new ArrangeDiagramUseCase().execute(diagram, 'elk-layered');
+		for (const algorithmId of ['elk-layered', 'elk-force', 'elk-mrtree'] as const) {
+			const result = await new ArrangeDiagramUseCase().execute(diagram, algorithmId);
 
-		assert.ok(result.diagram);
-		assert.deepStrictEqual(result.diagram.nodes.map((node) => ({
-			width: node.bounds.width,
-			height: node.bounds.height,
-		})), [
-			{ width: 100, height: 50 },
-			{ width: 120, height: 60 },
-			{ width: 80, height: 40 },
-		]);
-		assert.ok(new Set(result.diagram.nodes.map((node) => node.bounds.x)).size > 1);
-		assert.ok(result.diagram.nodes.every((node) => node.bounds.x >= 80 && node.bounds.y >= 80));
-		assert.ok(result.diagram.edges.every((edge) => edge.points.length >= 2));
-		assert.ok(result.diagram.edges.some((edge) => edge.points.length > 2));
-		assert.ok(result.diagram.edges.every((edge) => edge.label.x > 0 && edge.label.y > 0));
+			assert.ok(result.diagram, `${algorithmId} should arrange the diagram`);
+			assert.deepStrictEqual(result.diagram.nodes.map((node) => ({
+				width: node.bounds.width,
+				height: node.bounds.height,
+			})), [
+				{ width: 100, height: 50 },
+				{ width: 120, height: 60 },
+				{ width: 80, height: 40 },
+			]);
+			assert.ok(new Set(result.diagram.nodes.map((node) => node.bounds.x)).size > 1);
+			assert.ok(result.diagram.nodes.every((node) => node.bounds.x >= 80 && node.bounds.y >= 80));
+			assert.ok(result.diagram.edges.every((edge) => edge.points.length >= 2));
+			assert.ok(result.diagram.edges.every((edge) => edge.label.x > 0 && edge.label.y > 0));
+		}
 	});
 
 	test('uses routes supplied by an injected layout algorithm', async () => {

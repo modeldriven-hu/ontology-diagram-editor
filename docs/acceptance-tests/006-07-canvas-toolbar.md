@@ -3,6 +3,7 @@
 ## Canvas Toolbar
 
 - Given the canvas view is open, when the user pans, scrolls, or zooms, then the canvas toolbar remains visible over the viewport.
+- Given the user drags the canvas toolbar by its drag handle, when the drag completes, then the toolbar moves within the canvas viewport and its position is restored for that webview.
 - Given supported ontology items are loaded, when the user chooses Search and Add Ontology Item, then a Quick Pick searchable by label, reference, type, and ontology file is shown.
 - Given the user selects a class, individual, or datatype in the ontology picker, when persistence completes, then its node is added at the current viewport center insertion point.
 - Given the user selects an object property, data property, subclass relationship, or object-property assertion in the ontology picker, when its endpoints are unambiguous, then the relationship and any missing endpoint nodes are materialized using the normal edge creation rules.
@@ -14,7 +15,7 @@
 - Given the user chooses Undo or Redo from the toolbar, when the action runs, then the opened `.odiagram` document undo or redo operation is requested.
 - Given the user chooses Export SVG or Export PNG, when the diagram has exportable content, then the export workflow defined in `006-11-canvas-export.md` starts.
 - Given the user chooses Arrange Diagram with ontology nodes present, when persistence completes, then nodes are arranged and connected edges are rerouted as one logical edit.
-- Given the user selects Directed Layers, ELK Layered, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
+- Given the user selects Directed Layers, ELK Layered, ELK Force, ELK Mr. Tree, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
 - Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.
 - Given the user changes only the layout algorithm selection, when the document is inspected, then the `.odiagram` content is unchanged.
 - Given the user chooses Fit, Reset, Zoom In, or Zoom Out, when the viewport changes, then persisted diagram coordinates are unchanged.
