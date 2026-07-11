@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateEdgeRouteLayoutCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -372,11 +372,6 @@ export class CanvasPropertyPanel {
 					sectionElement('Connection', [
 						readonlyField('Source', edge.source),
 						readonlyField('Target', edge.target),
-						selectField('Layout', edge.route_layout ?? '', edgeRouteLayoutOptions, (value) => {
-							this.options.registry.updateEdgeRouteLayout(edge.id, value);
-							this.propertyEdited('edge', edge.id, ['route_layout']);
-							this.options.messageBus.publishCommand(new UpdateEdgeRouteLayoutCommand(edge.id, value));
-						}),
 					]),
 				],
 			},
@@ -893,16 +888,6 @@ const lineStyleOptions = [
 	{ value: 'dashed', label: 'Dashed' },
 	{ value: 'dotted', label: 'Dotted' },
 	{ value: 'none', label: 'None' },
-] as const;
-
-const edgeRouteLayoutOptions = [
-	{ value: '', label: 'Default' },
-	{ value: 'orthogonal', label: 'Orthogonal' },
-	{ value: 'direct', label: 'Direct' },
-	{ value: 'one_side', label: 'One Side' },
-	{ value: 'manhattan', label: 'Manhattan' },
-	{ value: 'metro', label: 'Metro' },
-	{ value: 'entity_relation', label: 'Entity Relation' },
 ] as const;
 
 const propertyValueTextOverflowOptions = [

@@ -113,6 +113,7 @@ const alignEdgeStartPointsLocalButton = requiredElement('alignEdgeStartPointsLoc
 const alignEdgeEndPointsLocalButton = requiredElement('alignEdgeEndPointsLocalButton') as HTMLButtonElement;
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
 const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') as HTMLButtonElement;
+const edgeRouteLayoutLocalSelect = requiredElement('edgeRouteLayoutLocalSelect') as HTMLSelectElement;
 const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const propertyPanel = requiredElement('propertyPanel');
@@ -200,6 +201,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 		alignEdgeEndPointsLocalButton,
 		optimizeEdgeLocalButton,
 		straightenEdgeLocalButton,
+		edgeRouteLayoutLocalSelect,
 		resetEdgeLabelLocalButton,
 		deleteEdgeLocalButton,
 	},

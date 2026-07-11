@@ -114,6 +114,15 @@ function webviewBody(
 					<button class="local-element-action" id="alignEdgeEndPointsLocalButton" type="button" title="Align edge end positions" aria-label="Align edge end positions"></button>
 					<button class="local-element-action" id="optimizeEdgeLocalButton" type="button" title="Optimize edge path" aria-label="Optimize edge path"></button>
 					<button class="local-element-action" id="straightenEdgeLocalButton" type="button" title="Straighten edge" aria-label="Straighten edge"></button>
+					<select class="local-element-select" id="edgeRouteLayoutLocalSelect" title="Edge routing type" aria-label="Edge routing type">
+						<option value="">Default (orthogonal)</option>
+						<option value="orthogonal">Orthogonal</option>
+						<option value="direct">Direct</option>
+						<option value="one_side">One Side</option>
+						<option value="manhattan">Manhattan</option>
+						<option value="metro">Metro</option>
+						<option value="entity_relation">Entity Relation</option>
+					</select>
 					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>
 					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
 				</div>
@@ -363,6 +372,29 @@ function webviewStyles(): string {
 
 	.local-element-action[hidden] {
 		display: none;
+	}
+
+	.local-element-select {
+		height: 28px;
+		max-width: 132px;
+		padding: 0 22px 0 6px;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: var(--vscode-dropdown-background);
+		color: var(--vscode-dropdown-foreground);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+	}
+
+	.local-element-select[hidden] {
+		display: none;
+	}
+
+	.local-element-select:hover,
+	.local-element-select:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
 	}
 
 	.local-element-action-separator {

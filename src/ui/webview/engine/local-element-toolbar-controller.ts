@@ -1,5 +1,5 @@
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
-import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand } from '../../../shared/webview-commands';
+import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import type { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
@@ -35,6 +35,7 @@ interface LocalElementToolbarElements {
 	readonly alignEdgeEndPointsLocalButton: HTMLButtonElement;
 	readonly optimizeEdgeLocalButton: HTMLButtonElement;
 	readonly straightenEdgeLocalButton: HTMLButtonElement;
+	readonly edgeRouteLayoutLocalSelect: HTMLSelectElement;
 	readonly resetEdgeLabelLocalButton: HTMLButtonElement;
 	readonly deleteEdgeLocalButton: HTMLButtonElement;
 }
@@ -154,6 +155,9 @@ export class LocalElementToolbarController {
 		});
 		this.registerButton(elements.straightenEdgeLocalButton, () => {
 			this.straightenSelectedEdgeRoute();
+		});
+		elements.edgeRouteLayoutLocalSelect.addEventListener('change', () => {
+			this.updateSelectedEdgeRouteLayout();
 		});
 		this.registerButton(elements.resetEdgeLabelLocalButton, () => {
 			this.resetSelectedEdgeLabel();
@@ -325,8 +329,12 @@ export class LocalElementToolbarController {
 		elements.alignEdgeEndPointsLocalButton.hidden = !isEdgeSelection;
 		elements.optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 		elements.straightenEdgeLocalButton.hidden = element.kind !== 'edge';
+		elements.edgeRouteLayoutLocalSelect.hidden = element.kind !== 'edge';
 		elements.resetEdgeLabelLocalButton.hidden = element.kind !== 'edge';
 		elements.deleteEdgeLocalButton.hidden = element.kind !== 'edge';
+		if (element.kind === 'edge') {
+			elements.edgeRouteLayoutLocalSelect.value = element.value.route_layout ?? '';
+		}
 
 		if (element.kind === 'nodeSelection') {
 			const hasSharedSuperclass = this.sharedSubclassTargetIds(element.ids).length === 1;
@@ -610,6 +618,27 @@ export class LocalElementToolbarController {
 		this.options.showStatus('Straightening edge.');
 	}
 
+	private updateSelectedEdgeRouteLayout(): void {
+		const selectedElementId = this.options.canvas.selectedElementId();
+		const selectedElement = selectedElementId === undefined
+			? undefined
+			: this.options.elementRegistry.element(selectedElementId);
+		if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+			this.options.showStatus('Select an edge to change its routing type.');
+			return;
+		}
+
+		const routeLayout = edgeRouteLayoutFromSelectValue(this.options.elements.edgeRouteLayoutLocalSelect.value);
+		if (routeLayout === undefined && this.options.elements.edgeRouteLayoutLocalSelect.value.length > 0) {
+			this.options.showStatus('The selected edge routing type is not available.');
+			return;
+		}
+
+		this.options.elementRegistry.updateEdgeRouteLayout(selectedElementId, routeLayout);
+		this.options.messageBus.publishCommand(new UpdateEdgeRouteLayoutCommand(selectedElementId, routeLayout));
+		this.options.showStatus(`Changed edge routing to ${edgeRouteLayoutLabel(routeLayout)}.`);
+	}
+
 	private resetSelectedEdgeLabel(): void {
 		const selectedElementId = this.options.canvas.selectedElementId();
 		const selectedElement = selectedElementId === undefined
@@ -834,6 +863,41 @@ function isSubclassRelationshipEdge(edge: DiagramEdge): boolean {
 		|| edge.ontology_ref.endsWith('/subClassOf');
 }
 
+function edgeRouteLayoutFromSelectValue(value: string): DiagramEdge['route_layout'] {
+	switch (value) {
+		case '':
+			return undefined;
+		case 'orthogonal':
+		case 'direct':
+		case 'one_side':
+		case 'manhattan':
+		case 'metro':
+		case 'entity_relation':
+			return value;
+		default:
+			return undefined;
+	}
+}
+
+function edgeRouteLayoutLabel(routeLayout: DiagramEdge['route_layout']): string {
+	switch (routeLayout) {
+		case undefined:
+			return 'Default (orthogonal)';
+		case 'orthogonal':
+			return 'Orthogonal';
+		case 'direct':
+			return 'Direct';
+		case 'one_side':
+			return 'One Side';
+		case 'manhattan':
+			return 'Manhattan';
+		case 'metro':
+			return 'Metro';
+		case 'entity_relation':
+			return 'Entity Relation';
+	}
+}
+
 function localToolbarKeyboardDelta(event: KeyboardEvent): CanvasPoint | undefined {
 	const distance = event.shiftKey ? 24 : 8;
 	switch (event.key) {
@@ -858,7 +922,7 @@ function localElementToolbarFallbackWidth(element: LocalElementToolbarContext): 
 		return 92;
 	}
 	if (element.kind === 'node' || element.kind === 'edge') {
-		return 123;
+		return element.kind === 'edge' ? 247 : 123;
 	}
 	if (element.kind === 'note') {
 		return 87;

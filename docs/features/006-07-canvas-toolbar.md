@@ -93,7 +93,7 @@ Version 1 local toolbar actions are:
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |
-| Edge | Optimize edge path and remove edge. |
+| Edge | Optimize edge path, choose a routing type, straighten the route, and remove edge. |
 
 The show-related-elements node action shall ask the user for a relationship depth. It
 shall add unambiguous connection-capable object property, data property, and subclass
@@ -102,3 +102,8 @@ nodes and edges shall not be duplicated. The expansion shall be persisted as one
 logical `.odiagram` document edit.
 
 The local toolbar shall be hidden while on-canvas note or label text editing is active.
+
+When one edge is selected, its local toolbar shall show a routing-type combobox. The
+combobox shall display the edge's current routing type and shall update `route_layout`
+when the user selects a different type. An edge without an explicit routing type shall
+display `Default (orthogonal)`.
