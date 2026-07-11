@@ -201,6 +201,12 @@ using the arrow keys. Arrow keys shall move the label by one canvas unit; holdin
 `Shift` shall move it by a larger implementation-defined step. Moving the label shall
 update the persisted `label` point.
 
+When an OWL cardinality restriction matches an edge endpoint's represented class and
+property, the canvas shall render the cardinality as its own movable label near that
+endpoint. Cardinality labels use the same `[1]`, `[0..1]`, `[1..*]`, and `[0..*]`
+notation as data-property attributes. Dragging a cardinality label shall move only that
+label and persist its location independently of the edge name label and route.
+
 # Ontology to UML Rendering Mapping
 
 The canvas shall use UML-style visual conventions for ontology-backed nodes and edges.

@@ -7,6 +7,50 @@ import { DiagramMetadata, OntologyDiagramDocument, OntologyFileReference } from 
 import { findOntologyImportPaths, loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 
 suite('Ontology model', () => {
+	test('loads class-scoped property cardinalities from OWL restrictions', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-cardinalities-'));
+		try {
+			const ontologyPath = path.join(directory, 'model.ttl');
+			await writeFile(ontologyPath, `
+@prefix ex: <https://example.com/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:Person a owl:Class ;
+  rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty ex:email ;
+    owl:minCardinality 1 ;
+    owl:maxCardinality 1
+  ] , [
+    a owl:Restriction ;
+    owl:onProperty ex:manages ;
+    owl:minQualifiedCardinality 1 ;
+    owl:maxQualifiedCardinality 3
+  ] .
+
+ex:email a owl:DatatypeProperty .
+ex:manages a owl:ObjectProperty .
+`);
+			const diagram = new OntologyDiagramDocument(
+				DiagramMetadata.createEmpty('Example'),
+				[new OntologyFileReference('model.ttl')],
+				new Map([['ex', 'https://example.com/ontology#']]),
+				[],
+				[],
+			);
+
+			const [ontology] = await loadReferencedOntologies(path.join(directory, 'diagram.odiagram'), diagram);
+			const person = ontology?.items.find((item) => item.reference === 'ex:Person');
+			assert.deepStrictEqual(person?.metadata.propertyCardinalities, [
+				{ propertyReference: 'https://example.com/ontology#email', minimum: 1, maximum: 1 },
+				{ propertyReference: 'https://example.com/ontology#manages', minimum: 1, maximum: 3 },
+			]);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
 	test('loads rdfs comments into ontology item metadata', async () => {
 		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-comments-'));
 		try {

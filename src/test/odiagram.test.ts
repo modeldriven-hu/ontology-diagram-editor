@@ -105,7 +105,6 @@ nodes:
     property_value_text_overflow: wrap
 edges: []
 `);
-
 		assert.strictEqual(document.nodes[0].showDataProperties, true);
 		assert.strictEqual(document.nodes[0].showType, false);
 		assert.strictEqual(document.nodes[0].showPropertyValues, true);
@@ -114,6 +113,24 @@ edges: []
 		assert.match(stringifyOntologyDiagramYaml(document), /show_type: false/);
 		assert.match(stringifyOntologyDiagramYaml(document), /show_property_values: true/);
 		assert.match(stringifyOntologyDiagramYaml(document), /property_value_text_overflow: wrap/);
+	});
+
+	test('preserves persisted edge cardinality-label positions', () => {
+		const document = parseOntologyDiagramYaml(validDiagramYaml.replace('edges: []', `edges:
+  - id: edge_knows
+    source: node_person
+    target: node_person
+    ontology_ref: ex:knows
+    label: { x: 90, y: 80 }
+    source_cardinality_label: { x: 35, y: 55 }
+    target_cardinality_label: { x: 145, y: 55 }
+    points: [{ x: 40, y: 60 }, { x: 140, y: 60 }]
+`));
+
+		assert.deepStrictEqual(document.edges[0].sourceCardinalityLabel?.toPersistenceObject(), { x: 35, y: 55 });
+		assert.deepStrictEqual(document.edges[0].targetCardinalityLabel?.toPersistenceObject(), { x: 145, y: 55 });
+		assert.match(stringifyOntologyDiagramYaml(document), /source_cardinality_label:/);
+		assert.match(stringifyOntologyDiagramYaml(document), /target_cardinality_label:/);
 	});
 
 	test('parses and serializes note export visibility', () => {

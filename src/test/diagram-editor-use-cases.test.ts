@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as path from 'path';
 
 import {
 	Bounds,
@@ -12,12 +13,74 @@ import {
 	LabelStyle,
 	OntologyDiagramDocument,
 	Point,
+	parseOntologyDiagramYaml,
+	readOntologyDiagramFile,
+	stringifyOntologyDiagramYaml,
 } from '../documents/odiagram';
 import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
+import { isConnectionCapableOntologyItem } from '../diagram-editor/use-cases/ontology-edge-endpoints';
+import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 
 suite('Diagram editor use cases', () => {
+	test('expands the supplied domain diagram to depth two without creating OWL restriction nodes', async () => {
+		const diagramPath = path.resolve(__dirname, '../../src/test/resources/related-elements-depth-2-error/domain.odiagram');
+		const diagram = await readOntologyDiagramFile(diagramPath);
+		const ontologies = await loadReferencedOntologies(diagramPath, diagram);
+		const relationships = ontologies.flatMap((ontology) => ontology.items
+			.filter((item) => isConnectionCapableOntologyItem(item.type))
+			.map((item) => ({
+				sourceOntologyFilePath: ontology.relativePath,
+				ontologyItemType: item.type,
+				ontologyItemReference: item.reference,
+				displayLabel: item.displayLabel,
+				ontologyItemMetadata: item.metadata,
+			})));
+
+		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_item1', 2, relationships);
+
+		assert.ok(result.diagram);
+		const expandedDiagram = result.diagram;
+		if (expandedDiagram === undefined) {
+			throw new Error('Expected related-element expansion to create a diagram.');
+		}
+		assert.strictEqual(expandedDiagram.nodes.some((node) => node.ontologyRef.value.startsWith('_:')), false);
+		assert.doesNotThrow(() => parseOntologyDiagramYaml(stringifyOntologyDiagramYaml(expandedDiagram)));
+	});
+
+	test('persists independently moved edge cardinality labels', () => {
+		const edge = new DiagramEdge(
+			'edge_relates',
+			'node_source',
+			'node_target',
+			'ex:relates',
+			new Point(150, 25),
+			[new Point(100, 25), new Point(200, 25)],
+		).withCardinalityLabelPositions(new Point(108, 12), new Point(192, 12));
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_source', 'ex:Source', new Bounds(0, 0, 100, 50)),
+				new DiagramNode('node_target', 'ex:Target', new Bounds(200, 0, 100, 50)),
+			],
+			[edge],
+		);
+
+		const result = new UpdateEdgeRouteUseCase().execute(diagram, [{
+			id: 'edge_relates',
+			points: [{ x: 100, y: 25 }, { x: 200, y: 25 }],
+			label: { x: 150, y: 25 },
+			sourceCardinalityLabel: { x: 110.4, y: 10.6 },
+			targetCardinalityLabel: { x: 190.6, y: 10.4 },
+		}]);
+
+		assert.deepStrictEqual(result.diagram?.edges[0].sourceCardinalityLabel?.toPersistenceObject(), { x: 110, y: 11 });
+		assert.deepStrictEqual(result.diagram?.edges[0].targetCardinalityLabel?.toPersistenceObject(), { x: 191, y: 10 });
+	});
+
 	test('creates, moves, styles, and deletes a diagram information element', () => {
 		const created = new CreateMetadataElementUseCase().execute(emptyDiagram(), { x: 10.4, y: 20.6 }).diagram;
 		assert.ok(created);

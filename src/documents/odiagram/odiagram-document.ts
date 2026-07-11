@@ -365,6 +365,31 @@ export class DiagramEdge {
 			route_layout: this.routeLayout,
 		});
 	}
+
+	public get sourceCardinalityLabel(): Point | undefined {
+		return pointFromExtra(this.extra.source_cardinality_label);
+	}
+
+	public get targetCardinalityLabel(): Point | undefined {
+		return pointFromExtra(this.extra.target_cardinality_label);
+	}
+
+	public withCardinalityLabelPositions(source: Point | undefined, target: Point | undefined): DiagramEdge {
+		const extra: JsonObject = { ...this.extra };
+		setExtraPoint(extra, 'source_cardinality_label', source);
+		setExtraPoint(extra, 'target_cardinality_label', target);
+		return new DiagramEdge(
+			this.id.value,
+			this.source.value,
+			this.target.value,
+			this.ontologyRef.value,
+			this.label,
+			this.points,
+			this.style,
+			extra,
+			this.routeLayout,
+		);
+	}
 }
 
 export class DiagramNote {
@@ -598,6 +623,8 @@ const edgeSchema = z.object({
 	target: z.string(),
 	ontology_ref: z.string(),
 	label: pointSchema,
+	source_cardinality_label: pointSchema.optional(),
+	target_cardinality_label: pointSchema.optional(),
 	points: z.array(pointSchema),
 	style: edgeStyleSchema.optional(),
 	route_layout: z.enum(['orthogonal', 'direct', 'one_side', 'manhattan', 'metro', 'entity_relation']).optional(),
@@ -749,6 +776,25 @@ function parseMetadataElement(value: z.infer<typeof metadataElementSchema>): Dia
 
 function parsePoint(value: z.infer<typeof pointSchema>): Point {
 	return new Point(value.x, value.y);
+}
+
+function pointFromExtra(value: JsonValue | undefined): Point | undefined {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return undefined;
+	}
+
+	const x = value.x;
+	const y = value.y;
+	return typeof x === 'number' && typeof y === 'number' ? new Point(x, y) : undefined;
+}
+
+function setExtraPoint(extra: JsonObject, key: string, point: Point | undefined): void {
+	if (point === undefined) {
+		delete extra[key];
+		return;
+	}
+
+	extra[key] = point.toPersistenceObject();
 }
 
 function parseFontStyle(value: z.infer<typeof fontStyleSchema>): FontStyle {

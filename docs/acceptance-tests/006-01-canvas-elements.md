@@ -6,6 +6,7 @@
 - Given degraded rendering warnings exist, when the canvas renders valid independent elements, then the warnings are exposed to the user.
 - Given the user clicks a diagram element, when selection changes, then the element shows a visible selection outline and `Canvas selection changed` is emitted.
 - Given the user drags the left mouse button from a blank canvas area around diagram elements, when the selection rectangle encloses them, then all enclosed eligible elements are selected.
+- Given a displayed data property has an OWL cardinality restriction for its class, when the node shows data properties, then the attribute displays the cardinality in UML range notation.
 - Given the user selects multiple bounded elements, when one selected element or the selection outline is dragged, then multi-selection mouse movement is ignored and the elements remain in place.
 - Given multiple bounded elements are selected, when the user presses an arrow key, then all selected bounded elements move by the same keyboard nudge offset.
 - Given multiple bounded elements are selected with an edge between selected endpoints, when the selection is moved with an arrow key, then the edge route points and label move by the same offset instead of being rerouted.

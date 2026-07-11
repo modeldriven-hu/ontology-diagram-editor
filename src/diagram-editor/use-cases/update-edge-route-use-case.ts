@@ -44,7 +44,16 @@ export class UpdateEdgeRouteUseCase {
 			nextPoints[0] = nearestBoundaryPoint(sourceBounds, nextPoints[0]);
 			nextPoints[nextPoints.length - 1] = nearestBoundaryPoint(targetBounds, nextPoints[nextPoints.length - 1]);
 			const nextLabel = new Point(roundCoordinate(update.label.x), roundCoordinate(update.label.y));
-			if (samePoints(edge.points, nextPoints) && pointEquals(edge.label, nextLabel)) {
+			const nextSourceCardinalityLabel = update.sourceCardinalityLabel === undefined
+				? edge.sourceCardinalityLabel
+				: new Point(roundCoordinate(update.sourceCardinalityLabel.x), roundCoordinate(update.sourceCardinalityLabel.y));
+			const nextTargetCardinalityLabel = update.targetCardinalityLabel === undefined
+				? edge.targetCardinalityLabel
+				: new Point(roundCoordinate(update.targetCardinalityLabel.x), roundCoordinate(update.targetCardinalityLabel.y));
+			if (samePoints(edge.points, nextPoints)
+				&& pointEquals(edge.label, nextLabel)
+				&& optionalPointsEqual(edge.sourceCardinalityLabel, nextSourceCardinalityLabel)
+				&& optionalPointsEqual(edge.targetCardinalityLabel, nextTargetCardinalityLabel)) {
 				return edge;
 			}
 
@@ -59,7 +68,7 @@ export class UpdateEdgeRouteUseCase {
 				edge.style,
 				edge.extra,
 				edge.routeLayout,
-			);
+			).withCardinalityLabelPositions(nextSourceCardinalityLabel, nextTargetCardinalityLabel);
 		});
 
 		if (!changed) {
@@ -76,6 +85,10 @@ export class UpdateEdgeRouteUseCase {
 
 function pointEquals(left: Point, right: Point): boolean {
 	return left.x === right.x && left.y === right.y;
+}
+
+function optionalPointsEqual(left: Point | undefined, right: Point | undefined): boolean {
+	return left === undefined || right === undefined ? left === right : pointEquals(left, right);
 }
 
 function samePoints(left: readonly Point[], right: readonly Point[]): boolean {

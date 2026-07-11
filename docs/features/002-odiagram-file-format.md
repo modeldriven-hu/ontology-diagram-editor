@@ -282,6 +282,8 @@ Each edge shall contain:
 | `target` | identifier | Yes | Target node, note, or image identifier. |
 | `ontology_ref` | ontology reference | Yes | Referenced edge-capable ontology item. |
 | `label` | point | Yes | Label position. |
+| `source_cardinality_label` | point | No | Independently positioned source-end cardinality label. |
+| `target_cardinality_label` | point | No | Independently positioned target-end cardinality label. |
 | `points` | list of points | Yes | Edge route coordinates. |
 | `style` | map | No | Edge style override. |
 | `route_layout` | string | No | Preferred route layout. |
@@ -331,6 +333,10 @@ The edge style map may contain:
 | `weight` | number | Edge line weight. |
 | `text_color` | string | Edge label text color. |
 | `font` | map | Edge label font settings. |
+
+Cardinality label fields are written only for ontology-derived cardinalities that the
+user has positioned. Their text is derived from the referenced ontology; the points
+store only their canvas locations.
 
 # Notes
 

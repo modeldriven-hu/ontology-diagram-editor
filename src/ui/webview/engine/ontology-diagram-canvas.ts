@@ -1098,6 +1098,8 @@ function trackRenderedGeometry(payload: DiagramPayload): void {
 			id: edge.id,
 			points: edge.points,
 			label: edge.label,
+			sourceCardinalityLabel: edge.source_cardinality_label,
+			targetCardinalityLabel: edge.target_cardinality_label,
 		});
 	}
 	for (const note of payload.diagram?.notes ?? []) {

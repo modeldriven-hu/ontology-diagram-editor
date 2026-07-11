@@ -20,6 +20,8 @@
 - Given a connected source or target node moves or resizes, when the diagram is persisted, then the first or last edge point is recalculated and intermediate points are preserved.
 - Given connected source and target elements move together as part of one keyboard multi-selection move, when the diagram is persisted, then the edge route points and label are translated by the same offset instead of being rerouted.
 - Given the user moves an edge label, when the drag completes, then the persisted edge `label` point is updated.
+- Given an edge endpoint has a matching OWL cardinality restriction, when the edge renders, then the cardinality is shown as a separate label near that endpoint.
+- Given the user drags an edge cardinality label, when the drag completes, then only that label position is persisted in the edge's corresponding cardinality-label point.
 - Given the user edits an edge route with canvas route handles, when the edit completes, then persisted route `points` are updated and `source` and `target` identifiers are unchanged.
 - Given the user selects an edge route layout in the property panel, when the edit commits, then `route_layout` is updated and route `points` are preserved.
 - Given the user chooses optimize edge path, when the edge has stale route points, then the route is recalculated from current endpoint bounds.

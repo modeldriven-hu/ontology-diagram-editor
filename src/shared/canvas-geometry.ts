@@ -32,4 +32,6 @@ export interface EdgeRouteUpdate {
 	readonly id: string;
 	readonly points: readonly CanvasPoint[];
 	readonly label: CanvasPoint;
+	readonly sourceCardinalityLabel?: CanvasPoint;
+	readonly targetCardinalityLabel?: CanvasPoint;
 }

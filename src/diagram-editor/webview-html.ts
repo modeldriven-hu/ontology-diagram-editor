@@ -1044,6 +1044,16 @@ async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPay
 							rangeReferences: item.metadata.rangeReferences ?? [],
 						})),
 				),
+				property_cardinalities: loadedOntologies.flatMap((ontology) =>
+					ontology.items
+						.filter((item) => item.type === 'class')
+						.flatMap((item) => (item.metadata.propertyCardinalities ?? []).map((cardinality) => ({
+							propertyReference: cardinality.propertyReference,
+							classReference: item.reference,
+							minimum: cardinality.minimum,
+							maximum: cardinality.maximum,
+						}))),
+				),
 				individuals: loadedOntologies.flatMap((ontology) =>
 					ontology.items
 						.filter((item) => item.type === 'individual')

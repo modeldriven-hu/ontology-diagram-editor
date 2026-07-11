@@ -312,5 +312,13 @@ function edgeRoutesEqual(left: EdgeRouteUpdate, right: EdgeRouteUpdate): boolean
 	return left.points.length === right.points.length
 		&& left.points.every((point, index) => point.x === right.points[index].x && point.y === right.points[index].y)
 		&& left.label.x === right.label.x
-		&& left.label.y === right.label.y;
+		&& left.label.y === right.label.y
+		&& optionalCanvasPointsEqual(left.sourceCardinalityLabel, right.sourceCardinalityLabel)
+		&& optionalCanvasPointsEqual(left.targetCardinalityLabel, right.targetCardinalityLabel);
+}
+
+function optionalCanvasPointsEqual(left: { readonly x: number; readonly y: number } | undefined, right: { readonly x: number; readonly y: number } | undefined): boolean {
+	return left === undefined || right === undefined
+		? left === right
+		: left.x === right.x && left.y === right.y;
 }

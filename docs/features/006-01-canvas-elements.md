@@ -54,6 +54,10 @@ elements with a marquee selection gesture: dragging the left mouse button across
 canvas area displays a selection rectangle and selects every eligible element fully
 enclosed by the rectangle.
 
+When a data-property restriction on the represented class declares an OWL cardinality,
+the node's data-property compartment shall show it after the property type using UML
+range notation: `[1]`, `[0..1]`, `[1..*]`, or `[0..*]`.
+
 When multiple bounded elements are selected, keyboard movement shall move those elements
 as a single unit. Mouse drag movement for multi-selection is disabled for version 1.
 Keyboard movement shall preserve each element's relative position within the selection

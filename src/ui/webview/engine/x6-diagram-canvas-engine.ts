@@ -4,6 +4,7 @@ import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttri
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
+import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from '../components/edge-cardinality-labels';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
@@ -31,6 +32,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private readonly edgeRouteChangeListeners = new Set<CanvasEdgeRouteChangeListener>();
 	private readonly pendingEdgeRouteChanges = new Set<string>();
 	private readonly edgeLabelPoints = new Map<string, CanvasPoint>();
+	private readonly edgeCardinalityLabelPoints = new Map<string, { readonly source?: CanvasPoint; readonly target?: CanvasPoint }>();
 	private readonly programmaticLabelChanges = new Set<string>();
 	private readonly selectedEdgeLineAttrs = new Map<string, unknown>();
 	private selectedIds: string[] = [];
@@ -118,6 +120,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		try {
 			this.clearPendingEdgeRouteChanges();
 			this.edgeLabelPoints.clear();
+			this.edgeCardinalityLabelPoints.clear();
 			this.programmaticLabelChanges.clear();
 			this.selectedEdgeLineAttrs.clear();
 			this.graph.clearCells();
@@ -140,7 +143,11 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			]);
 			for (const edge of payload.diagram?.edges ?? []) {
 				this.edgeLabelPoints.set(edge.id, edge.label);
-				this.graph.addEdge(x6Edge(edge, connectableElementById, theme));
+				this.edgeCardinalityLabelPoints.set(edge.id, {
+					source: edge.source_cardinality_label,
+					target: edge.target_cardinality_label,
+				});
+				this.graph.addEdge(x6Edge(edge, connectableElementById, payload, theme));
 			}
 			for (const label of payload.diagram?.labels ?? []) {
 				this.graph.addNode(x6Label(label, theme));
@@ -373,11 +380,14 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		const labelPoint = this.edgeLabelPoints.get(edgeId) ?? edgeLabelPoint(cell, view, points[0]) ?? label;
 		this.edgeLabelPoints.set(edgeId, labelPoint);
+		const cardinalities = this.edgeCardinalityLabelPointsFor(cell, view, points);
 
 		return {
 			id: edgeId,
 			points,
 			label: labelPoint,
+			sourceCardinalityLabel: cardinalities.source,
+			targetCardinalityLabel: cardinalities.target,
 		};
 	}
 
@@ -551,6 +561,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				const isProgrammaticLabelChange = this.programmaticLabelChanges.delete(edge.id);
 				if (!isProgrammaticLabelChange) {
 					this.edgeLabelPoints.delete(edge.id);
+					this.edgeCardinalityLabelPoints.delete(edge.id);
 					this.highlightLabelDragEdge(edge);
 				}
 			}
@@ -851,20 +862,43 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		if (existingLabel !== undefined) {
 			this.setEdgeLabelPosition(edge, translatedLabel, points[0], options);
 		}
+		const cardinalities = this.edgeCardinalityLabelPointsFor(edge, edgeView(this.graph, edge), edgeRoute.points);
+		if (cardinalities.source !== undefined) {
+			this.setEdgeLabelPositionAt(edge, 1, translateCanvasPoint(cardinalities.source, delta), points[0], options);
+		}
+		if (cardinalities.target !== undefined) {
+			const targetIndex = edgeCardinalityLabelsForEdge(edge, this.currentPayload).source === undefined ? 1 : 2;
+			this.setEdgeLabelPositionAt(edge, targetIndex, translateCanvasPoint(cardinalities.target, delta), points[0], options);
+		}
 	}
 
 	private setEdgeLabelPosition(edge: X6Edge, label: CanvasPoint, sourcePoint: CanvasPoint, options?: Record<string, unknown>): void {
-		const existingLabel = edge.getLabels()[0] ?? {};
-		const view = edgeView(this.graph, edge);
 		this.edgeLabelPoints.set(edge.id, label);
+		this.setEdgeLabelPositionAt(edge, 0, label, sourcePoint, options);
+	}
+
+	private setEdgeLabelPositionAt(edge: X6Edge, index: number, label: CanvasPoint, sourcePoint: CanvasPoint, options?: Record<string, unknown>): void {
+		const existingLabel = edge.getLabels()[index] ?? {};
+		const view = edgeView(this.graph, edge);
 		this.programmaticLabelChanges.add(edge.id);
-		edge.setLabelAt(0, {
+		edge.setLabelAt(index, {
 			...existingLabel,
 			position: labelPositionForPoint(label, view, sourcePoint),
 		}, options);
 		window.setTimeout(() => {
 			this.programmaticLabelChanges.delete(edge.id);
 		}, 0);
+	}
+
+	private edgeCardinalityLabelPointsFor(edge: X6Edge, view: X6EdgeView | undefined, points: readonly CanvasPoint[]): { readonly source?: CanvasPoint; readonly target?: CanvasPoint } {
+		const labels = edgeCardinalityLabelsForEdge(edge, this.currentPayload);
+		const persisted = this.edgeCardinalityLabelPoints.get(edge.id) ?? {};
+		const source = labels.source === undefined ? undefined : persisted.source ?? edgeLabelPointAt(edge, 1, view, points[0]) ?? defaultSourceCardinalityLabel(points);
+		const targetIndex = labels.source === undefined ? 1 : 2;
+		const target = labels.target === undefined ? undefined : persisted.target ?? edgeLabelPointAt(edge, targetIndex, view, points[0]) ?? defaultTargetCardinalityLabel(points);
+		const result = { source, target };
+		this.edgeCardinalityLabelPoints.set(edge.id, result);
+		return result;
 	}
 
 	private markEdgeRouteChanged(edge: X6Edge | undefined): void {
@@ -1265,7 +1299,12 @@ function x6OntologyNodeMarkup(presentationMarkup: readonly Record<string, string
 	];
 }
 
-function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableElement>, theme: WebviewTheme): Record<string, unknown> {
+function x6Edge(
+	edge: DiagramEdge,
+	elementById: ReadonlyMap<string, ConnectableElement>,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+): Record<string, unknown> {
 	const persistedPoints = edge.points.length >= 2 ? edge.points : [{ x: 0, y: 0 }, { x: 0, y: 0 }];
 	const points = displayPoints(edge, persistedPoints);
 	const sourcePoint = points[0];
@@ -1276,6 +1315,7 @@ function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableE
 	const lineStyle = edge.style?.line_style;
 	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
 	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
+	const cardinalities = edgeCardinalityLabels(edge, payload);
 
 	return {
 		id: edge.id,
@@ -1303,7 +1343,8 @@ function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableE
 				cursor: 'pointer',
 			},
 		},
-		labels: label.length === 0 ? [] : [{
+		labels: [
+			...(label.length === 0 ? [] : [{
 			position: labelPosition(edge.label, sourcePoint),
 			attrs: {
 				rect: {
@@ -1322,9 +1363,74 @@ function x6Edge(edge: DiagramEdge, elementById: ReadonlyMap<string, ConnectableE
 					fontStyle: edge.style?.font?.italic === true ? 'italic' : 'normal',
 				},
 			},
-		}],
+			}]),
+			...edgeCardinalityX6Labels(edge, cardinalities, points, sourcePoint, theme),
+		],
 		zIndex: 30,
 	};
+}
+
+function edgeCardinalityX6Labels(
+	edge: DiagramEdge,
+	cardinalities: { readonly source?: string; readonly target?: string },
+	points: readonly CanvasPoint[],
+	sourcePoint: CanvasPoint,
+	theme: WebviewTheme,
+): readonly Record<string, unknown>[] {
+	return [
+		cardinalities.source === undefined ? undefined : x6CardinalityLabel(
+			cardinalities.source,
+			edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points),
+			sourcePoint,
+			edge,
+			theme,
+		),
+		cardinalities.target === undefined ? undefined : x6CardinalityLabel(
+			cardinalities.target,
+			edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points),
+			sourcePoint,
+			edge,
+			theme,
+		),
+	].filter((label): label is Record<string, unknown> => label !== undefined);
+}
+
+function x6CardinalityLabel(
+	text: string,
+	position: CanvasPoint | undefined,
+	sourcePoint: CanvasPoint,
+	edge: DiagramEdge,
+	theme: WebviewTheme,
+): Record<string, unknown> {
+	return {
+		position: labelPosition(position ?? sourcePoint, sourcePoint),
+		attrs: {
+			rect: {
+				fill: theme.canvasBackground,
+				stroke: 'none',
+				fillOpacity: 0.85,
+				rx: 3,
+				ry: 3,
+			},
+			text: {
+				text,
+				fill: edge.style?.text_color ?? theme.edgeTextColor,
+				fontFamily: edge.style?.font?.family ?? theme.fontFamily,
+				fontSize: Math.max(9, (edge.style?.font?.size ?? theme.fontSize) - 1),
+				fontWeight: edge.style?.font?.bold === true ? 700 : 400,
+				fontStyle: edge.style?.font?.italic === true ? 'italic' : 'normal',
+			},
+		},
+	};
+}
+
+function edgeCardinalityLabelsForEdge(edge: X6Edge, payload: DiagramPayload | undefined): { readonly source?: string; readonly target?: string } {
+	if (payload === undefined) {
+		return {};
+	}
+
+	const diagramEdge = payload.diagram?.edges?.find((candidate) => candidate.id === edge.id);
+	return diagramEdge === undefined ? {} : edgeCardinalityLabels(diagramEdge, payload);
 }
 
 function labelPosition(label: CanvasPoint, sourcePoint: CanvasPoint): X6LabelPosition {
@@ -1824,7 +1930,11 @@ function normalizedRoutePoints(edge: X6Edge, view: X6EdgeView | undefined): read
 }
 
 function edgeLabelPoint(edge: X6Edge, view: X6EdgeView | undefined, sourcePoint: CanvasPoint): CanvasPoint | undefined {
-	const labelPositionValue = edge.getLabels()[0]?.position;
+	return edgeLabelPointAt(edge, 0, view, sourcePoint);
+}
+
+function edgeLabelPointAt(edge: X6Edge, index: number, view: X6EdgeView | undefined, sourcePoint: CanvasPoint): CanvasPoint | undefined {
+	const labelPositionValue = edge.getLabels()[index]?.position;
 	const labelPosition = normalizeLabelPosition(labelPositionValue);
 	if (labelPosition === undefined) {
 		return undefined;

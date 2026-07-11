@@ -1,0 +1,69 @@
+metadata:
+  schema_version: "1.0"
+  title: domain
+  authors: []
+  diagram_version: 0.1.0
+  theme_mode: light
+ontologies:
+  - path: domain.ttl
+namespaces:
+  rdfs: http://www.w3.org/2000/01/rdf-schema#
+nodes:
+  - ontology_item_type: class
+    id: node_item1
+    ontology_ref: http://www.example.com/ontology/domain#Domain
+    x: 275
+    y: 279
+    width: 180
+    height: 72
+    show_data_properties: true
+  - ontology_item_type: class
+    id: node_item2
+    ontology_ref: http://www.example.com/ontology/domain#Technology
+    x: 635
+    y: 279
+    width: 180
+    height: 72
+  - ontology_item_type: class
+    id: node_item3
+    ontology_ref: http://www.example.com/ontology/domain#Context
+    x: 530
+    y: 460
+    width: 180
+    height: 72
+edges:
+  - source_cardinality_label:
+      x: 480
+      y: 380
+    ontology_item_type: objectProperty
+    id: edge_item1
+    source: node_item1
+    target: node_item3
+    ontology_ref: http://www.example.com/ontology/domain#hasContext
+    label:
+      x: 546
+      y: 387
+    points:
+      - x: 455
+        y: 351
+      - x: 545
+        y: 351
+      - x: 545
+        y: 423
+      - x: 583
+        y: 423
+      - x: 583
+        y: 460
+  - ontology_item_type: subclassRelationship
+    id: edge_item2
+    source: node_item2
+    target: node_item1
+    ontology_ref: rdfs:subClassOf
+    label:
+      x: 545
+      y: 315
+    points:
+      - x: 635
+        y: 315
+      - x: 455
+        y: 315

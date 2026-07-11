@@ -28,6 +28,7 @@ export interface DiagramPayload {
 	readonly ontology?: {
 		readonly items?: readonly DiagramOntologyItem[];
 		readonly data_properties?: readonly DiagramDataProperty[];
+		readonly property_cardinalities?: readonly DiagramPropertyCardinality[];
 		readonly individuals?: readonly DiagramOntologyIndividual[];
 		readonly comments?: readonly DiagramOntologyComment[];
 	};
@@ -64,6 +65,13 @@ export interface DiagramDataProperty {
 	readonly rangeReferences: readonly string[];
 }
 
+export interface DiagramPropertyCardinality {
+	readonly propertyReference: string;
+	readonly classReference: string;
+	readonly minimum?: number;
+	readonly maximum?: number;
+}
+
 export interface DiagramOntologyIndividual {
 	readonly reference: string;
 	readonly displayLabel: string;
@@ -90,6 +98,8 @@ export interface DiagramEdge {
 	readonly target: string;
 	readonly ontology_ref: string;
 	readonly label: CanvasPoint;
+	readonly source_cardinality_label?: CanvasPoint;
+	readonly target_cardinality_label?: CanvasPoint;
 	readonly points: readonly CanvasPoint[];
 	readonly ontology_item_type?: string;
 	readonly style?: DiagramEdgeStyle;

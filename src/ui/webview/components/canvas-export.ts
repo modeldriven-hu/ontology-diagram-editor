@@ -1,6 +1,7 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteFoldBackground } from './note-colors';
@@ -128,7 +129,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		`<style>${noteHtmlResetStyle()}</style>`,
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme)),
-		...edges.map((edge) => renderEdge(edge, theme)),
+		...edges.map((edge) => renderEdge(edge, payload, theme)),
 		...nodes.map((node) => renderNode(node, payload, theme)),
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
@@ -144,7 +145,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 	};
 }
 
-function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
+function renderEdge(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): string {
 	const points = edgeRoutePoints(edge);
 	if (points.length < 2) {
 		return '';
@@ -166,6 +167,7 @@ function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
 			? ` marker-end="url(#${edgeMarkerId(edge, 'hollow-triangle')})"`
 			: ` marker-end="url(#${edgeMarkerId(edge, 'open-arrow')})"`;
 	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
+	const cardinalities = edgeCardinalityLabels(edge, payload);
 
 	return [
 		`<polyline points="${points.map((point) => `${numberValue(point.x)},${numberValue(point.y)}`).join(' ')}" fill="none" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"${dashArray}${marker}/>`,
@@ -187,7 +189,35 @@ function renderEdge(edge: DiagramEdge, theme: WebviewTheme): string {
 			verticalAlign: 'middle',
 			padding: 2,
 		}),
+		renderEdgeCardinalityLabel(edge, 'source', cardinalities.source, edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points), theme),
+		renderEdgeCardinalityLabel(edge, 'target', cardinalities.target, edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points), theme),
 	].join('\n');
+}
+
+function renderEdgeCardinalityLabel(
+	edge: DiagramEdge,
+	endpoint: 'source' | 'target',
+	text: string | undefined,
+	position: { readonly x: number; readonly y: number } | undefined,
+	theme: WebviewTheme,
+): string {
+	if (text === undefined || position === undefined) {
+		return '';
+	}
+
+	return renderTextBlock({
+		id: `${edge.id}_${endpoint}_cardinality`,
+		text,
+		bounds: { x: position.x, y: position.y, width: Math.max(28, text.length * 7), height: 20 },
+		color: edge.style?.text_color ?? theme.edgeTextColor,
+		fontFamily: edge.style?.font?.family ?? theme.fontFamily,
+		fontSize: Math.max(9, (edge.style?.font?.size ?? theme.fontSize) - 1),
+		bold: edge.style?.font?.bold,
+		italic: edge.style?.font?.italic,
+		align: 'center',
+		verticalAlign: 'middle',
+		padding: 2,
+	});
 }
 
 function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): readonly string[] {

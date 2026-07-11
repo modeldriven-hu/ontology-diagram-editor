@@ -37,7 +37,13 @@ export function availableNodeDataPropertyAttributes(node: DiagramNode, payload: 
 	return (payload.ontology?.data_properties ?? [])
 		.filter((property) => property.domainReferences.some((domain) => ontologyReferencesEqual(domain, node.ontology_ref, namespaces)))
 		.map((property) => ({
-			text: propertyDefinitionText(property.displayLabel, property.reference, property.rangeReferences[0], payload),
+			text: propertyDefinitionText(
+				property.displayLabel,
+				property.reference,
+				property.rangeReferences[0],
+				payload,
+				propertyCardinalityText(property.reference, node.ontology_ref, payload),
+			),
 		}))
 		.sort((left, right) => left.text.localeCompare(right.text));
 }
@@ -313,13 +319,20 @@ export function ontologyDisplayName(ontologyRef: string): string {
 	return displayName.length > 0 ? displayName : ontologyRef;
 }
 
-function propertyDefinitionText(displayLabel: string, reference: string, rangeReference: string | undefined, payload: DiagramPayload): string {
+function propertyDefinitionText(
+	displayLabel: string,
+	reference: string,
+	rangeReference: string | undefined,
+	payload: DiagramPayload,
+	cardinality: string | undefined,
+): string {
 	const name = displayLabel.trim().length > 0 ? displayLabel : ontologyDisplayName(reference);
+	const suffix = cardinality === undefined ? '' : ` [${cardinality}]`;
 	if (rangeReference === undefined || rangeReference.trim().length === 0) {
-		return name;
+		return `${name}${suffix}`;
 	}
 
-	return `${name}: ${ontologyReferenceDisplayName(rangeReference, payload)}`;
+	return `${name}: ${ontologyReferenceDisplayName(rangeReference, payload)}${suffix}`;
 }
 
 function propertyAssertionText(assertion: {
@@ -429,7 +442,27 @@ function uniqueStrings(values: readonly string[]): readonly string[] {
 	return [...new Set(values)];
 }
 
-function ontologyReferencesEqual(left: string, right: string, namespaces: Readonly<Record<string, string>>): boolean {
+export function propertyCardinalityText(propertyReference: string, classReference: string, payload: DiagramPayload): string | undefined {
+	const namespaces = payload.diagram?.namespaces ?? {};
+	const cardinality = (payload.ontology?.property_cardinalities ?? []).find((candidate) =>
+		ontologyReferencesEqual(candidate.propertyReference, propertyReference, namespaces)
+		&& ontologyReferencesEqual(candidate.classReference, classReference, namespaces),
+	);
+	return cardinality === undefined ? undefined : formatCardinality(cardinality.minimum, cardinality.maximum);
+}
+
+export function formatCardinality(minimum: number | undefined, maximum: number | undefined): string | undefined {
+	if (minimum === undefined && maximum === undefined) {
+		return undefined;
+	}
+	if (minimum !== undefined && maximum !== undefined && minimum === maximum) {
+		return String(minimum);
+	}
+
+	return `${minimum ?? 0}..${maximum ?? '*'}`;
+}
+
+export function ontologyReferencesEqual(left: string, right: string, namespaces: Readonly<Record<string, string>>): boolean {
 	if (left === right) {
 		return true;
 	}

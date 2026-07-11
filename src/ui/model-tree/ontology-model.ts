@@ -62,6 +62,7 @@ export interface OntologyItemMetadata {
 	readonly propertyAssertions?: readonly OntologyPropertyAssertion[];
 	readonly domainReferences?: readonly string[];
 	readonly rangeReferences?: readonly string[];
+	readonly propertyCardinalities?: readonly OntologyPropertyCardinality[];
 	readonly comments?: readonly string[];
 	readonly subclassReference?: string;
 	readonly superclassReference?: string;
@@ -69,6 +70,12 @@ export interface OntologyItemMetadata {
 	readonly sourceOntologyRef?: string;
 	readonly targetOntologyRef?: string;
 	readonly targetNodeType?: 'class' | 'datatype' | 'individual';
+}
+
+export interface OntologyPropertyCardinality {
+	readonly propertyReference: string;
+	readonly minimum?: number;
+	readonly maximum?: number;
 }
 
 export interface OntologyPropertyAssertion {
@@ -110,6 +117,13 @@ const owlDatatypeProperty = 'http://www.w3.org/2002/07/owl#DatatypeProperty';
 const owlEquivalentClass = 'http://www.w3.org/2002/07/owl#equivalentClass';
 const owlNamedIndividual = 'http://www.w3.org/2002/07/owl#NamedIndividual';
 const owlObjectProperty = 'http://www.w3.org/2002/07/owl#ObjectProperty';
+const owlOnProperty = 'http://www.w3.org/2002/07/owl#onProperty';
+const owlCardinality = 'http://www.w3.org/2002/07/owl#cardinality';
+const owlMinCardinality = 'http://www.w3.org/2002/07/owl#minCardinality';
+const owlMaxCardinality = 'http://www.w3.org/2002/07/owl#maxCardinality';
+const owlQualifiedCardinality = 'http://www.w3.org/2002/07/owl#qualifiedCardinality';
+const owlMinQualifiedCardinality = 'http://www.w3.org/2002/07/owl#minQualifiedCardinality';
+const owlMaxQualifiedCardinality = 'http://www.w3.org/2002/07/owl#maxQualifiedCardinality';
 const owlThing = 'http://www.w3.org/2002/07/owl#Thing';
 
 export const ontologyFileExtensions = ['ttl', 'rdf', 'owl', 'xml', 'jsonld', 'nt'] as const;
@@ -385,14 +399,19 @@ function createOntologyItems(
 	const ranges = new Map<string, Set<string>>();
 	const superclasses = new Map<string, Set<string>>();
 	const equivalentClasses = new Map<string, Set<string>>();
+	const classRestrictions = new Map<string, Set<string>>();
+	const restrictionProperties = new Map<string, Set<string>>();
+	const restrictionMinimums = new Map<string, number[]>();
+	const restrictionMaximums = new Map<string, number[]>();
+	const restrictionExactValues = new Map<string, number[]>();
 	const classAssertions = new Map<string, Set<string>>();
 	const propertyAssertions = new Map<string, OntologyPropertyAssertion[]>();
 	const subclassRelationships: SubclassRelationship[] = [];
 
 	for (const quad of quads) {
-		const subject = namedTermValue(quad.subject);
+		const subject = resourceTermValue(quad.subject);
 		const predicate = namedTermValue(quad.predicate);
-		const object = termValue(quad.object);
+		const object = resourceOrLiteralTermValue(quad.object);
 		if (subject === undefined || predicate === undefined || object === undefined) {
 			continue;
 		}
@@ -411,13 +430,38 @@ function createOntologyItems(
 		} else if (predicate === rdfsRange) {
 			addMapValue(ranges, subject, object);
 		} else if (predicate === rdfsSubClassOf) {
-			addMapValue(superclasses, subject, object);
-			subclassRelationships.push({ subclassReference: subject, superclassReference: object });
+			if (isBlankNodeReference(object)) {
+				addMapValue(classRestrictions, subject, object);
+			} else {
+				addMapValue(superclasses, subject, object);
+				subclassRelationships.push({ subclassReference: subject, superclassReference: object });
+			}
 		} else if (predicate === owlEquivalentClass) {
-			addMapValue(equivalentClasses, subject, object);
+			if (isBlankNodeReference(object)) {
+				addMapValue(classRestrictions, subject, object);
+			} else {
+				addMapValue(equivalentClasses, subject, object);
+			}
+		} else if (predicate === owlOnProperty && !isBlankNodeReference(object)) {
+			addMapValue(restrictionProperties, subject, object);
+		} else if (predicate === owlCardinality || predicate === owlQualifiedCardinality) {
+			const value = cardinalityValue(quad.object);
+			if (value !== undefined) {
+				addArrayMapValue(restrictionExactValues, subject, value);
+			}
+		} else if (predicate === owlMinCardinality || predicate === owlMinQualifiedCardinality) {
+			const value = cardinalityValue(quad.object);
+			if (value !== undefined) {
+				addArrayMapValue(restrictionMinimums, subject, value);
+			}
+		} else if (predicate === owlMaxCardinality || predicate === owlMaxQualifiedCardinality) {
+			const value = cardinalityValue(quad.object);
+			if (value !== undefined) {
+				addArrayMapValue(restrictionMaximums, subject, value);
+			}
 		} else {
 			const assertion = createPropertyAssertion(predicate, quad.object);
-			if (assertion !== undefined) {
+			if (assertion !== undefined && !isBlankNodeReference(subject)) {
 				addArrayMapValue(propertyAssertions, subject, assertion);
 			}
 		}
@@ -431,6 +475,14 @@ function createOntologyItems(
 			comments: valuesFor(comments, iri),
 			superclassReferences: valuesFor(superclasses, iri),
 			equivalentClassReferences: valuesFor(equivalentClasses, iri),
+			propertyCardinalities: classPropertyCardinalities(
+				iri,
+				classRestrictions,
+				restrictionProperties,
+				restrictionMinimums,
+				restrictionMaximums,
+				restrictionExactValues,
+			),
 		})),
 		...createEntityItems('objectProperty', [owlObjectProperty], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
@@ -716,8 +768,71 @@ function namedTermValue(term: RdfTerm): string | undefined {
 	return term.termType === 'NamedNode' ? term.value : undefined;
 }
 
-function termValue(term: RdfTerm): string | undefined {
-	return term.termType === 'NamedNode' || term.termType === 'Literal' ? term.value : undefined;
+function resourceTermValue(term: RdfTerm): string | undefined {
+	if (term.termType === 'NamedNode') {
+		return term.value;
+	}
+
+	return term.termType === 'BlankNode' ? `_:${term.value}` : undefined;
+}
+
+function resourceOrLiteralTermValue(term: RdfTerm): string | undefined {
+	return resourceTermValue(term) ?? (term.termType === 'Literal' ? term.value : undefined);
+}
+
+function isBlankNodeReference(value: string): boolean {
+	return value.startsWith('_:');
+}
+
+function cardinalityValue(term: RdfTerm): number | undefined {
+	if (term.termType !== 'Literal' || !/^\d+$/.test(term.value)) {
+		return undefined;
+	}
+
+	const value = Number(term.value);
+	return Number.isSafeInteger(value) ? value : undefined;
+}
+
+function classPropertyCardinalities(
+	classIri: string,
+	classRestrictions: ReadonlyMap<string, ReadonlySet<string>>,
+	restrictionProperties: ReadonlyMap<string, ReadonlySet<string>>,
+	restrictionMinimums: ReadonlyMap<string, readonly number[]>,
+	restrictionMaximums: ReadonlyMap<string, readonly number[]>,
+	restrictionExactValues: ReadonlyMap<string, readonly number[]>,
+): readonly OntologyPropertyCardinality[] {
+	const cardinalities = new Map<string, OntologyPropertyCardinality>();
+	for (const restriction of valuesFor(classRestrictions, classIri)) {
+		const exactValues = arrayValuesFor(restrictionExactValues, restriction);
+		const minimum = exactValues.length > 0
+			? Math.max(...exactValues)
+			: maximumNumber(arrayValuesFor(restrictionMinimums, restriction));
+		const maximum = exactValues.length > 0
+			? Math.min(...exactValues)
+			: minimumNumber(arrayValuesFor(restrictionMaximums, restriction));
+		if (minimum === undefined && maximum === undefined) {
+			continue;
+		}
+
+		for (const propertyReference of valuesFor(restrictionProperties, restriction)) {
+			const existing = cardinalities.get(propertyReference);
+			cardinalities.set(propertyReference, {
+				propertyReference,
+				minimum: maximumNumber([existing?.minimum, minimum].filter((value): value is number => value !== undefined)),
+				maximum: minimumNumber([existing?.maximum, maximum].filter((value): value is number => value !== undefined)),
+			});
+		}
+	}
+
+	return [...cardinalities.values()].sort((left, right) => left.propertyReference.localeCompare(right.propertyReference));
+}
+
+function maximumNumber(values: readonly number[]): number | undefined {
+	return values.length === 0 ? undefined : Math.max(...values);
+}
+
+function minimumNumber(values: readonly number[]): number | undefined {
+	return values.length === 0 ? undefined : Math.min(...values);
 }
 
 function isBuiltInType(value: string): boolean {

@@ -1,0 +1,89 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix domain: <http://www.example.com/ontology/domain#> .
+
+# Ontology: Domain/Subdomain Relationship
+# Define Domain and SubDomain classes
+domain:Domain a owl:Class ;
+    rdfs:label "Domain" ;
+    rdfs:comment "A primary category or topic" ;
+    rdfs:subClassOf
+        [ a owl:Restriction ;
+          owl:onProperty domain:domainIdentifier ;
+          owl:qualifiedCardinality "1"^^xsd:nonNegativeInteger ;
+          owl:onDataRange xsd:string
+        ],
+        [ a owl:Restriction ;
+          owl:onProperty domain:hasContext ;
+          owl:qualifiedCardinality "1"^^xsd:nonNegativeInteger ;
+          owl:onClass domain:Context
+        ] .
+
+domain:SubDomain a owl:Class ;
+    rdfs:label "SubDomain" ;
+    rdfs:comment "A specific area or subcategory within a domain" .
+
+domain:Context a owl:Class ;
+    rdfs:label "Context" ;
+    rdfs:comment "The context in which a domain or subdomain is relevant" .
+
+# Data properties of a domain
+domain:domainIdentifier a owl:DatatypeProperty ;
+    rdfs:label "domain identifier" ;
+    rdfs:domain domain:Domain ;
+    rdfs:range xsd:string ;
+    rdfs:comment "A unique textual identifier for a domain; each domain has exactly one" .
+
+domain:description a owl:DatatypeProperty ;
+    rdfs:label "description" ;
+    rdfs:domain domain:Domain ;
+    rdfs:range xsd:string ;
+    rdfs:comment "A textual description of a domain, without a cardinality constraint" .
+
+# Relationship: Each domain has exactly one context
+domain:hasContext a owl:ObjectProperty ;
+    rdfs:label "has context" ;
+    rdfs:domain domain:Domain ;
+    rdfs:range domain:Context ;
+    rdfs:comment "Relationship linking a domain to its context" .
+
+# Relationship: A subdomain is a type of domain
+domain:isSubdomainOf a rdf:Property ;
+    rdfs:label "is subdomain of" ;
+    rdfs:domain domain:SubDomain ;
+    rdfs:range domain:Domain ;
+    rdfs:comment "Relationship linking a subdomain to its parent domain" .
+
+# Domain instance: Technology
+domain:Technology a owl:NamedIndividual ;
+    rdfs:label "Technology" ;
+    rdfs:subClassOf domain:Domain ;
+    rdfs:comment "Main domain covering technology-related topics" .
+
+# Subdomain instances of Technology (5 subdomains)
+domain:Software a owl:NamedIndividual ;
+    rdfs:label "Software" ;
+    domain:isSubdomainOf domain:Technology ;
+    rdfs:comment "Subdomain covering software-related topics" .
+
+domain:Hardware a owl:NamedIndividual ;
+    rdfs:label "Hardware" ;
+    domain:isSubdomainOf domain:Technology ;
+    rdfs:comment "Subdomain covering hardware-related topics" .
+
+domain:Networking a owl:NamedIndividual ;
+    rdfs:label "Networking" ;
+    domain:isSubdomainOf domain:Technology ;
+    rdfs:comment "Subdomain covering networking-related topics" .
+
+domain:DataScience a owl:NamedIndividual ;
+    rdfs:label "Data Science" ;
+    domain:isSubdomainOf domain:Technology ;
+    rdfs:comment "Subdomain covering data science-related topics" .
+
+domain:ProgrammingLanguage a owl:NamedIndividual ;
+    rdfs:label "Programming Language" ;
+    domain:isSubdomainOf domain:Technology ;
+    rdfs:comment "Subdomain covering programming language-related topics" .
