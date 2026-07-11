@@ -50,7 +50,9 @@ affordances. Edges shall show edge label movement affordances.
 
 The user can add or remove nodes, notes, images, and standalone labels from the current
 selection by using platform selection modifiers. The user can also select multiple
-bounded elements with a marquee selection gesture.
+elements with a marquee selection gesture: dragging the left mouse button across a blank
+canvas area displays a selection rectangle and selects every eligible element fully
+enclosed by the rectangle.
 
 When multiple bounded elements are selected, keyboard movement shall move those elements
 as a single unit. Mouse drag movement for multi-selection is disabled for version 1.
