@@ -23,6 +23,7 @@ export interface DiagramPayload {
 		readonly notes?: readonly DiagramNote[];
 		readonly images?: readonly DiagramImage[];
 		readonly labels?: readonly DiagramLabel[];
+		readonly metadata_elements?: readonly DiagramMetadataElement[];
 	};
 	readonly ontology?: {
 		readonly items?: readonly DiagramOntologyItem[];
@@ -125,6 +126,15 @@ export interface DiagramLabel {
 	readonly height: number;
 	readonly text: string;
 	readonly style?: DiagramLabelStyle;
+}
+
+export interface DiagramMetadataElement {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly style?: DiagramElementStyle;
 }
 
 export interface DiagramElementStyle {

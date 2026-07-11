@@ -8,7 +8,7 @@ const identifierLocalPartPattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const compactIriPattern = /^([^:/?#]+):(.+)$/;
 const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
-export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label';
+export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
@@ -449,6 +449,31 @@ export class DiagramLabel {
 	}
 }
 
+/** A canvas element whose displayed values are derived from the diagram metadata. */
+export class DiagramMetadataElement {
+	public readonly id: DiagramIdentifier;
+	public readonly bounds: Bounds;
+
+	public constructor(
+		id: string,
+		bounds: Bounds,
+		public readonly style?: CommonStyle,
+		public readonly extra: JsonObject = {},
+	) {
+		this.id = DiagramIdentifier.create(id, 'metadata');
+		this.bounds = bounds;
+	}
+
+	public toPersistenceObject(): JsonObject {
+		return omitUndefined({
+			...this.extra,
+			id: this.id.value,
+			...this.bounds.toPersistenceObject(),
+			style: this.style?.toPersistenceObject(),
+		});
+	}
+}
+
 export class OntologyDiagramDocument {
 	public constructor(
 		public readonly metadata: DiagramMetadata,
@@ -460,6 +485,7 @@ export class OntologyDiagramDocument {
 		public readonly images: readonly DiagramImage[] = [],
 		public readonly labels: readonly DiagramLabel[] = [],
 		public readonly extra: JsonObject = {},
+		public readonly metadataElements: readonly DiagramMetadataElement[] = [],
 	) {
 		validateDocument(this);
 	}
@@ -485,6 +511,7 @@ export class OntologyDiagramDocument {
 			notes: optionalList(this.notes, (note) => note.toPersistenceObject()),
 			images: optionalList(this.images, (image) => image.toPersistenceObject()),
 			labels: optionalList(this.labels, (label) => label.toPersistenceObject()),
+			metadata_elements: optionalList(this.metadataElements, (element) => element.toPersistenceObject()),
 		});
 	}
 }
@@ -596,6 +623,11 @@ const labelSchema = boundsFieldsSchema.extend({
 	style: labelStyleSchema.optional(),
 }).passthrough();
 
+const metadataElementSchema = boundsFieldsSchema.extend({
+	id: z.string(),
+	style: commonStyleSchema.optional(),
+}).passthrough();
+
 const documentSchema = z.object({
 	metadata: metadataSchema,
 	ontologies: z.array(ontologyFileReferenceSchema),
@@ -605,6 +637,7 @@ const documentSchema = z.object({
 	notes: z.array(noteSchema).optional(),
 	images: z.array(imageSchema).optional(),
 	labels: z.array(labelSchema).optional(),
+	metadata_elements: z.array(metadataElementSchema).optional(),
 }).passthrough();
 
 export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocument {
@@ -624,7 +657,8 @@ export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocum
 		(document.notes ?? []).map(parseNote),
 		(document.images ?? []).map(parseImage),
 		(document.labels ?? []).map(parseLabel),
-		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels']),
+		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels', 'metadata_elements']),
+		(document.metadata_elements ?? []).map(parseMetadataElement),
 	);
 }
 
@@ -705,6 +739,15 @@ function parseLabel(value: z.infer<typeof labelSchema>): DiagramLabel {
 	);
 }
 
+function parseMetadataElement(value: z.infer<typeof metadataElementSchema>): DiagramMetadataElement {
+	return new DiagramMetadataElement(
+		value.id,
+		new Bounds(value.x, value.y, value.width, value.height),
+		value.style ? parseCommonStyle(value.style) : undefined,
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'style']),
+	);
+}
+
 function parsePoint(value: z.infer<typeof pointSchema>): Point {
 	return new Point(value.x, value.y);
 }
@@ -768,6 +811,7 @@ function validateUniqueElementIds(document: OntologyDiagramDocument): string[] {
 		...document.notes.map((note) => note.id.value),
 		...document.images.map((image) => image.id.value),
 		...document.labels.map((label) => label.id.value),
+		...document.metadataElements.map((element) => element.id.value),
 	];
 	const seen = new Set<string>();
 	const duplicates = ids.filter((id) => {

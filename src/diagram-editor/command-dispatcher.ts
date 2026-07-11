@@ -11,6 +11,7 @@ import {
 	CreateCommentNoteUseCase,
 	CreateImageUseCase,
 	CreateLabelUseCase,
+	CreateMetadataElementUseCase,
 	CreateNodeUseCase,
 	CreateNoteConnectionUseCase,
 	CreateNoteUseCase,
@@ -18,6 +19,7 @@ import {
 	DeleteEdgeUseCase,
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
+	DeleteMetadataElementUseCase,
 	DeleteNodeUseCase,
 	DeleteNoteUseCase,
 	OptimizeEdgeRouteUseCase,
@@ -32,6 +34,7 @@ import {
 	UpdateImageBoundsUseCase,
 	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
+	UpdateMetadataBoundsUseCase,
 	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
@@ -63,12 +66,14 @@ interface DiagramEditorUseCases {
 	readonly createNoteConnection: CreateNoteConnectionUseCase;
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
+	readonly createMetadataElement: CreateMetadataElementUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
 	readonly deleteElements: DeleteElementsUseCase;
 	readonly deleteEdge: DeleteEdgeUseCase;
 	readonly deleteNote: DeleteNoteUseCase;
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
+	readonly deleteMetadataElement: DeleteMetadataElementUseCase;
 	readonly optimizeEdgeRoute: OptimizeEdgeRouteUseCase;
 	readonly straightenEdgeRoute: StraightenEdgeRouteUseCase;
 	readonly showRelatedElements: ShowRelatedElementsUseCase;
@@ -88,6 +93,7 @@ interface DiagramEditorUseCases {
 	readonly updateImageBounds: UpdateImageBoundsUseCase;
 	readonly updateImageSource: UpdateImageSourceUseCase;
 	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
+	readonly updateMetadataBounds: UpdateMetadataBoundsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
 	readonly updateThemeMode: UpdateThemeModeUseCase;
@@ -247,6 +253,9 @@ export class DiagramCommandDispatcher {
 					command.position,
 				));
 				return;
+			case 'createMetadataElement':
+				await this.handleResult(this.useCases.createMetadataElement.execute(this.repository.load(), command.position));
+				return;
 			case 'saveDiagramExport':
 				await this.saveDiagramExport(command);
 				return;
@@ -267,6 +276,9 @@ export class DiagramCommandDispatcher {
 				return;
 			case 'deleteLabel':
 				await this.deleteLabel(command);
+				return;
+			case 'deleteMetadataElement':
+				await this.deleteMetadataElement(command);
 				return;
 			case 'updateNoteBounds':
 				await this.handleResult(this.useCases.updateNoteBounds.execute(
@@ -305,6 +317,9 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.updates,
 				));
+				return;
+			case 'updateMetadataBounds':
+				await this.handleResult(this.useCases.updateMetadataBounds.execute(this.repository.load(), command.updates));
 				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
@@ -444,8 +459,9 @@ export class DiagramCommandDispatcher {
 		const selectedNoteIds = diagram.notes.filter((note) => ids.has(note.id.value)).map((note) => note.id.value);
 		const selectedImageIds = diagram.images.filter((image) => ids.has(image.id.value)).map((image) => image.id.value);
 		const selectedLabelIds = diagram.labels.filter((label) => ids.has(label.id.value)).map((label) => label.id.value);
+		const selectedMetadataIds = diagram.metadataElements.filter((element) => ids.has(element.id.value)).map((element) => element.id.value);
 		const selectedEdgeIds = diagram.edges.filter((edge) => ids.has(edge.id.value)).map((edge) => edge.id.value);
-		const selectedElementCount = selectedNodeIds.length + selectedNoteIds.length + selectedImageIds.length + selectedLabelIds.length + selectedEdgeIds.length;
+		const selectedElementCount = selectedNodeIds.length + selectedNoteIds.length + selectedImageIds.length + selectedLabelIds.length + selectedMetadataIds.length + selectedEdgeIds.length;
 		if (selectedElementCount === 0) {
 			return;
 		}
@@ -528,6 +544,13 @@ export class DiagramCommandDispatcher {
 		));
 	}
 
+	private async deleteMetadataElement(command: Extract<WebviewCommand, { readonly type: 'deleteMetadataElement' }>): Promise<void> {
+		const confirmed = await vscode.window.showWarningMessage('Delete this diagram information element?', { modal: true }, 'Delete');
+		if (confirmed === 'Delete') {
+			await this.handleResult(this.useCases.deleteMetadataElement.execute(this.repository.load(), command.id));
+		}
+	}
+
 	private async createImage(command: Extract<WebviewCommand, { readonly type: 'createImage' }>): Promise<void> {
 		const imageUri = await pickImageFile('Add Image', 'Add image to ontology diagram');
 		if (imageUri === undefined) {
@@ -603,12 +626,14 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createNoteConnection: new CreateNoteConnectionUseCase(),
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
+		createMetadataElement: new CreateMetadataElementUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
 		deleteElements: new DeleteElementsUseCase(),
 		deleteEdge: new DeleteEdgeUseCase(),
 		deleteNote: new DeleteNoteUseCase(),
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
+		deleteMetadataElement: new DeleteMetadataElementUseCase(),
 		optimizeEdgeRoute: new OptimizeEdgeRouteUseCase(),
 		straightenEdgeRoute: new StraightenEdgeRouteUseCase(),
 		showRelatedElements: new ShowRelatedElementsUseCase(),
@@ -628,6 +653,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateImageBounds: new UpdateImageBoundsUseCase(),
 		updateImageSource: new UpdateImageSourceUseCase(),
 		updateLabelBounds: new UpdateLabelBoundsUseCase(),
+		updateMetadataBounds: new UpdateMetadataBoundsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
 		updateThemeMode: new UpdateThemeModeUseCase(),

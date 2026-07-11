@@ -1,6 +1,6 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
-import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteFoldBackground } from './note-colors';
@@ -95,12 +95,14 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 	const notes = (diagram.notes ?? []).filter((note) => note.export !== false);
 	const images = diagram.images ?? [];
 	const labels = diagram.labels ?? [];
+	const metadataElements = diagram.metadata_elements ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
 		...edges.flatMap(edgeExportBounds),
 		...notes,
 		...images,
 		...labels,
+		...metadataElements,
 	]);
 	if (contentBounds === undefined) {
 		return undefined;
@@ -131,6 +133,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme, imageHref
 		...nodes.map((node) => renderNode(node, payload, theme)),
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
+		...metadataElements.map((element) => renderMetadataElement(element, payload, theme)),
 		'</svg>',
 	].join('\n');
 
@@ -360,6 +363,31 @@ function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {
 		verticalAlign: 'middle',
 		padding: 4,
 	});
+}
+
+function renderMetadataElement(element: DiagramMetadataElement, payload: DiagramPayload, theme: WebviewTheme): string {
+	const bounds = elementBounds(element);
+	const border = borderStyle(element.style, theme.nodeBorder, 1);
+	const rowHeight = bounds.height / 3;
+	const keyWidth = Math.min(92, Math.max(68, bounds.width * 0.34));
+	const fontFamily = element.style?.font?.family ?? theme.fontFamily;
+	const fontSize = element.style?.font?.size ?? theme.fontSize;
+	const metadata = payload.diagram?.metadata;
+	const rows = [
+		['Title', metadata?.title ?? ''],
+		['Author', (metadata?.authors ?? []).join(', ')],
+		['Version', metadata?.diagram_version ?? ''],
+	] as const;
+	const parts = [
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(element.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(element.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(element.style, theme.elementShadow)}/>`,
+		`<path d="M ${numberValue(bounds.x + keyWidth)} ${numberValue(bounds.y)} V ${numberValue(bounds.y + bounds.height)} M ${numberValue(bounds.x)} ${numberValue(bounds.y + rowHeight)} H ${numberValue(bounds.x + bounds.width)} M ${numberValue(bounds.x)} ${numberValue(bounds.y + rowHeight * 2)} H ${numberValue(bounds.x + bounds.width)}" fill="none" ${borderAttributes(border)}/>`
+	];
+	rows.forEach((row, index) => {
+		const y = bounds.y + rowHeight * index;
+		parts.push(renderTextBlock({ id: `${element.id}_key${index}`, text: row[0], bounds: { x: bounds.x, y, width: keyWidth, height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: true, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 9 }));
+		parts.push(renderTextBlock({ id: `${element.id}_value${index}`, text: row[1], bounds: { x: bounds.x + keyWidth, y, width: bounds.width - keyWidth, height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: element.style?.font?.bold, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 9 }));
+	});
+	return parts.join('\n');
 }
 
 function renderImage(image: DiagramImage, theme: WebviewTheme, imageHrefMode: ImageHrefMode): string {

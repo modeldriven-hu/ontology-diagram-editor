@@ -1,8 +1,8 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, isDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../../shared/diagram-layout';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -12,6 +12,7 @@ import { CanvasPropertyPanel } from '../components/canvas-property-panel';
 import { measuredTextWidth, nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
+import { metadataBounds, renderMetadataToolbarIcon } from '../components/ontology-diagram-metadata';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
 import { ontologyCommentsForReference } from '../components/ontology-comments';
 import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -72,6 +73,7 @@ const status = requiredElement('status');
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
 const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
 const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
+const addMetadataButton = requiredElement('addMetadataButton') as HTMLButtonElement;
 const undoDiagramButton = requiredElement('undoDiagramButton') as HTMLButtonElement;
 const redoDiagramButton = requiredElement('redoDiagramButton') as HTMLButtonElement;
 const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
@@ -225,6 +227,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 renderNoteToolbarIcon(addNoteButton);
 renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
+renderMetadataToolbarIcon(addMetadataButton);
 renderLocalElementToolbarIcons({
 	localElementDragHandle,
 	minimizeLocalButton,
@@ -276,6 +279,10 @@ noteEditorController.register();
 addImageButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
 	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
+});
+addMetadataButton.addEventListener('click', () => {
+	localElementToolbarController.cancelPendingNoteConnection();
+	messageBus.publishCommand(new CreateMetadataElementCommand(insertionPosition()));
 });
 undoDiagramButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
@@ -405,11 +412,12 @@ function render(): void {
 	const notes = webviewConfig.payload.diagram?.notes ?? [];
 	const images = webviewConfig.payload.diagram?.images ?? [];
 	const labels = webviewConfig.payload.diagram?.labels ?? [];
-	if (nodes.length === 0 && edges.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0) {
+	const metadataElements = webviewConfig.payload.diagram?.metadata_elements ?? [];
+	if (nodes.length === 0 && edges.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0 && metadataElements.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
-			'Drag a class, individual, or datatype from the model tree, or add a note, label, or image from the canvas toolbar.',
+			'Drag a class, individual, or datatype from the model tree, or add an element from the canvas toolbar.',
 		));
 		messageBus.publishEvent(new CanvasRenderedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,
@@ -530,6 +538,9 @@ function minimumSizeForElement(element: CanvasPropertyElement | undefined): { re
 	}
 	if (element?.kind === 'label') {
 		return { width: minimumLabelWidth, height: minimumLabelHeight };
+	}
+	if (element?.kind === 'metadata') {
+		return { width: minimumMetadataWidth, height: minimumMetadataHeight };
 	}
 
 	return undefined;
@@ -963,7 +974,7 @@ function keyboardNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
 }
 
 function isKeyboardNudgeableElement(kind: string | undefined): boolean {
-	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label';
+	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label' || kind === 'metadata';
 }
 
 function registerDeleteHandlers(): void {
@@ -1016,6 +1027,10 @@ function deleteElement(id: string): boolean {
 
 		return true;
 	}
+	if (geometryPersistence.hasMetadata(id)) {
+		messageBus.publishCommand(new DeleteMetadataElementCommand(id));
+		return true;
+	}
 
 	return false;
 }
@@ -1038,7 +1053,8 @@ function deletableElementIds(ids: readonly string[]): readonly string[] {
 			|| element?.kind === 'edge'
 			|| geometryPersistence.hasNote(id)
 			|| geometryPersistence.hasImage(id)
-			|| geometryPersistence.hasLabel(id);
+			|| geometryPersistence.hasLabel(id)
+			|| geometryPersistence.hasMetadata(id);
 	});
 }
 
@@ -1085,6 +1101,9 @@ function trackRenderedGeometry(payload: DiagramPayload): void {
 			width: image.width,
 			height: image.height,
 		});
+	}
+	for (const element of payload.diagram?.metadata_elements ?? []) {
+		geometryPersistence.trackMetadataBounds(metadataBounds(element));
 	}
 }
 

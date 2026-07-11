@@ -1,8 +1,8 @@
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateImageSourceCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
-import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField, textField } from './canvas-property-fields';
@@ -261,9 +261,27 @@ export class CanvasPropertyPanel {
 			this.renderTabs(element.value.id, this.noteTabs(element.value, identitySection));
 		} else if (element.kind === 'label') {
 			this.renderTabs(element.value.id, this.labelTabs(element.value, identitySection));
+		} else if (element.kind === 'metadata') {
+			this.renderTabs(element.value.id, this.metadataTabs(element.value, identitySection));
 		} else {
 			this.renderTabs(element.value.id, this.imageTabs(element.value, identitySection));
 		}
+	}
+
+	private metadataTabs(element: DiagramMetadataElement, identitySection: HTMLElement): readonly PropertyTab[] {
+		const metadata = this.options.payload.diagram?.metadata;
+		return [
+			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Diagram Information', [
+				readonlyField('Title', metadata?.title ?? ''),
+				readonlyField('Author', authorsText(metadata?.authors ?? [])),
+				readonlyField('Version', metadata?.diagram_version ?? ''),
+			])] },
+			{ id: 'geometry', label: 'Geometry', sections: [sectionElement('Geometry', this.geometryFields(element, (update) => {
+				this.propertyEdited('metadata', element.id, ['x', 'y', 'width', 'height']);
+				this.options.messageBus.publishCommand(new UpdateMetadataBoundsCommand([update]));
+			}, minimumMetadataWidth, minimumMetadataHeight))] },
+			{ id: 'style', label: 'Style', sections: [this.commonStyleSection('metadata', element.id, element.style)] },
+		];
 	}
 
 	private nodeTabs(node: DiagramNode, identitySection: HTMLElement): readonly PropertyTab[] {
@@ -615,7 +633,7 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private commonStyleSection(elementType: 'node' | 'note', id: string, style: DiagramElementStyle | undefined): HTMLElement {
+	private commonStyleSection(elementType: 'node' | 'note' | 'metadata', id: string, style: DiagramElementStyle | undefined): HTMLElement {
 		const commit = (nextStyle: CommonStylePatch | undefined): void => {
 			this.updateElementStyle(elementType, id, nextStyle);
 		};

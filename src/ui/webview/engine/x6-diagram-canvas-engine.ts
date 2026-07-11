@@ -5,7 +5,7 @@ import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
 import type { X6Cell, X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node, X6SelectionPlugin } from './x6-browser';
 
@@ -126,6 +126,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			}
 			for (const note of payload.diagram?.notes ?? []) {
 				this.graph.addNode(x6Note(note, theme));
+			}
+			for (const element of payload.diagram?.metadata_elements ?? []) {
+				this.graph.addNode(x6MetadataElement(element, payload, theme));
 			}
 			const connectableElementById = new Map<string, ConnectableElement>([
 				...(payload.diagram?.nodes ?? []).map((node) => [node.id, node] as const),
@@ -1094,6 +1097,62 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 			},
 			nodeImage: imageAttrs,
 			...presentation.attrs,
+		},
+		zIndex: 20,
+	};
+}
+
+function x6MetadataElement(element: DiagramMetadataElement, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
+	const style = element.style;
+	const fontSize = style?.font?.size ?? theme.fontSize;
+	const fontFamily = style?.font?.family ?? theme.fontFamily;
+	const textColor = style?.text_color ?? theme.editorForeground;
+	const rowHeight = element.height / 3;
+	const keyWidth = Math.min(92, Math.max(68, element.width * 0.34));
+	const textAttrs = {
+		fill: textColor,
+		fontFamily,
+		fontSize,
+		fontWeight: style?.font?.bold === true ? 700 : 400,
+		fontStyle: style?.font?.italic === true ? 'italic' : 'normal',
+		textAnchor: 'start',
+		textVerticalAnchor: 'middle',
+		pointerEvents: 'none',
+	};
+	const metadata = payload.diagram?.metadata;
+	const rows = [
+		['Title', metadata?.title ?? ''],
+		['Author', (metadata?.authors ?? []).join(', ')],
+		['Version', metadata?.diagram_version ?? ''],
+	] as const;
+	const markup: Record<string, string>[] = [{ tagName: 'rect', selector: 'body' }, { tagName: 'path', selector: 'grid' }];
+	for (let index = 0; index < rows.length; index += 1) {
+		markup.push({ tagName: 'text', selector: `key${index}` }, { tagName: 'text', selector: `value${index}` });
+	}
+	return {
+		id: element.id,
+		x: element.x,
+		y: element.y,
+		width: element.width,
+		height: element.height,
+		markup,
+		attrs: {
+			body: {
+				refWidth: '100%', refHeight: '100%', rx: cornerRadius(style, theme.nodeCornerRadius), ry: cornerRadius(style, theme.nodeCornerRadius),
+				fill: style?.bg_color ?? theme.nodeBackground,
+				...borderAttrs(style?.border, theme.nodeBorder, 1),
+				filter: shadowFilter(style, theme.elementShadow, theme),
+			},
+			grid: {
+				d: `M ${keyWidth} 0 V ${element.height} M 0 ${rowHeight} H ${element.width} M 0 ${rowHeight * 2} H ${element.width}`,
+				...borderAttrs(style?.border, theme.nodeBorder, 1),
+				fill: 'none',
+				pointerEvents: 'none',
+			},
+			...Object.fromEntries(rows.flatMap((row, index) => [
+				[`key${index}`, { ...textAttrs, text: row[0], refX: 9, refY: rowHeight * (index + 0.5), fontWeight: 600 }],
+				[`value${index}`, { ...textAttrs, text: row[1], refX: keyWidth + 9, refY: rowHeight * (index + 0.5) }],
+			])),
 		},
 		zIndex: 20,
 	};

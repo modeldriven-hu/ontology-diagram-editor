@@ -1,5 +1,5 @@
-import { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
+import { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
 import { boundsEqual, toBounds } from './bounds';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
@@ -10,6 +10,7 @@ export interface ElementBoundsUpdates {
 	readonly noteUpdates: readonly NoteBoundsUpdate[];
 	readonly imageUpdates: readonly ImageBoundsUpdate[];
 	readonly labelUpdates: readonly LabelBoundsUpdate[];
+	readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
 }
 
 export class UpdateElementBoundsUseCase {
@@ -22,6 +23,7 @@ export class UpdateElementBoundsUseCase {
 			...updates.noteUpdates,
 			...updates.imageUpdates,
 			...updates.labelUpdates,
+			...(updates.metadataUpdates ?? []),
 		];
 		if (allUpdates.length === 0) {
 			return {};
@@ -42,6 +44,10 @@ export class UpdateElementBoundsUseCase {
 		const invalidLabelUpdate = updates.labelUpdates.find((update) => update.width < minimumLabelWidth || update.height < minimumLabelHeight);
 		if (invalidLabelUpdate !== undefined) {
 			return { notification: `Labels must be at least ${minimumLabelWidth} x ${minimumLabelHeight}.` };
+		}
+		const invalidMetadataUpdate = updates.metadataUpdates?.find((update) => update.width < minimumMetadataWidth || update.height < minimumMetadataHeight);
+		if (invalidMetadataUpdate !== undefined) {
+			return { notification: `Diagram information must be at least ${minimumMetadataWidth} x ${minimumMetadataHeight}.` };
 		}
 
 		const updateById = new Map<string, BoundsUpdate>(allUpdates.map((update) => [update.id, update]));
@@ -143,6 +149,18 @@ export class UpdateElementBoundsUseCase {
 				label.extra,
 			);
 		});
+		const nextMetadataElements = diagram.metadataElements.map((element) => {
+			const update = updateById.get(element.id.value);
+			if (update === undefined) {
+				return element;
+			}
+			const nextBounds = toBounds(update);
+			if (boundsEqual(element.bounds, nextBounds)) {
+				return element;
+			}
+			changed = true;
+			return new DiagramMetadataElement(element.id.value, nextBounds, element.style, element.extra);
+		});
 		const nextEdges = diagram.edges.map((edge) => {
 			return translateEdgeMovedWithEndpoints(edge, moveDeltaByElementId)
 				?? recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId);
@@ -159,6 +177,7 @@ export class UpdateElementBoundsUseCase {
 				notes: nextNotes,
 				images: nextImages,
 				labels: nextLabels,
+				metadataElements: nextMetadataElements,
 				edges: nextEdges,
 			}),
 		};

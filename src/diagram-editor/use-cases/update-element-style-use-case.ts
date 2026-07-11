@@ -4,6 +4,7 @@ import {
 	DiagramEdge,
 	DiagramImage,
 	DiagramLabel,
+	DiagramMetadataElement,
 	DiagramNode,
 	DiagramNote,
 	EdgeStyle,
@@ -38,6 +39,9 @@ export class UpdateElementStyleUseCase {
 			if (elementType === 'image') {
 				return updateImageStyle(diagram, id, style);
 			}
+			if (elementType === 'metadata') {
+				return updateMetadataStyle(diagram, id, style);
+			}
 
 			return updateLabelStyle(diagram, id, style);
 		} catch (error) {
@@ -48,6 +52,22 @@ export class UpdateElementStyleUseCase {
 			throw error;
 		}
 	}
+}
+
+function updateMetadataStyle(diagram: OntologyDiagramDocument, id: string, style: ElementStylePatch | undefined): DiagramMutationResult {
+	let changed = false;
+	const metadataElements = diagram.metadataElements.map((element) => {
+		if (element.id.value !== id) {
+			return element;
+		}
+		const nextStyle = style === undefined ? undefined : commonStyle(style);
+		if (JSON.stringify(element.style?.toPersistenceObject()) === JSON.stringify(nextStyle?.toPersistenceObject())) {
+			return element;
+		}
+		changed = true;
+		return new DiagramMetadataElement(element.id.value, element.bounds, nextStyle, element.extra);
+	});
+	return changed ? { diagram: cloneDiagram(diagram, { metadataElements }) } : {};
 }
 
 function updateNodeStyle(

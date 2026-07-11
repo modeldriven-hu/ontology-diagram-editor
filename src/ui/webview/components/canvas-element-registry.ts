@@ -2,14 +2,15 @@ import type { BoundsUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementType } from '../../../shared/canvas-editor-events';
 import type { ElementStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { CanvasElementContentUpdate } from '../engine/diagram-canvas-engine';
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 
 export type CanvasPropertyElement =
 	| { readonly kind: 'node'; readonly value: DiagramNode }
 	| { readonly kind: 'edge'; readonly value: DiagramEdge }
 	| { readonly kind: 'note'; readonly value: DiagramNote }
 	| { readonly kind: 'label'; readonly value: DiagramLabel }
-	| { readonly kind: 'image'; readonly value: DiagramImage };
+	| { readonly kind: 'image'; readonly value: DiagramImage }
+	| { readonly kind: 'metadata'; readonly value: DiagramMetadataElement };
 
 export class CanvasElementRegistry {
 	private readonly nodes = new Map<string, DiagramNode>();
@@ -17,6 +18,7 @@ export class CanvasElementRegistry {
 	private readonly notes = new Map<string, DiagramNote>();
 	private readonly labels = new Map<string, DiagramLabel>();
 	private readonly images = new Map<string, DiagramImage>();
+	private readonly metadataElements = new Map<string, DiagramMetadataElement>();
 
 	public constructor(payload: DiagramPayload) {
 		for (const node of payload.diagram?.nodes ?? []) {
@@ -34,6 +36,9 @@ export class CanvasElementRegistry {
 		for (const image of payload.diagram?.images ?? []) {
 			this.images.set(image.id, image);
 		}
+		for (const element of payload.diagram?.metadata_elements ?? []) {
+			this.metadataElements.set(element.id, element);
+		}
 	}
 
 	public renderedElementIdentifiers(): readonly string[] {
@@ -43,6 +48,7 @@ export class CanvasElementRegistry {
 			...this.nodes.keys(),
 			...this.notes.keys(),
 			...this.labels.keys(),
+			...this.metadataElements.keys(),
 		];
 	}
 
@@ -66,6 +72,10 @@ export class CanvasElementRegistry {
 		const image = this.images.get(id);
 		if (image !== undefined) {
 			return { kind: 'image', value: image };
+		}
+		const metadata = this.metadataElements.get(id);
+		if (metadata !== undefined) {
+			return { kind: 'metadata', value: metadata };
 		}
 
 		return undefined;
@@ -97,6 +107,11 @@ export class CanvasElementRegistry {
 		const image = this.images.get(update.id);
 		if (image !== undefined) {
 			this.images.set(update.id, { ...image, ...update });
+			return;
+		}
+		const metadata = this.metadataElements.get(update.id);
+		if (metadata !== undefined) {
+			this.metadataElements.set(update.id, { ...metadata, ...update });
 		}
 	}
 
@@ -176,6 +191,13 @@ export class CanvasElementRegistry {
 			const image = this.images.get(id);
 			if (image !== undefined) {
 				this.images.set(id, { ...image, style });
+			}
+			return;
+		}
+		if (elementType === 'metadata') {
+			const element = this.metadataElements.get(id);
+			if (element !== undefined) {
+				this.metadataElements.set(id, { ...element, style });
 			}
 			return;
 		}

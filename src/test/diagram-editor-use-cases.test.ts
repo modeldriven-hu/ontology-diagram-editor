@@ -13,11 +13,30 @@ import {
 	OntologyDiagramDocument,
 	Point,
 } from '../documents/odiagram';
-import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
 
 suite('Diagram editor use cases', () => {
+	test('creates, moves, styles, and deletes a diagram information element', () => {
+		const created = new CreateMetadataElementUseCase().execute(emptyDiagram(), { x: 10.4, y: 20.6 }).diagram;
+		assert.ok(created);
+		assert.strictEqual(created.metadataElements[0].id.value, 'metadata_item1');
+		assert.deepStrictEqual(created.metadataElements[0].bounds.toPersistenceObject(), { x: 10, y: 21, width: 280, height: 108 });
+
+		const moved = new UpdateMetadataBoundsUseCase().execute(created, [{ id: 'metadata_item1', x: 40, y: 50, width: 300, height: 120 }]).diagram;
+		assert.ok(moved);
+		assert.deepStrictEqual(moved.metadataElements[0].bounds.toPersistenceObject(), { x: 40, y: 50, width: 300, height: 120 });
+
+		const styled = new UpdateElementStyleUseCase().execute(moved, 'metadata', 'metadata_item1', { bg_color: '#ffffff', font: { bold: true } }).diagram;
+		assert.ok(styled);
+		assert.strictEqual(styled.metadataElements[0].style?.bgColor, '#ffffff');
+		assert.strictEqual(styled.metadataElements[0].style?.font?.bold, true);
+
+		const deleted = new DeleteMetadataElementUseCase().execute(styled, 'metadata_item1').diagram;
+		assert.ok(deleted);
+		assert.strictEqual(deleted.metadataElements.length, 0);
+	});
 	test('creates a diagram node from a supported model-tree item', () => {
 		const result = new CreateNodeUseCase().execute(
 			emptyDiagram(),

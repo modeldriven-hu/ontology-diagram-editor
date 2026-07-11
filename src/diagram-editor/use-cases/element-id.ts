@@ -1,4 +1,4 @@
-export function nextElementId(existingIds: readonly string[], prefix: 'node' | 'edge' | 'note' | 'image' | 'label'): string {
+export function nextElementId(existingIds: readonly string[], prefix: 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata'): string {
 	const existingIdSet = new Set(existingIds);
 	let index = existingIds.length + 1;
 

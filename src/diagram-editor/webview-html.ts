@@ -60,6 +60,7 @@ function webviewBody(
 				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
 				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
+				<button class="canvas-action" id="addMetadataButton" type="button" title="Add diagram information" aria-label="Add diagram information"></button>
 				<span class="canvas-action-separator" aria-hidden="true"></span>
 				<button class="canvas-action" id="undoDiagramButton" type="button" title="Undo diagram edit" aria-label="Undo diagram edit"></button>
 				<button class="canvas-action" id="redoDiagramButton" type="button" title="Redo diagram edit" aria-label="Redo diagram edit"></button>

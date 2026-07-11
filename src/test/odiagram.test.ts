@@ -6,6 +6,7 @@ import * as path from 'path';
 import {
 	DiagramEdge,
 	DiagramMetadata,
+	DiagramMetadataElement,
 	DiagramNode,
 	DiagramNote,
 	Bounds,
@@ -67,7 +68,18 @@ edges: []
 		assert.strictEqual(document.notes.length, 0);
 		assert.strictEqual(document.images.length, 0);
 		assert.strictEqual(document.labels.length, 0);
+		assert.strictEqual(document.metadataElements.length, 0);
 		assert.strictEqual(document.nodes[0].ontologyRef.value, 'ex:Person');
+	});
+
+	test('parses and serializes diagram metadata elements with common styling', () => {
+		const document = parseOntologyDiagramYaml(`${validDiagramYaml}\nmetadata_elements:\n  - id: metadata_info\n    x: 25\n    y: 35\n    width: 280\n    height: 108\n    style:\n      bg_color: \"#ffffff\"\n`);
+		assert.strictEqual(document.metadataElements.length, 1);
+		assert.ok(document.metadataElements[0] instanceof DiagramMetadataElement);
+		assert.strictEqual(document.metadataElements[0].style?.bgColor, '#ffffff');
+		const serialized = stringifyOntologyDiagramYaml(document);
+		assert.match(serialized, /metadata_elements:/);
+		assert.match(serialized, /id: metadata_info/);
 	});
 
 	test('parses and serializes node data property visibility', () => {

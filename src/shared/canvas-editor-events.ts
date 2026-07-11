@@ -1,6 +1,6 @@
 import type { BoundsUpdate } from './canvas-geometry';
 
-export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label';
+export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
 
 export type CanvasEditorEvent =
 	| CanvasRenderedEvent

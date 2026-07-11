@@ -500,6 +500,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			diagram.images,
 			diagram.labels,
 			diagram.extra,
+			diagram.metadataElements,
 		);
 		const loaded = await loadReferencedOntologies(document.uri.fsPath, candidateDiagram);
 		const newOntologyPaths = new Set([...addedImportPaths, relativePath].map(normalizePath));
@@ -557,6 +558,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			diagram.images,
 			diagram.labels,
 			diagram.extra,
+			diagram.metadataElements,
 		);
 
 		await this.replaceDocumentContent(nextDiagram);

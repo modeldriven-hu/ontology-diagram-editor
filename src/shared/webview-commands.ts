@@ -1,5 +1,5 @@
 import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
-import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from './diagram-layout';
 
 export interface ModelTreeItemDropPayload {
@@ -10,7 +10,7 @@ export interface ModelTreeItemDropPayload {
 	readonly ontologyItemMetadata?: unknown;
 }
 
-export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label';
+export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
 export type DiagramThemeMode = 'light' | 'dark';
 
 export interface DiagramMetadataPatch {
@@ -70,6 +70,7 @@ export type WebviewCommand =
 	| CreateNoteConnectionCommand
 	| CreateImageCommand
 	| CreateLabelCommand
+	| CreateMetadataElementCommand
 	| SaveDiagramExportCommand
 	| DeleteElementsCommand
 	| DeleteEdgeCommand
@@ -77,6 +78,7 @@ export type WebviewCommand =
 	| DeleteNoteCommand
 	| DeleteImageCommand
 	| DeleteLabelCommand
+	| DeleteMetadataElementCommand
 	| UpdateElementBoundsCommand
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
@@ -87,6 +89,7 @@ export type WebviewCommand =
 	| UpdateNoteBoundsCommand
 	| UpdateImageBoundsCommand
 	| UpdateLabelBoundsCommand
+	| UpdateMetadataBoundsCommand
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
@@ -185,17 +188,20 @@ export class UpdateElementBoundsCommand {
 	public readonly noteUpdates: readonly NoteBoundsUpdate[];
 	public readonly imageUpdates: readonly ImageBoundsUpdate[];
 	public readonly labelUpdates: readonly LabelBoundsUpdate[];
+	public readonly metadataUpdates: readonly MetadataBoundsUpdate[];
 
 	public constructor(options: {
 		readonly nodeUpdates?: readonly NodeBoundsUpdate[];
 		readonly noteUpdates?: readonly NoteBoundsUpdate[];
 		readonly imageUpdates?: readonly ImageBoundsUpdate[];
 		readonly labelUpdates?: readonly LabelBoundsUpdate[];
+		readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
 	}) {
 		this.nodeUpdates = options.nodeUpdates ?? [];
 		this.noteUpdates = options.noteUpdates ?? [];
 		this.imageUpdates = options.imageUpdates ?? [];
 		this.labelUpdates = options.labelUpdates ?? [];
+		this.metadataUpdates = options.metadataUpdates ?? [];
 	}
 }
 
@@ -299,6 +305,12 @@ export class CreateLabelCommand {
 	}
 }
 
+export class CreateMetadataElementCommand {
+	public readonly type = 'createMetadataElement';
+
+	public constructor(public readonly position: CanvasPoint) {}
+}
+
 export class SaveDiagramExportCommand {
 	public readonly type = 'saveDiagramExport';
 	public readonly format: 'svg' | 'png';
@@ -373,6 +385,12 @@ export class DeleteLabelCommand {
 	}
 }
 
+export class DeleteMetadataElementCommand {
+	public readonly type = 'deleteMetadataElement';
+
+	public constructor(public readonly id: string) {}
+}
+
 export class UpdateNoteBoundsCommand {
 	public readonly type = 'updateNoteBounds';
 	public readonly updates: readonly NoteBoundsUpdate[];
@@ -398,6 +416,12 @@ export class UpdateLabelBoundsCommand {
 	public constructor(updates: readonly LabelBoundsUpdate[]) {
 		this.updates = updates;
 	}
+}
+
+export class UpdateMetadataBoundsCommand {
+	public readonly type = 'updateMetadataBounds';
+
+	public constructor(public readonly updates: readonly MetadataBoundsUpdate[]) {}
 }
 
 export class UpdateNodeImageCommand {
