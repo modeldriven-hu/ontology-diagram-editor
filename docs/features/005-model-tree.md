@@ -47,6 +47,7 @@ The model tree shall display the following ontology item groups:
 |-------------|--------------------|------|
 | Classes | OWL/RDFS classes | Class icon |
 | Object properties | OWL object properties | Link/property icon |
+| Object property assertions | Resource-valued assertions between individuals | Link/property icon |
 | Data properties | OWL data properties | Field/property icon |
 | Annotation properties | OWL annotation properties | Comment/tag icon |
 | Subclass relationships | Explicit subclass relationships | Inheritance/generalization icon |

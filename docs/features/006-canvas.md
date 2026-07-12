@@ -69,6 +69,10 @@ The minimum viable product shall support:
 - Creating nodes by dragging classes, individuals, and datatypes from the model tree.
 - Creating connection-capable ontology edges by materializing the resolved source and
   target nodes when either endpoint is missing from the canvas.
+- Selecting multiple canvas elements with modifiers or a marquee and moving them as a
+  group by keyboard or drag.
+- Aligning, size-matching, and distributing selected ontology nodes, and aligning
+  generalization sets whose selected subclasses share one superclass.
 - Expanding a selected ontology-backed node by adding related nodes and relationship
   edges to a selected relationship depth.
 - Adding notes, standalone labels, and standalone images through canvas commands.
@@ -94,9 +98,10 @@ The minimum viable product shall support:
   toolbar action.
 - Showing validation and persistence errors in a user-visible way.
 
-The minimum viable product does not include multi-user editing, multi-selection editing,
-grouping, layer management, freehand drawing, direct ontology source editing, or theme
-file editing from canvas controls.
+The minimum viable product does not include multi-user editing, grouping, layer
+management, freehand drawing, direct ontology source editing, or theme file editing from
+canvas controls. Multi-selection is supported for movement, deletion, and node layout
+actions; it does not provide bulk property editing.
 
 # Viewport Controls
 

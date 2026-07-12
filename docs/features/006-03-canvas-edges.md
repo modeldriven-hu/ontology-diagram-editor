@@ -26,6 +26,7 @@ Connection-capable ontology types in version 1 are:
 | Ontology item type | Canvas result |
 |-----------------------|---------------|
 | Object property | Edge between two nodes. |
+| Object property assertion | Edge from an individual to the asserted resource target. |
 | Data property | Edge from a node to a datatype node when a datatype node is used as the target. |
 | Subclass relationship | Generalization edge from a subclass node to a superclass node. |
 
@@ -34,11 +35,12 @@ properties often do not provide a single source and target endpoint.
 
 The dropped ontology relationship shall define or allow the source and target ontology
 items for the edge through runtime ontology metadata. For example, an object property
-can use its domain as the source and range as the target, and a data property can use
-its domain as the source and datatype range as the target. A subclass relationship shall
-use the subclass as the source and the superclass as the target. These endpoint values
-are not persisted into the `.odiagram` edge; the edge persists only its `ontology_ref`,
-`source`, `target`, route, label position, and optional style overrides.
+can use its domain as the source and range as the target, an object property assertion
+uses its asserted subject and resource target, and a data property can use its domain as
+the source and datatype range as the target. A subclass relationship shall use the
+subclass as the source and the superclass as the target. These endpoint values are not
+persisted into the `.odiagram` edge; the edge persists only its `ontology_ref`, `source`,
+`target`, route, label position, and optional style overrides.
 
 When a subclass relationship is persisted as an edge, the edge shall store
 `rdfs:subClassOf` as `ontology_ref`. The specific subclass and superclass relationship is

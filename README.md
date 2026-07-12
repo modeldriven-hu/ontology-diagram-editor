@@ -12,8 +12,9 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
 - Open `.odiagram` files as either text or an interactive canvas editor.
 - Reference ontology files from a diagram and browse them in the Ontology Diagram model
   tree.
-- Load ontology items into groups for classes, object properties, data properties,
-  annotation properties, subclass relationships, individuals, and datatypes.
+- Load ontology items into groups for classes, object properties, object-property
+  assertions, data properties, annotation properties, subclass relationships,
+  individuals, and datatypes.
 - Add and remove referenced ontology files from the model tree.
 - Open ontology source files and reveal the best available source location for a model
   tree item.
@@ -21,13 +22,16 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
   relationship edges.
 - Search ontology items from the canvas toolbar and add the selected node or
   relationship at the current viewport without using drag and drop.
-- Materialize object property, data property, and subclass relationship edges, including
-  missing endpoint nodes when the relationship metadata is unambiguous.
+- Materialize object property, object-property assertion, data property, and subclass
+  relationship edges, including missing endpoint nodes when the relationship metadata is
+  unambiguous.
 - Render ontology-backed nodes and edges with UML-style conventions.
 - Add, edit, move, resize, and delete notes, standalone labels, and standalone images.
 - Connect notes to nodes, images, or other notes with persisted annotation edges.
-- Select canvas elements, move them with the keyboard, and move multiple bounded
-  elements together with arrow keys.
+- Select canvas elements with modifiers or a marquee, move them with the keyboard, and
+  move multiple selected elements together by keyboard or drag.
+- Align, resize-match, distribute, and arrange selected ontology nodes; align shared
+  edge endpoints and generalization sets.
 - Inspect and edit selected element geometry, text, image sources, route layout, export
   inclusion, data-property visibility, and style overrides in the property panel.
 - Customize element-level style for nodes, edges, notes, labels, and image borders or
@@ -77,8 +81,6 @@ Current version 1 scope intentionally excludes:
 - Annotation property edge creation.
 - Direct property-panel editing of element identifiers, ontology references, edge
   endpoints, edge route points, or edge label positions.
-- Mouse drag movement for multi-selection. Multiple bounded elements can still be moved
-  together with keyboard arrow keys.
 
 ## Release Notes
 
