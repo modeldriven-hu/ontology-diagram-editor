@@ -139,6 +139,7 @@ export class DiagramCommandDispatcher {
 				await this.handleResult(await this.useCases.arrangeDiagram.execute(
 					this.repository.load(),
 					command.algorithmId,
+					command.elkLayeredOptions,
 				));
 				return;
 			case 'undoDiagram':

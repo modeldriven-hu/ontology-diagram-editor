@@ -2417,6 +2417,34 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), { x: 250, y: 60 });
 	});
 
+	test('passes configured ELK layered gaps to the selected layout algorithm', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[new DiagramNode('node_a', 'ex:A', new Bounds(80, 80, 100, 50))],
+			[],
+		);
+		let receivedOptions: { readonly nodeSpacing?: number; readonly layerSpacing?: number } | undefined;
+		const algorithm: DiagramLayoutAlgorithm = {
+			id: 'elk-layered',
+			layout: async (_diagram, elkLayeredOptions) => {
+				receivedOptions = elkLayeredOptions;
+				return { nodeBoundsById: new Map() };
+			},
+		};
+
+		await new ArrangeDiagramUseCase([algorithm]).execute(diagram, 'elk-layered', {
+			nodeSpacing: 104,
+			layerSpacing: 240,
+		});
+
+		assert.deepStrictEqual(receivedOptions, {
+			nodeSpacing: 104,
+			layerSpacing: 240,
+		});
+	});
+
 	test('saves UTF-8 diagram exports through the export save port', async () => {
 		const savePort = new RecordingDiagramExportSavePort('/workspace/example.svg');
 

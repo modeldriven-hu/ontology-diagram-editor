@@ -1,5 +1,5 @@
 import { Bounds, Point, type DiagramEdge, type OntologyDiagramDocument } from '../../documents/odiagram';
-import type { DiagramLayoutAlgorithmId } from '../../shared/diagram-layout';
+import { defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 import type { DiagramLayoutAlgorithm, DiagramLayoutEdgeRoute, DiagramLayoutResult } from './diagram-layout-algorithm';
 import { roundLayoutCoordinate } from './layout-coordinate';
 
@@ -61,8 +61,11 @@ export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
 
 	public constructor(protected readonly elk: ElkLayoutEngine = new ElkConstructor()) {}
 
-	public async layout(diagram: OntologyDiagramDocument): Promise<DiagramLayoutResult> {
-		const graph = await this.elk.layout(elkGraph(diagram, this.layoutOptions));
+	public async layout(diagram: OntologyDiagramDocument, elkLayeredOptions?: ElkLayeredLayoutOptions): Promise<DiagramLayoutResult> {
+		const graph = await this.elk.layout(elkGraph(diagram, {
+			...this.layoutOptions,
+			...this.spacingOptions(elkLayeredOptions),
+		}));
 		return {
 			nodeBoundsById: nodeBounds(graph, diagram),
 			edgeRoutesById: edgeRoutes(graph, diagram),
@@ -74,13 +77,26 @@ export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
 		'elk.direction': 'RIGHT',
 		'elk.edgeRouting': 'ORTHOGONAL',
 		'elk.padding': '[top=80,left=80,bottom=80,right=80]',
-		'elk.spacing.nodeNode': '72',
-		'elk.layered.spacing.nodeNodeBetweenLayers': '180',
+		'elk.spacing.nodeNode': String(defaultElkLayeredNodeSpacing),
+		'elk.layered.spacing.nodeNodeBetweenLayers': String(defaultElkLayeredLayerSpacing),
 		'elk.spacing.edgeNode': '24',
 		'elk.spacing.edgeEdge': '16',
 		'elk.separateConnectedComponents': 'true',
 		'elk.randomSeed': '1',
 	};
+
+	protected spacingOptions(elkLayeredOptions: ElkLayeredLayoutOptions | undefined): Readonly<Record<string, string>> {
+		return {
+			'elk.spacing.nodeNode': String(normalizeElkLayeredSpacing(
+				elkLayeredOptions?.nodeSpacing,
+				defaultElkLayeredNodeSpacing,
+			)),
+			'elk.layered.spacing.nodeNodeBetweenLayers': String(normalizeElkLayeredSpacing(
+				elkLayeredOptions?.layerSpacing,
+				defaultElkLayeredLayerSpacing,
+			)),
+		};
+	}
 }
 
 export class ElkForceLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
@@ -96,6 +112,10 @@ export class ElkForceLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
 		'elk.randomSeed': '1',
 		'elk.force.iterations': '300',
 	};
+
+	protected override spacingOptions(): Readonly<Record<string, string>> {
+		return {};
+	}
 }
 
 export class ElkMrTreeLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
@@ -110,6 +130,10 @@ export class ElkMrTreeLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
 		'elk.spacing.edgeNode': '48',
 		'elk.separateConnectedComponents': 'true',
 	};
+
+	protected override spacingOptions(): Readonly<Record<string, string>> {
+		return {};
+	}
 }
 
 function elkGraph(

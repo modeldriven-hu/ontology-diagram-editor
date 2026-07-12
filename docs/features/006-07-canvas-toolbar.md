@@ -25,11 +25,10 @@ Version 1 toolbar actions are:
 | Add note | Opens the note text entry flow and creates a note. |
 | Add label | Opens the label text entry flow and creates a standalone label. |
 | Add image | Opens the image picker and creates a standalone image. |
-| Undo | Requests undo for the current `.odiagram` document edit. |
-| Redo | Requests redo for the current `.odiagram` document edit. |
 | Export SVG | Saves the diagram as an SVG export, as defined in `006-11-canvas-export.md`. |
 | Export PNG | Saves the diagram as a PNG export, as defined in `006-11-canvas-export.md`. |
 | Layout algorithm | Selects the algorithm used by Arrange Diagram without changing diagram content. |
+| ELK layered gaps | Sets the node gap and the gap between layers used by ELK Layered. |
 | Arrange diagram | Automatically positions ontology-backed nodes with the selected algorithm and reroutes connected edges. |
 | Zoom out | Decreases canvas zoom without changing persisted coordinates. |
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
@@ -43,7 +42,7 @@ action cannot be completed. For example, exporting an empty diagram shall not cr
 empty export file.
 
 Toolbar action groups shall be visually separated where this improves scanning. In
-version 1, creation, edit history, export, layout, viewport, model-tree reveal, and
+version 1, creation, export, layout, viewport, model-tree reveal, and
 theme-mode actions are separate toolbar groups.
 
 # Search And Add Ontology Item
@@ -83,6 +82,10 @@ Arranging the diagram shall:
 
 The selected layout algorithm is viewport state rather than diagram content. Changing the
 selection alone shall not modify the `.odiagram` document.
+
+When ELK Layered is selected, the toolbar shall show editable node-gap and layer-gap
+controls in a second toolbar row. Their values are viewport state, and shall not modify
+the `.odiagram` document until Arrange Diagram is invoked.
 
 If the diagram has no ontology-backed nodes, the toolbar action shall be disabled or show
 a concise user-visible problem without changing the `.odiagram` document.

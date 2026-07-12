@@ -60,33 +60,36 @@ function webviewBody(
 		</header>
 		<div class="canvas-shell" id="canvasShell">
 			<div class="canvas-actions" id="canvasActions" role="toolbar" aria-label="Canvas tools">
-				<button class="canvas-toolbar-drag-handle" id="canvasToolbarDragHandle" type="button" title="Move toolbar" aria-label="Move toolbar"></button>
-				<button class="canvas-action" id="addOntologyItemButton" type="button" title="Add ontology item" aria-label="Add ontology item"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
-				<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
-				<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
-				<button class="canvas-action" id="addMetadataButton" type="button" title="Add diagram information" aria-label="Add diagram information"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="undoDiagramButton" type="button" title="Undo diagram edit" aria-label="Undo diagram edit"></button>
-				<button class="canvas-action" id="redoDiagramButton" type="button" title="Redo diagram edit" aria-label="Redo diagram edit"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
-				<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<select class="canvas-action-select" id="diagramLayoutAlgorithmSelect" title="Diagram layout algorithm" aria-label="Diagram layout algorithm">
-					${diagramLayoutAlgorithmOptions()}
-				</select>
-				<button class="canvas-action" id="arrangeDiagramButton" type="button" title="Arrange diagram" aria-label="Arrange diagram"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
-				<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
-				<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
-				<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="revealModelTreeItemButton" type="button" title="Select corresponding model-tree item" aria-label="Select corresponding model-tree item"></button>
-				<span class="canvas-action-separator" aria-hidden="true"></span>
-				<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
+				<div class="canvas-action-row">
+					<button class="canvas-toolbar-drag-handle" id="canvasToolbarDragHandle" type="button" title="Move toolbar" aria-label="Move toolbar"></button>
+					<button class="canvas-action" id="addOntologyItemButton" type="button" title="Add ontology item" aria-label="Add ontology item"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="addNoteButton" type="button" title="Add note" aria-label="Add note"></button>
+					<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
+					<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
+					<button class="canvas-action" id="addMetadataButton" type="button" title="Add diagram information" aria-label="Add diagram information"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
+					<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<select class="canvas-action-select" id="diagramLayoutAlgorithmSelect" title="Diagram layout algorithm" aria-label="Diagram layout algorithm">
+						${diagramLayoutAlgorithmOptions()}
+					</select>
+					<button class="canvas-action" id="arrangeDiagramButton" type="button" title="Arrange diagram" aria-label="Arrange diagram"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
+					<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
+					<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
+					<button class="canvas-action" id="resetViewportButton" type="button" title="Reset viewport" aria-label="Reset viewport"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="revealModelTreeItemButton" type="button" title="Select corresponding model-tree item" aria-label="Select corresponding model-tree item"></button>
+					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
+				</div>
+				<span class="canvas-layout-spacing" id="elkLayeredSpacingControls" hidden>
+					<label class="canvas-layout-spacing-field">Node gap<input class="canvas-layout-spacing-input" id="elkLayeredNodeSpacingInput" type="number" min="16" max="480" step="1" inputmode="numeric" aria-label="ELK Layered node gap"></label>
+					<label class="canvas-layout-spacing-field">Layer gap<input class="canvas-layout-spacing-input" id="elkLayeredLayerSpacingInput" type="number" min="16" max="480" step="1" inputmode="numeric" aria-label="ELK Layered layer gap"></label>
+				</span>
 			</div>
 			<div class="canvas-scroll" id="canvasScroll" tabindex="0">
 				<form class="note-editor" id="noteEditor" hidden>
@@ -262,7 +265,8 @@ function webviewStyles(): string {
 		left: 12px;
 		z-index: 5;
 		display: inline-flex;
-		align-items: center;
+		flex-direction: column;
+		align-items: flex-start;
 		gap: 2px;
 		margin: 0;
 		padding: 3px;
@@ -270,6 +274,12 @@ function webviewStyles(): string {
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, var(--vscode-editor-background));
 		box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+	}
+
+	.canvas-action-row {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
 	}
 
 	.canvas-toolbar-drag-handle {
@@ -325,6 +335,43 @@ function webviewStyles(): string {
 		font: inherit;
 		font-size: 12px;
 		cursor: pointer;
+	}
+
+	.canvas-layout-spacing {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.canvas-layout-spacing[hidden] {
+		display: none;
+	}
+
+	.canvas-layout-spacing-field {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		color: var(--vscode-descriptionForeground);
+		font-size: 11px;
+		white-space: nowrap;
+	}
+
+	.canvas-layout-spacing-input {
+		width: 48px;
+		height: 28px;
+		padding: 0 3px 0 5px;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: var(--vscode-dropdown-background);
+		color: var(--vscode-dropdown-foreground);
+		font: inherit;
+		font-size: 12px;
+	}
+
+	.canvas-layout-spacing-input:hover,
+	.canvas-layout-spacing-input:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		outline: none;
 	}
 
 	.canvas-action-select:hover,

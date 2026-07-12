@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Redo2, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, Undo2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import type { WebviewThemeMode } from '../webview-theme';
 import { setActionTooltip } from './canvas-dom';
@@ -200,22 +200,6 @@ export function renderViewportToolbarIcons(elements: ViewportToolbarIconElements
 		class: 'canvas-action-icon',
 	}));
 	renderThemeModeButton(elements.themeModeButton, themeMode);
-}
-
-export function renderUndoRedoToolbarIcons(undoDiagramButton: HTMLButtonElement, redoDiagramButton: HTMLButtonElement): void {
-	undoDiagramButton.replaceChildren(createIconElement(Undo2, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
-	undoDiagramButton.title = 'Undo diagram edit';
-	undoDiagramButton.setAttribute('aria-label', 'Undo diagram edit');
-
-	redoDiagramButton.replaceChildren(createIconElement(Redo2, {
-		'aria-hidden': 'true',
-		class: 'canvas-action-icon',
-	}));
-	redoDiagramButton.title = 'Redo diagram edit';
-	redoDiagramButton.setAttribute('aria-label', 'Redo diagram edit');
 }
 
 export function renderAddOntologyItemToolbarIcon(addOntologyItemButton: HTMLButtonElement): void {

@@ -93,6 +93,10 @@ export class FixedToolbarController {
 		});
 	}
 
+	public update(): void {
+		this.setOffset(this.offset, { persist: false });
+	}
+
 	private completeDrag(event: PointerEvent): void {
 		const { dragHandle, toolbar } = this.options;
 		if (this.drag?.pointerId !== event.pointerId) {

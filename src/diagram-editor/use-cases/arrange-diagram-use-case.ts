@@ -1,5 +1,5 @@
 import { Bounds, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
-import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from '../../shared/diagram-layout';
+import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 import { createDefaultDiagramLayoutAlgorithms, type DiagramLayoutAlgorithm, type DiagramLayoutEdgeRoute } from '../layout';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
@@ -13,6 +13,7 @@ export class ArrangeDiagramUseCase {
 	public async execute(
 		diagram: OntologyDiagramDocument,
 		algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId,
+		elkLayeredOptions?: ElkLayeredLayoutOptions,
 	): Promise<DiagramMutationResult> {
 		if (diagram.nodes.length === 0) {
 			return { notification: 'There are no ontology nodes to arrange.' };
@@ -23,7 +24,10 @@ export class ArrangeDiagramUseCase {
 			return { notification: `The diagram layout algorithm "${algorithmId}" is not available.` };
 		}
 
-		const layout = await algorithm.layout(diagram);
+		const layout = await algorithm.layout(
+			diagram,
+			algorithmId === 'elk-layered' ? elkLayeredOptions : undefined,
+		);
 		const arrangedBoundsById = layout.nodeBoundsById;
 		const arrangedNodeIds = new Set(arrangedBoundsById.keys());
 		const movedNodeIds = new Set<string>();

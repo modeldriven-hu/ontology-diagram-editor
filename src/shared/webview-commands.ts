@@ -1,7 +1,7 @@
 import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
-import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId } from './diagram-layout';
+import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
 
 export interface ModelTreeItemDropPayload {
 	readonly sourceOntologyFilePath?: string;
@@ -111,9 +111,14 @@ export type WebviewCommand =
 export class ArrangeDiagramCommand {
 	public readonly type = 'arrangeDiagram';
 	public readonly algorithmId: DiagramLayoutAlgorithmId;
+	public readonly elkLayeredOptions: ElkLayeredLayoutOptions | undefined;
 
-	public constructor(algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId) {
+	public constructor(
+		algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId,
+		elkLayeredOptions?: ElkLayeredLayoutOptions,
+	) {
 		this.algorithmId = algorithmId;
+		this.elkLayeredOptions = elkLayeredOptions;
 	}
 }
 

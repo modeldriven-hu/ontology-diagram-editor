@@ -1,5 +1,5 @@
 import type { Bounds, OntologyDiagramDocument, Point } from '../../documents/odiagram';
-import type { DiagramLayoutAlgorithmId } from '../../shared/diagram-layout';
+import type { DiagramLayoutAlgorithmId, ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 
 export interface DiagramLayoutEdgeRoute {
 	readonly label: Point;
@@ -13,5 +13,5 @@ export interface DiagramLayoutResult {
 
 export interface DiagramLayoutAlgorithm {
 	readonly id: DiagramLayoutAlgorithmId;
-	layout(diagram: OntologyDiagramDocument): Promise<DiagramLayoutResult>;
+	layout(diagram: OntologyDiagramDocument, elkLayeredOptions?: ElkLayeredLayoutOptions): Promise<DiagramLayoutResult>;
 }

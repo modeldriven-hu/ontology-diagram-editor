@@ -10,6 +10,24 @@ export type DiagramLayoutAlgorithmId = typeof diagramLayoutAlgorithms[number]['i
 
 export const defaultDiagramLayoutAlgorithmId: DiagramLayoutAlgorithmId = 'directed-layers';
 
+export const defaultElkLayeredNodeSpacing = 72;
+export const defaultElkLayeredLayerSpacing = 180;
+export const minimumElkLayeredSpacing = 16;
+export const maximumElkLayeredSpacing = 480;
+
+export interface ElkLayeredLayoutOptions {
+	readonly nodeSpacing?: number;
+	readonly layerSpacing?: number;
+}
+
+export function normalizeElkLayeredSpacing(value: number | undefined, fallback: number): number {
+	if (value === undefined || !Number.isFinite(value)) {
+		return fallback;
+	}
+
+	return Math.min(Math.max(Math.round(value), minimumElkLayeredSpacing), maximumElkLayeredSpacing);
+}
+
 export function isDiagramLayoutAlgorithmId(value: string): value is DiagramLayoutAlgorithmId {
 	return diagramLayoutAlgorithms.some((algorithm) => algorithm.id === value);
 }
