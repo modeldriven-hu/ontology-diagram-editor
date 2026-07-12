@@ -51,7 +51,7 @@ import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 import type { ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
 import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
-import { isConnectionCapableOntologyItem } from './use-cases/ontology-edge-endpoints';
+import { edgeEndpointCandidates, isConnectionCapableOntologyItem, resolveEdgeEndpoints, type EdgeEndpointSelection } from './use-cases/ontology-edge-endpoints';
 import { loadReferencedOntologies, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
 import { availableOntologyItemPickerEntries, ontologyItemPickerGroups, type OntologyItemPickerEntry } from './ontology-item-picker';
 
@@ -407,7 +407,7 @@ export class DiagramCommandDispatcher {
 		}
 
 		if (isConnectionCapableOntologyItem(selected.payload.ontologyItemType)) {
-			await this.handleResult(this.useCases.createEdge.execute(diagram, selected.payload, position));
+			await this.createOntologyEdge(diagram, selected.payload, position);
 			return;
 		}
 
@@ -427,11 +427,7 @@ export class DiagramCommandDispatcher {
 		}
 
 		if (isConnectionCapableOntologyItem(resolvedPayload.ontologyItemType)) {
-			await this.handleResult(this.useCases.createEdge.execute(
-				this.repository.load(),
-				resolvedPayload,
-				command.position,
-			));
+			await this.createOntologyEdge(this.repository.load(), resolvedPayload, command.position);
 			return;
 		}
 
@@ -441,6 +437,31 @@ export class DiagramCommandDispatcher {
 			command.position,
 			command.size,
 		));
+	}
+
+	private async createOntologyEdge(
+		diagram: ReturnType<DiagramDocumentRepository['load']>,
+		payload: ModelTreeItemDropPayload,
+		position: { readonly x: number; readonly y: number },
+	): Promise<void> {
+		const resolved = resolveEdgeEndpoints(payload);
+		if (resolved !== 'ambiguous') {
+			await this.handleResult(this.useCases.createEdge.execute(diagram, payload, position));
+			return;
+		}
+
+		const candidates = edgeEndpointCandidates(payload);
+		if (candidates === undefined || (candidates.sourceOntologyRefs.length < 2 && candidates.targetOntologyRefs.length < 2)) {
+			await this.handleResult(this.useCases.createEdge.execute(diagram, payload, position));
+			return;
+		}
+
+		const selection = await pickEdgeEndpointSelection(payload.displayLabel, candidates.sourceOntologyRefs, candidates.targetOntologyRefs);
+		if (selection === undefined) {
+			return;
+		}
+
+		await this.handleResult(this.useCases.createEdge.execute(diagram, payload, position, selection));
 	}
 
 	private async deleteImage(command: Extract<WebviewCommand, { readonly type: 'deleteImage' }>): Promise<void> {
@@ -774,6 +795,58 @@ async function pickRelatedElementDepth(): Promise<number | undefined> {
 	});
 
 	return selected?.depth;
+}
+
+async function pickEdgeEndpointSelection(
+	edgeLabel: string,
+	sourceOntologyRefs: readonly string[],
+	targetOntologyRefs: readonly string[],
+): Promise<EdgeEndpointSelection | undefined> {
+	const sourceOntologyRef = await pickEdgeEndpoint('source', edgeLabel, sourceOntologyRefs);
+	if (sourceOntologyRef === undefined) {
+		return undefined;
+	}
+
+	const targetOntologyRef = await pickEdgeEndpoint('target', edgeLabel, targetOntologyRefs);
+	if (targetOntologyRef === undefined) {
+		return undefined;
+	}
+
+	return { sourceOntologyRef, targetOntologyRef };
+}
+
+async function pickEdgeEndpoint(
+	endpoint: 'source' | 'target',
+	edgeLabel: string,
+	candidates: readonly string[],
+): Promise<string | undefined> {
+	if (candidates.length === 1) {
+		return candidates[0];
+	}
+
+	if (candidates.length === 0) {
+		return undefined;
+	}
+
+	const selected = await vscode.window.showQuickPick(
+		candidates.map((reference) => ({
+			label: endpointDisplayLabel(reference),
+			description: endpointDisplayLabel(reference) === reference ? undefined : reference,
+			reference,
+		})),
+		{
+			title: `Select ${endpoint} for ${edgeLabel}`,
+			placeHolder: `Choose the ontology ${endpoint} for this relationship.`,
+		},
+	);
+	return selected?.reference;
+}
+
+function endpointDisplayLabel(reference: string): string {
+	const separatorIndex = Math.max(reference.lastIndexOf('#'), reference.lastIndexOf('/'));
+	return separatorIndex >= 0 && separatorIndex < reference.length - 1
+		? reference.slice(separatorIndex + 1)
+		: reference;
 }
 
 function relationshipPayloads(loadedOntologies: readonly LoadedOntology[]): readonly ModelTreeItemDropPayload[] {

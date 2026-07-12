@@ -11,6 +11,19 @@ export interface ResolvedEdgeEndpoints {
 	readonly targetNodeType: ResolvedEdgeEndpointNodeType;
 }
 
+export interface EdgeEndpointSelection {
+	readonly sourceOntologyRef: string;
+	readonly targetOntologyRef: string;
+}
+
+export interface EdgeEndpointCandidates {
+	readonly edgeOntologyRef: string;
+	readonly sourceOntologyRefs: readonly string[];
+	readonly targetOntologyRefs: readonly string[];
+	readonly sourceNodeType: ResolvedEdgeEndpointNodeType;
+	readonly targetNodeType: ResolvedEdgeEndpointNodeType;
+}
+
 export function isConnectionCapableOntologyItem(type: string): boolean {
 	return type === 'objectProperty'
 		|| type === 'dataProperty'
@@ -18,36 +31,73 @@ export function isConnectionCapableOntologyItem(type: string): boolean {
 		|| type === 'objectPropertyAssertion';
 }
 
-export function resolveEdgeEndpoints(payload: ModelTreeItemDropPayload): ResolvedEdgeEndpoints | 'ambiguous' | undefined {
+export function resolveEdgeEndpoints(
+	payload: ModelTreeItemDropPayload,
+	selection?: EdgeEndpointSelection,
+): ResolvedEdgeEndpoints | 'ambiguous' | undefined {
+	const candidates = edgeEndpointCandidates(payload);
+	if (candidates === undefined) {
+		return undefined;
+	}
+
+	const sourceOntologyRef = selectedEndpoint(candidates.sourceOntologyRefs, selection?.sourceOntologyRef);
+	const targetOntologyRef = selectedEndpoint(candidates.targetOntologyRefs, selection?.targetOntologyRef);
+	if (sourceOntologyRef === undefined || targetOntologyRef === undefined) {
+		return 'ambiguous';
+	}
+
+	return {
+		edgeOntologyRef: candidates.edgeOntologyRef,
+		sourceOntologyRef,
+		targetOntologyRef,
+		sourceNodeType: candidates.sourceNodeType,
+		targetNodeType: candidates.targetNodeType,
+	};
+}
+
+export function edgeEndpointCandidates(payload: ModelTreeItemDropPayload): EdgeEndpointCandidates | undefined {
 	const metadata = payload.ontologyItemMetadata;
 	if (!isObject(metadata)) {
 		return undefined;
 	}
 
 	if (payload.ontologyItemType === 'objectProperty') {
-		const source = singleString(metadata.domainReferences);
-		const target = singleString(metadata.rangeReferences);
-		return resolvedPropertyEndpoints(payload.ontologyItemReference, source, target, 'class');
+		return propertyEndpointCandidates(
+			payload.ontologyItemReference,
+			references(metadata.domainReferences),
+			references(metadata.rangeReferences),
+			'class',
+		);
 	}
 
 	if (payload.ontologyItemType === 'dataProperty') {
-		const source = singleString(metadata.domainReferences);
-		const target = singleString(metadata.rangeReferences);
-		return resolvedPropertyEndpoints(payload.ontologyItemReference, source, target, 'datatype');
+		return propertyEndpointCandidates(
+			payload.ontologyItemReference,
+			references(metadata.domainReferences),
+			references(metadata.rangeReferences),
+			'datatype',
+		);
 	}
 
 	if (payload.ontologyItemType === 'subclassRelationship') {
-		const source = stringValue(metadata.subclassReference);
-		const target = stringValue(metadata.superclassReference);
-		return resolvedPropertyEndpoints('rdfs:subClassOf', source, target, 'class');
+		return propertyEndpointCandidates(
+			'rdfs:subClassOf',
+			optionalReference(metadata.subclassReference),
+			optionalReference(metadata.superclassReference),
+			'class',
+		);
 	}
 
 	if (payload.ontologyItemType === 'objectPropertyAssertion') {
 		const edge = stringValue(metadata.edgeOntologyRef) ?? payload.ontologyItemReference;
-		const source = stringValue(metadata.sourceOntologyRef);
-		const target = stringValue(metadata.targetOntologyRef);
 		const targetNodeType = endpointNodeType(metadata.targetNodeType, 'individual');
-		return resolvedPropertyEndpoints(edge, source, target, targetNodeType, 'individual');
+		return propertyEndpointCandidates(
+			edge,
+			optionalReference(metadata.sourceOntologyRef),
+			optionalReference(metadata.targetOntologyRef),
+			targetNodeType,
+			'individual',
+		);
 	}
 
 	return undefined;
@@ -89,21 +139,17 @@ export function expandedOntologyReference(value: string, namespaces: ReadonlyMap
 	return namespace === undefined ? value : `${namespace}${value.slice(separatorIndex + 1)}`;
 }
 
-function resolvedPropertyEndpoints(
+function propertyEndpointCandidates(
 	edgeOntologyRef: string,
-	sourceOntologyRef: string | 'ambiguous' | undefined,
-	targetOntologyRef: string | 'ambiguous' | undefined,
+	sourceOntologyRefs: readonly string[],
+	targetOntologyRefs: readonly string[],
 	targetNodeType: ResolvedEdgeEndpointNodeType,
 	sourceNodeType: ResolvedEdgeEndpointNodeType = 'class',
-): ResolvedEdgeEndpoints | 'ambiguous' {
-	if (sourceOntologyRef === 'ambiguous' || targetOntologyRef === 'ambiguous' || sourceOntologyRef === undefined || targetOntologyRef === undefined) {
-		return 'ambiguous';
-	}
-
+): EdgeEndpointCandidates {
 	return {
 		edgeOntologyRef,
-		sourceOntologyRef,
-		targetOntologyRef,
+		sourceOntologyRefs,
+		targetOntologyRefs,
 		sourceNodeType,
 		targetNodeType,
 	};
@@ -113,12 +159,29 @@ function endpointNodeType(value: unknown, fallback: ResolvedEdgeEndpointNodeType
 	return value === 'class' || value === 'datatype' || value === 'individual' ? value : fallback;
 }
 
-function singleString(value: unknown): string | 'ambiguous' | undefined {
-	if (!Array.isArray(value) || value.length !== 1) {
-		return value === undefined ? undefined : 'ambiguous';
+function selectedEndpoint(candidates: readonly string[], selected: string | undefined): string | undefined {
+	if (candidates.length === 1) {
+		return candidates[0];
 	}
 
-	return typeof value[0] === 'string' && value[0].length > 0 ? value[0] : undefined;
+	return selected !== undefined && candidates.includes(selected) ? selected : undefined;
+}
+
+function references(value: unknown): readonly string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	return uniqueReferences(value.filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0));
+}
+
+function optionalReference(value: unknown): readonly string[] {
+	const reference = stringValue(value);
+	return reference === undefined ? [] : [reference];
+}
+
+function uniqueReferences(references: readonly string[]): readonly string[] {
+	return [...new Set(references)];
 }
 
 function stringValue(value: unknown): string | undefined {

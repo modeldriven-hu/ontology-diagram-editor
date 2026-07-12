@@ -8,6 +8,7 @@ export { CreateCommentNoteUseCase } from './create-comment-note-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';
 export { CreateNoteUseCase } from './create-note-use-case';
 export { CreateEdgeUseCase } from './create-edge-use-case';
+export type { EdgeEndpointSelection } from './ontology-edge-endpoints';
 export { CreateNoteConnectionUseCase } from './create-note-connection-use-case';
 export { DeleteEdgeUseCase } from './delete-edge-use-case';
 export { DeleteElementsUseCase } from './delete-elements-use-case';

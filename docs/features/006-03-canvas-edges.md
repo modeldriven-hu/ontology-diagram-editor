@@ -53,11 +53,11 @@ drag payload's subclass and superclass metadata to identify the specific relatio
 being materialized. The `rdfs:subClassOf` ontology reference alone is not sufficient to
 distinguish one subclass relationship from another.
 
-In version 1, edge materialization shall require exactly one resolved
-source ontology item and exactly one resolved target ontology item. If either
-endpoint is missing or ambiguous, the drop shall be rejected, no `.odiagram` change shall
-be written, and the canvas shall show a clear message that the relationship needs a
-single source and target.
+Edge materialization shall require one resolved source ontology item and one resolved
+target ontology item. When a relationship has multiple available source or target
+references, the editor shall ask the user to select one valid source and one valid
+target before creating the edge. If either endpoint is missing, or the user cancels the
+selection, no `.odiagram` change shall be written.
 
 When a valid source and target ontology item are known, dropping a connection-capable
 ontology item on the canvas shall materialize the relationship as follows:
@@ -122,13 +122,15 @@ The edge preview shall:
 
 - Use the dragged ontology item as the future edge `ontology_ref`.
 - Show the resolved source and target when they are known.
+- Indicate when the user must choose among multiple valid source or target references
+  after dropping the relationship.
 - Indicate whether the source node, target node, or both nodes will be created as part
   of completing the drop.
 - Follow the pointer while the user positions the relationship.
 - Snap endpoints to the boundary of existing or previewed source and target nodes when
   the source and target are valid.
-- Show an invalid preview state when the relationship is missing a source or target,
-  has an ambiguous source or target, or would otherwise be rejected by the edge
+- Show an invalid preview state when the relationship is missing a source or target, has
+  duplicate endpoint nodes on the canvas, or would otherwise be rejected by the edge
   materialization rules.
 - Render with the UML-style arrowhead determined by the ontology-to-UML mapping.
 - Not be persisted until the edge and all required endpoint nodes can be written as a

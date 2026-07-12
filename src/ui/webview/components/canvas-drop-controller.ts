@@ -45,6 +45,7 @@ interface InvalidEdgePreview {
 	readonly valid: false;
 	readonly position: CanvasPoint;
 	readonly message: string;
+	readonly requiresEndpointSelection?: boolean;
 }
 
 type EdgePreview = ValidEdgePreview | InvalidEdgePreview;
@@ -70,7 +71,7 @@ export class CanvasDropController {
 				event.dataTransfer.dropEffect = 'copy';
 			}
 			this.options.scrollElement.classList.add('drop-active');
-			this.options.scrollElement.classList.toggle('drop-rejected', preview?.valid === false);
+			this.options.scrollElement.classList.toggle('drop-rejected', preview?.valid === false && !preview.requiresEndpointSelection);
 			if (preview === undefined) {
 				this.clearPreview();
 				return;
@@ -99,7 +100,7 @@ export class CanvasDropController {
 
 			const dragPayload = this.readDragPayload(event.dataTransfer);
 			const preview = dragPayload === undefined ? undefined : edgePreview(this.options.payload, dragPayload, this.dropPosition(event));
-			if (preview?.valid === false) {
+			if (preview?.valid === false && !preview.requiresEndpointSelection) {
 				this.options.showStatus(preview.message);
 				return;
 			}
@@ -228,10 +229,14 @@ function edgePreview(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayl
 		return undefined;
 	}
 	if (resolved === 'ambiguous') {
+		const requiresEndpointSelection = hasSelectableEndpointChoices(dragPayload);
 		return {
 			valid: false,
 			position,
-			message: 'Edge creation needs exactly one source and one target ontology item.',
+			message: requiresEndpointSelection
+				? 'Drop to select the relationship source and target.'
+				: 'Edge creation needs at least one source and one target ontology item.',
+			requiresEndpointSelection,
 		};
 	}
 
@@ -360,6 +365,26 @@ function resolvedPropertyPreview(
 		targetOntologyRef,
 		edgeKind,
 	};
+}
+
+function hasSelectableEndpointChoices(payload: ModelTreeItemDropPayload): boolean {
+	if (payload.ontologyItemType !== 'objectProperty' && payload.ontologyItemType !== 'dataProperty') {
+		return false;
+	}
+
+	if (!isObject(payload.ontologyItemMetadata)) {
+		return false;
+	}
+
+	const source = referenceValues(payload.ontologyItemMetadata.domainReferences);
+	const target = referenceValues(payload.ontologyItemMetadata.rangeReferences);
+	return source.length > 0 && target.length > 0 && (source.length > 1 || target.length > 1);
+}
+
+function referenceValues(value: unknown): readonly string[] {
+	return Array.isArray(value)
+		? [...new Set(value.filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0))]
+		: [];
 }
 
 function previewEndpointBounds(

@@ -6,7 +6,7 @@ import { defaultNodeHeight, defaultNodeWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { nextElementId } from './element-id';
 import { boundaryPoint, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
-import { namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
+import { namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type EdgeEndpointSelection, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
 
 interface EndpointNodes {
 	readonly source: DiagramNode;
@@ -19,13 +19,14 @@ export class CreateEdgeUseCase {
 		diagram: OntologyDiagramDocument,
 		payload: ModelTreeItemDropPayload,
 		position: CanvasPoint,
+		selection?: EdgeEndpointSelection,
 	): DiagramMutationResult {
-		const resolved = resolveEdgeEndpoints(payload);
+		const resolved = resolveEdgeEndpoints(payload, selection);
 		if (resolved === undefined) {
 			return { notification: 'This ontology item cannot create an edge in version 1.' };
 		}
 		if (resolved === 'ambiguous') {
-			return { notification: 'Edge creation needs exactly one source and one target ontology item.' };
+			return { notification: 'Select one source and one target ontology item to create this edge.' };
 		}
 
 		const endpointNodes = resolveOrCreateEndpointNodes(diagram, resolved, position);

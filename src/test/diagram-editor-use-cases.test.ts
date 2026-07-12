@@ -727,6 +727,30 @@ suite('Diagram editor use cases', () => {
 		]);
 	});
 
+	test('materializes an ambiguous object property edge with user-selected endpoints', () => {
+		const payload = {
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:contributesTo',
+			displayLabel: 'contributes to',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Author', 'ex:Editor'],
+				rangeReferences: ['ex:Book', 'ex:Website'],
+			},
+		};
+		const rejected = new CreateEdgeUseCase().execute(emptyDiagram(), payload, { x: 400, y: 120 });
+		assert.strictEqual(rejected.diagram, undefined);
+		assert.strictEqual(rejected.notification, 'Select one source and one target ontology item to create this edge.');
+
+		const result = new CreateEdgeUseCase().execute(emptyDiagram(), payload, { x: 400, y: 120 }, {
+			sourceOntologyRef: 'ex:Editor',
+			targetOntologyRef: 'ex:Website',
+		});
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value), ['ex:Editor', 'ex:Website']);
+		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'ex:contributesTo');
+	});
+
 	test('materializes same-source-target property edges as self loops', () => {
 		const result = new CreateEdgeUseCase().execute(emptyDiagram(), {
 			ontologyItemType: 'objectProperty',
@@ -1204,7 +1228,7 @@ suite('Diagram editor use cases', () => {
 		}, { x: 200, y: 20 });
 
 		assert.strictEqual(result.diagram, undefined);
-		assert.strictEqual(result.notification, 'Edge creation needs exactly one source and one target ontology item.');
+		assert.strictEqual(result.notification, 'Select one source and one target ontology item to create this edge.');
 	});
 
 	test('shows directly related ontology elements for a selected node', () => {

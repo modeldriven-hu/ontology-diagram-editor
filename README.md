@@ -23,8 +23,8 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
 - Search ontology items from the canvas toolbar and add the selected node or
   relationship at the current viewport without using drag and drop.
 - Materialize object property, object-property assertion, data property, and subclass
-  relationship edges, including missing endpoint nodes when the relationship metadata is
-  unambiguous.
+  relationship edges, including missing endpoint nodes. When a property has multiple
+  source or target references, choose the intended endpoints before materializing it.
 - Render ontology-backed nodes and edges with UML-style conventions.
 - Add, edit, move, resize, and delete notes, standalone labels, and standalone images.
 - Connect notes to nodes, images, or other notes with persisted annotation edges.

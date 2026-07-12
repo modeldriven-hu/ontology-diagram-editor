@@ -6,7 +6,8 @@
 - Given an object property assertion is dropped on the canvas, when its asserted subject and resource target are available, then an edge is created between the corresponding individual or resource nodes.
 - Given either endpoint is missing from the canvas, when the edge is created, then the missing endpoint node is created before the edge is persisted.
 - Given both endpoint nodes are missing, when the edge is created, then the source node is placed left of the drop point and the target node right of the drop point.
-- Given an endpoint is missing or ambiguous, when the relationship is dropped, then the drop is rejected and the `.odiagram` file is unchanged.
+- Given a relationship has multiple valid source or target references, when the user chooses one source and one target, then the edge is created with the chosen endpoints.
+- Given an endpoint is missing, or the user cancels endpoint selection, when the relationship is dropped, then no `.odiagram` change is written.
 - Given more than one existing node matches a resolved endpoint, when the relationship is dropped, then the drop is rejected and the user sees a clear endpoint-duplicate message.
 - Given an edge with the same `ontology_ref`, `source`, and `target` already exists, when the same relationship is dropped, then the user sees a duplicate-edge message and no duplicate is written.
 
