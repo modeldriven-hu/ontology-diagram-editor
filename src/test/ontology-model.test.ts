@@ -310,30 +310,30 @@ ex:REQ-002 req:appliesTo ex:AuthenticationService .
 		}
 	});
 
-	test('finds ontology imports from selected prefixes and candidate bases', async () => {
-		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-bases-'));
+	test('follows transitive owl imports in dependency-first order', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-imports-'));
 		try {
 			const foundationPath = path.join(directory, 'foundation.ttl');
 			const domainPath = path.join(directory, 'domain.ttl');
 			const selectedPath = path.join(directory, 'selected.ttl');
 			const unrelatedPath = path.join(directory, 'unrelated.ttl');
 			await writeFile(foundationPath, `
-@base <https://example.com/foundation> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/foundation> a owl:Ontology .
 `);
 			await writeFile(domainPath, `
-@base <https://example.com/domain> .
-@prefix foundation: <https://example.com/foundation#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/domain> a owl:Ontology ;
+  owl:imports <https://example.com/foundation> .
 `);
 			await writeFile(selectedPath, `
-@base <https://example.com/selected> .
-@prefix domain: <https://example.com/domain#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/selected> a owl:Ontology ;
+  owl:imports <https://example.com/domain> .
 `);
 			await writeFile(unrelatedPath, `
-@base <https://example.com/unrelated> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/unrelated> a owl:Ontology .
 `);
 
 			const imports = await findOntologyImportPaths(selectedPath, [
@@ -349,19 +349,66 @@ ex:REQ-002 req:appliesTo ex:AuthenticationService .
 		}
 	});
 
-	test('uses candidate prefixes as import identity when no base is declared', async () => {
-		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-prefixes-'));
+	test('follows a relative owl import outside the workspace candidate list', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-file-'));
 		try {
 			const dependencyPath = path.join(directory, 'dependency.ttl');
 			const selectedPath = path.join(directory, 'selected.ttl');
 			await writeFile(dependencyPath, `
-@prefix dep: <https://example.com/dependency#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/dependency> a owl:Ontology .
 `);
 			await writeFile(selectedPath, `
-@base <https://example.com/selected> .
-@prefix dep: <https://example.com/dependency#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/selected> a owl:Ontology ;
+  owl:imports <dependency.ttl> .
+`);
+
+			const imports = await findOntologyImportPaths(selectedPath, [selectedPath]);
+
+			assert.deepStrictEqual(imports.map((ontologyPath) => path.basename(ontologyPath)), ['dependency.ttl']);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('does not infer imports from prefix declarations alone', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-prefixes-'));
+		try {
+			const selectedPath = path.join(directory, 'selected.ttl');
+			const dependencyPath = path.join(directory, 'dependency.ttl');
+			await writeFile(selectedPath, `
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix dependency: <https://example.com/dependency#> .
+<https://example.com/selected> a owl:Ontology .
+`);
+			await writeFile(dependencyPath, `
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/dependency> a owl:Ontology .
+`);
+
+			const imports = await findOntologyImportPaths(selectedPath, [selectedPath, dependencyPath]);
+
+			assert.deepStrictEqual(imports, []);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('handles cyclic owl imports without adding an ontology twice', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-cycle-'));
+		try {
+			const selectedPath = path.join(directory, 'selected.ttl');
+			const dependencyPath = path.join(directory, 'dependency.ttl');
+			await writeFile(selectedPath, `
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/selected> a owl:Ontology ;
+  owl:imports <https://example.com/dependency> .
+`);
+			await writeFile(dependencyPath, `
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+<https://example.com/dependency> a owl:Ontology ;
+  owl:imports <https://example.com/selected> .
 `);
 
 			const imports = await findOntologyImportPaths(selectedPath, [selectedPath, dependencyPath]);
@@ -372,22 +419,25 @@ ex:REQ-002 req:appliesTo ex:AuthenticationService .
 		}
 	});
 
-	test('ignores built-in namespace prefixes when finding ontology imports', async () => {
-		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-builtins-'));
+	test('ignores an owl import whose ontology IRI has multiple workspace matches', async () => {
+		const directory = await mkdtemp(path.join(os.tmpdir(), 'ontology-import-ambiguous-'));
 		try {
 			const selectedPath = path.join(directory, 'selected.ttl');
-			const builtInOnlyPath = path.join(directory, 'builtins.ttl');
+			const firstDependencyPath = path.join(directory, 'first-dependency.ttl');
+			const secondDependencyPath = path.join(directory, 'second-dependency.ttl');
 			await writeFile(selectedPath, `
-@base <https://example.com/selected> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+<https://example.com/selected> a owl:Ontology ;
+  owl:imports <https://example.com/dependency> .
 `);
-			await writeFile(builtInOnlyPath, `
+			for (const dependencyPath of [firstDependencyPath, secondDependencyPath]) {
+				await writeFile(dependencyPath, `
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+<https://example.com/dependency> a owl:Ontology .
 `);
+			}
 
-			const imports = await findOntologyImportPaths(selectedPath, [selectedPath, builtInOnlyPath]);
+			const imports = await findOntologyImportPaths(selectedPath, [selectedPath, firstDependencyPath, secondDependencyPath]);
 
 			assert.deepStrictEqual(imports, []);
 		} finally {

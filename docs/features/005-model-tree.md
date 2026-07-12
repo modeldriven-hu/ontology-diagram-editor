@@ -31,10 +31,11 @@ tree structure.
   parser provides a stable source order.
 
 Version 1 displays only ontology files directly referenced by the `.odiagram` file.
-When the user adds an ontology, the editor also discovers workspace ontology files
-referenced through matching `@prefix` and `@base` declarations and appends those files
-as direct `.odiagram` references, as specified in `005-02-model-tree-import.md`. The
-editor does not resolve arbitrary remote ontology imports.
+When the user adds an ontology, the editor follows its transitive `owl:imports`
+declarations and appends matching local ontology files as direct `.odiagram` references,
+as specified in `005-02-model-tree-import.md`. An import may resolve directly to a local
+file URI or to one uniquely matching workspace ontology IRI. The editor does not resolve
+remote imports.
 
 An ontology item is any parsed item from an ontology file that the editor exposes to the
 user or to diagram features. Ontology items include named entities such as classes,

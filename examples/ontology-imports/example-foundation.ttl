@@ -1,0 +1,6 @@
+@prefix exf: <https://example.com/ontology/foundation#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+<https://example.com/ontology/foundation> a owl:Ontology .
+
+exf:Thing a owl:Class .

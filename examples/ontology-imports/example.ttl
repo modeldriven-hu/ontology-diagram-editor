@@ -1,0 +1,46 @@
+@prefix ex: <https://example.com/ambiguous-endpoints#> .
+@prefix exf: <https://example.com/ontology/foundation#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Add this file through the model tree to also import example-foundation.ttl.
+<https://example.com/ambiguous-endpoints> a owl:Ontology ;
+	owl:imports <example-foundation.ttl> .
+
+ex:Author a owl:Class ;
+	rdfs:label "Author" ;
+	rdfs:subClassOf exf:Thing .
+
+ex:Editor a owl:Class ;
+	rdfs:label "Editor" ;
+	rdfs:subClassOf exf:Thing .
+
+ex:Book a owl:Class ;
+	rdfs:label "Book" ;
+	rdfs:subClassOf exf:Thing .
+
+ex:Website a owl:Class ;
+	rdfs:label "Website" ;
+	rdfs:subClassOf exf:Thing .
+
+# Drag "contributes to" to a diagram. The editor asks for a source and target.
+ex:contributesTo a owl:ObjectProperty ;
+	rdfs:label "contributes to" ;
+	rdfs:domain ex:Author, ex:Editor ;
+	rdfs:range ex:Book, ex:Website .
+
+# This property exercises a multiple-domain data-property selection.
+ex:identifier a owl:DatatypeProperty ;
+	rdfs:label "identifier" ;
+	rdfs:domain ex:Book, ex:Website ;
+	rdfs:range xsd:string .
+
+ex:ada a owl:NamedIndividual, ex:Author ; rdfs:label "Ada" .
+ex:editingTeam a owl:NamedIndividual, ex:Editor ; rdfs:label "Editing team" .
+ex:guide a owl:NamedIndividual, ex:Book ; rdfs:label "Guide" .
+ex:portal a owl:NamedIndividual, ex:Website ; rdfs:label "Portal" .
+
+ex:ada ex:contributesTo ex:guide .
+ex:editingTeam ex:contributesTo ex:portal .

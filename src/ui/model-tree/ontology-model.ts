@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { createReadStream } from 'fs';
-import { readFile } from 'fs/promises';
+import { stat } from 'fs/promises';
+import { fileURLToPath } from 'url';
 
 import { OntologyDiagramDocument } from '../../documents/odiagram';
 
@@ -93,14 +94,9 @@ export interface LoadedOntology {
 	readonly error?: string;
 }
 
-interface OntologyNamespaceDeclaration {
-	readonly prefix: string;
-	readonly namespaceIri: string;
-}
-
-interface OntologyFileDeclarations {
-	readonly prefixes: readonly OntologyNamespaceDeclaration[];
-	readonly bases: readonly string[];
+interface OntologyImportDeclarations {
+	readonly ontologyIris: readonly string[];
+	readonly importIris: readonly string[];
 }
 
 const rdfType = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
@@ -115,7 +111,9 @@ const owlAnnotationProperty = 'http://www.w3.org/2002/07/owl#AnnotationProperty'
 const owlClass = 'http://www.w3.org/2002/07/owl#Class';
 const owlDatatypeProperty = 'http://www.w3.org/2002/07/owl#DatatypeProperty';
 const owlEquivalentClass = 'http://www.w3.org/2002/07/owl#equivalentClass';
+const owlImports = 'http://www.w3.org/2002/07/owl#imports';
 const owlNamedIndividual = 'http://www.w3.org/2002/07/owl#NamedIndividual';
+const owlOntology = 'http://www.w3.org/2002/07/owl#Ontology';
 const owlObjectProperty = 'http://www.w3.org/2002/07/owl#ObjectProperty';
 const owlOnProperty = 'http://www.w3.org/2002/07/owl#onProperty';
 const owlCardinality = 'http://www.w3.org/2002/07/owl#cardinality';
@@ -128,24 +126,12 @@ const owlThing = 'http://www.w3.org/2002/07/owl#Thing';
 
 export const ontologyFileExtensions = ['ttl', 'rdf', 'owl', 'xml', 'jsonld', 'nt'] as const;
 
-const builtInNamespaceIris = [
-	'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-	'http://www.w3.org/2000/01/rdf-schema#',
-	'http://www.w3.org/2002/07/owl#',
-	'http://www.w3.org/2001/XMLSchema#',
-	'http://www.w3.org/2004/02/skos/core#',
-];
-
 const ontologyVocabularyTypeNamespaceIris = [
 	'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
 	'http://www.w3.org/2000/01/rdf-schema#',
 	'http://www.w3.org/2002/07/owl#',
 	'http://www.w3.org/2001/XMLSchema#',
 ];
-
-const baseDirectivePattern = /^(?:@base|base)\s+<([^>]*)>\s*\.?\s*$/i;
-const prefixDirectivePattern = /^(?:@prefix|prefix)\s+([^\s:]*):\s*<([^>]*)>\s*\.?\s*$/i;
-const uriSchemePattern = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 const itemTypeLabels: Record<OntologyItemType, string> = {
 	class: 'Classes',
@@ -217,48 +203,49 @@ export async function findOntologyImportPaths(
 			.filter(isPotentialOntologyFilePath)
 			.map(normalizeAbsoluteFilePath),
 	])].sort((left, right) => left.localeCompare(right));
-	const declarationsByPath = new Map<string, OntologyFileDeclarations>();
+	const declarationsByPath = new Map<string, OntologyImportDeclarations>();
+	const pathsByOntologyIri = new Map<string, string[]>();
 
 	await Promise.all(candidatePaths.map(async (candidatePath) => {
-		declarationsByPath.set(candidatePath, await readOntologyFileDeclarations(candidatePath));
+		const declarations = await readOntologyImportDeclarations(candidatePath);
+		declarationsByPath.set(candidatePath, declarations);
+		registerOntologyPaths(pathsByOntologyIri, candidatePath, declarations.ontologyIris);
 	}));
-
-	const pathsByNamespaceKey = new Map<string, string[]>();
-	for (const [candidatePath, declarations] of declarationsByPath) {
-		for (const key of ontologyIdentityNamespaceKeys(declarations)) {
-			const paths = pathsByNamespaceKey.get(key) ?? [];
-			paths.push(candidatePath);
-			pathsByNamespaceKey.set(key, paths);
-		}
-	}
-	for (const paths of pathsByNamespaceKey.values()) {
-		paths.sort((left, right) => left.localeCompare(right));
-	}
 
 	const importedPaths: string[] = [];
 	const importedPathSet = new Set<string>();
 	const visitedPaths = new Set<string>();
 	const visitingPaths = new Set<string>();
 
-	const visit = (currentPath: string): void => {
+	const declarationsFor = async (ontologyPath: string): Promise<OntologyImportDeclarations> => {
+		const existing = declarationsByPath.get(ontologyPath);
+		if (existing !== undefined) {
+			return existing;
+		}
+
+		const declarations = await readOntologyImportDeclarations(ontologyPath);
+		declarationsByPath.set(ontologyPath, declarations);
+		registerOntologyPaths(pathsByOntologyIri, ontologyPath, declarations.ontologyIris);
+		return declarations;
+	};
+
+	const visit = async (currentPath: string): Promise<void> => {
 		if (visitedPaths.has(currentPath) || visitingPaths.has(currentPath)) {
 			return;
 		}
 
 		visitingPaths.add(currentPath);
-		const declarations = declarationsByPath.get(currentPath);
-		if (declarations !== undefined) {
-			for (const namespaceKey of ontologyReferencedNamespaceKeys(declarations)) {
-				for (const matchedPath of pathsByNamespaceKey.get(namespaceKey) ?? []) {
-					if (matchedPath === currentPath) {
-						continue;
-					}
+		const declarations = await declarationsFor(currentPath);
+		for (const importIri of declarations.importIris) {
+			for (const importedPath of await importedOntologyPaths(importIri, pathsByOntologyIri)) {
+				if (importedPath === currentPath) {
+					continue;
+				}
 
-					visit(matchedPath);
-					if (matchedPath !== selectedPath && !importedPathSet.has(matchedPath)) {
-						importedPaths.push(matchedPath);
-						importedPathSet.add(matchedPath);
-					}
+				await visit(importedPath);
+				if (importedPath !== selectedPath && !importedPathSet.has(importedPath)) {
+					importedPaths.push(importedPath);
+					importedPathSet.add(importedPath);
 				}
 			}
 		}
@@ -267,7 +254,7 @@ export async function findOntologyImportPaths(
 		visitedPaths.add(currentPath);
 	};
 
-	visit(selectedPath);
+	await visit(selectedPath);
 
 	return importedPaths;
 }
@@ -290,97 +277,74 @@ function parseOntologyFile(filePath: string): Promise<readonly RdfQuad[]> {
 	});
 }
 
-async function readOntologyFileDeclarations(filePath: string): Promise<OntologyFileDeclarations> {
+async function readOntologyImportDeclarations(filePath: string): Promise<OntologyImportDeclarations> {
 	try {
-		return parseOntologyFileDeclarations(await readFile(filePath, 'utf8'));
+		const ontologyIris = new Set<string>();
+		const importIris = new Set<string>();
+		for (const quad of await parseOntologyFile(filePath)) {
+			const predicate = namedTermValue(quad.predicate);
+			if (predicate === rdfType && namedTermValue(quad.object) === owlOntology) {
+				const ontologyIri = namedTermValue(quad.subject);
+				if (ontologyIri !== undefined) {
+					ontologyIris.add(ontologyIri);
+				}
+			} else if (predicate === owlImports) {
+				const importIri = namedTermValue(quad.object);
+				if (importIri !== undefined) {
+					importIris.add(importIri);
+				}
+			}
+		}
+
+		return { ontologyIris: [...ontologyIris], importIris: [...importIris] };
 	} catch {
-		return {
-			prefixes: [],
-			bases: [],
-		};
+		return { ontologyIris: [], importIris: [] };
 	}
 }
 
-function parseOntologyFileDeclarations(content: string): OntologyFileDeclarations {
-	const prefixes: OntologyNamespaceDeclaration[] = [];
-	const bases: string[] = [];
-	let currentBase: string | undefined;
+function registerOntologyPaths(
+	pathsByOntologyIri: Map<string, string[]>,
+	ontologyPath: string,
+	ontologyIris: readonly string[],
+): void {
+	for (const ontologyIri of ontologyIris) {
+		const paths = pathsByOntologyIri.get(ontologyIri) ?? [];
+		paths.push(ontologyPath);
+		pathsByOntologyIri.set(ontologyIri, [...new Set(paths)].sort((left, right) => left.localeCompare(right)));
+	}
+}
 
-	for (const line of content.split(/\r?\n/)) {
-		const trimmed = line.trim();
-		if (trimmed.length === 0 || trimmed.startsWith('#')) {
-			continue;
-		}
-
-		const baseMatch = baseDirectivePattern.exec(trimmed);
-		if (baseMatch !== null) {
-			currentBase = resolveDeclarationIri(baseMatch[1], currentBase);
-			bases.push(currentBase);
-			continue;
-		}
-
-		const prefixMatch = prefixDirectivePattern.exec(trimmed);
-		if (prefixMatch !== null) {
-			prefixes.push({
-				prefix: prefixMatch[1],
-				namespaceIri: resolveDeclarationIri(prefixMatch[2], currentBase),
-			});
-		}
+async function importedOntologyPaths(
+	importIri: string,
+	pathsByOntologyIri: ReadonlyMap<string, readonly string[]>,
+): Promise<readonly string[]> {
+	const directImportPath = localImportPath(importIri);
+	if (directImportPath !== undefined && await isFile(directImportPath)) {
+		return [directImportPath];
 	}
 
-	return {
-		prefixes,
-		bases,
-	};
+	const matchingPaths = pathsByOntologyIri.get(importIri) ?? [];
+	return matchingPaths.length === 1 ? matchingPaths : [];
 }
 
-function ontologyIdentityNamespaceKeys(declarations: OntologyFileDeclarations): readonly string[] {
-	const explicitIdentities = [
-		...declarations.bases,
-		...declarations.prefixes
-			.filter((prefix) => prefix.prefix.length === 0)
-			.map((prefix) => prefix.namespaceIri),
-	].filter((namespaceIri) => !isBuiltInNamespace(namespaceIri));
-	const identityIris = explicitIdentities.length > 0
-		? explicitIdentities
-		: declarations.prefixes
-			.map((prefix) => prefix.namespaceIri)
-			.filter((namespaceIri) => !isBuiltInNamespace(namespaceIri));
-
-	return uniqueStrings(identityIris.flatMap(namespaceComparisonKeys));
-}
-
-function ontologyReferencedNamespaceKeys(declarations: OntologyFileDeclarations): readonly string[] {
-	return uniqueStrings(declarations.prefixes
-		.filter((prefix) => prefix.prefix.length > 0)
-		.map((prefix) => prefix.namespaceIri)
-		.filter((namespaceIri) => !isBuiltInNamespace(namespaceIri))
-		.flatMap(namespaceComparisonKeys));
-}
-
-function namespaceComparisonKeys(namespaceIri: string): readonly string[] {
-	const trimmed = namespaceIri.trim();
-	const withoutTrailingSeparator = trimmed.replace(/[\/#]+$/u, '');
-	return uniqueStrings([trimmed, withoutTrailingSeparator].filter((key) => key.length > 0));
-}
-
-function resolveDeclarationIri(value: string, baseIri: string | undefined): string {
-	if (baseIri === undefined || uriSchemePattern.test(value)) {
-		return value;
+function localImportPath(importIri: string): string | undefined {
+	if (!importIri.startsWith('file:')) {
+		return undefined;
 	}
 
 	try {
-		return new URL(value, baseIri).toString();
+		return normalizeAbsoluteFilePath(fileURLToPath(importIri));
 	} catch {
-		return value;
+		return undefined;
 	}
 }
 
-function isBuiltInNamespace(namespaceIri: string): boolean {
-	const keys = namespaceComparisonKeys(namespaceIri);
-	return builtInNamespaceIris.some((builtInNamespaceIri) =>
-		namespaceComparisonKeys(builtInNamespaceIri).some((builtInKey) => keys.includes(builtInKey)),
-	);
+async function isFile(filePath: string): Promise<boolean> {
+	try {
+		return (await stat(filePath)).isFile();
+	} catch {
+		return false;
+	}
 }
 
 function normalizeAbsoluteFilePath(filePath: string): string {

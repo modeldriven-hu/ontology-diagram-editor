@@ -1,11 +1,16 @@
-# Model Tree Importing 
+# Model Tree Importing
 
-When the user imports an ontology in the model tree,
-and the ontology references another ontology file,
-then we shall find that ontology file in the workspace
-(check each file that might represent an ontology, like ttl)
-and import that as well into the model-tree, before the 
-selected ontology is being imported.
+When the user adds an ontology in the model tree, the editor shall follow its explicit
+`owl:imports` declarations before adding the selected ontology itself. Imported local
+ontologies are added as direct `.odiagram` references in dependency-first order.
 
+An import resolves when either:
 
-Find the ontology files based on @prefix and @base.
+- Its IRI is a local `file:` URI that identifies an ontology file, including a relative
+  file reference resolved by the RDF parser; or
+- Exactly one candidate ontology file in the workspace declares the imported IRI as an
+  `owl:Ontology` subject.
+
+The resolver follows imports transitively, handles cycles without adding a file twice,
+and ignores unresolved, remote, or ambiguously matched imports. Prefix and base
+declarations alone do not constitute ontology imports.
