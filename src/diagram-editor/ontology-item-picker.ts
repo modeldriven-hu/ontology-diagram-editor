@@ -1,6 +1,6 @@
 import type { OntologyDiagramDocument } from '../documents/odiagram';
 import type { ModelTreeItemDropPayload } from '../shared/webview-commands';
-import { getOntologyItemTypeLabel, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
+import { getOntologyItemTypeLabel, type LoadedOntology, type OntologyItem, type OntologyItemType } from '../ui/model-tree/ontology-model';
 import { isConnectionCapableOntologyItem, ontologyReferencesEqual, resolveEdgeEndpoints } from './use-cases/ontology-edge-endpoints';
 
 export interface OntologyItemPickerEntry {
@@ -9,6 +9,21 @@ export interface OntologyItemPickerEntry {
 	readonly detail: string;
 	readonly payload: ModelTreeItemDropPayload;
 }
+
+export interface OntologyItemPickerGroup {
+	readonly label: string;
+	readonly entries: readonly OntologyItemPickerEntry[];
+}
+
+const ontologyItemPickerTypeOrder: readonly OntologyItemType[] = [
+	'class',
+	'individual',
+	'datatype',
+	'objectProperty',
+	'dataProperty',
+	'subclassRelationship',
+	'objectPropertyAssertion',
+];
 
 export function ontologyItemPickerEntries(loadedOntologies: readonly LoadedOntology[]): readonly OntologyItemPickerEntry[] {
 	return loadedOntologies
@@ -25,6 +40,16 @@ export function availableOntologyItemPickerEntries(
 	diagram: OntologyDiagramDocument,
 ): readonly OntologyItemPickerEntry[] {
 	return ontologyItemPickerEntries(loadedOntologies).filter((entry) => !isMaterialized(entry.payload, diagram));
+}
+
+export function ontologyItemPickerGroups(entries: readonly OntologyItemPickerEntry[]): readonly OntologyItemPickerGroup[] {
+	return ontologyItemPickerTypeOrder.flatMap((type) => {
+		const groupedEntries = entries.filter((entry) => entry.payload.ontologyItemType === type);
+		return groupedEntries.length === 0 ? [] : [{
+			label: getOntologyItemTypeLabel(type),
+			entries: groupedEntries,
+		}];
+	});
 }
 
 function isMaterialized(payload: ModelTreeItemDropPayload, diagram: OntologyDiagramDocument): boolean {

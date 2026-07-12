@@ -5,6 +5,7 @@
 - Given the canvas view is open, when the user pans, scrolls, or zooms, then the canvas toolbar remains visible over the viewport.
 - Given the user drags the canvas toolbar by its drag handle, when the drag completes, then the toolbar moves within the canvas viewport and its position is restored for that webview.
 - Given supported ontology items are loaded, when the user chooses Search and Add Ontology Item, then a Quick Pick searchable by label, reference, type, and ontology file is shown.
+- Given the ontology picker is shown, when entries of multiple ontology item types are available, then entries are visually grouped by type.
 - Given the user selects a class, individual, or datatype in the ontology picker, when persistence completes, then its node is added at the current viewport center insertion point.
 - Given the user selects an object property, data property, subclass relationship, or object-property assertion in the ontology picker, when its endpoints are unambiguous, then the relationship and any missing endpoint nodes are materialized using the normal edge creation rules.
 - Given equal ontology-item labels occur in different ontology files, when the picker is shown, then their references and source files distinguish the entries.

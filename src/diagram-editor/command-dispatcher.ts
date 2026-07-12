@@ -53,7 +53,7 @@ import type { ModelTreeItemDropPayload, WebviewCommand } from '../shared/webview
 import { DiagramDocumentRepository } from './document-repository';
 import { isConnectionCapableOntologyItem } from './use-cases/ontology-edge-endpoints';
 import { loadReferencedOntologies, type LoadedOntology, type OntologyItem } from '../ui/model-tree/ontology-model';
-import { availableOntologyItemPickerEntries } from './ontology-item-picker';
+import { availableOntologyItemPickerEntries, ontologyItemPickerGroups, type OntologyItemPickerEntry } from './ontology-item-picker';
 
 interface DiagramEditorUseCases {
 	readonly alignEdgeEndPoints: AlignEdgeEndPointsUseCase;
@@ -387,8 +387,14 @@ export class DiagramCommandDispatcher {
 	private async addOntologyItem(position: { readonly x: number; readonly y: number }): Promise<void> {
 		const diagram = this.repository.load();
 		const entries = availableOntologyItemPickerEntries(await loadReferencedOntologies(this.repository.uri.fsPath, diagram), diagram);
+		const pickerItems: readonly OntologyItemQuickPickItem[] = entries.length === 0
+			? []
+			: ontologyItemPickerGroups(entries).flatMap((group) => [
+				{ label: group.label, kind: vscode.QuickPickItemKind.Separator },
+				...group.entries,
+			]);
 
-		const selected = await vscode.window.showQuickPick(entries, {
+		const selected = await vscode.window.showQuickPick(pickerItems, {
 			title: 'Add Ontology Item to Diagram',
 			placeHolder: entries.length === 0
 				? 'All supported ontology items are already on the diagram.'
@@ -396,7 +402,7 @@ export class DiagramCommandDispatcher {
 			matchOnDescription: true,
 			matchOnDetail: true,
 		});
-		if (selected === undefined) {
+		if (selected === undefined || !isOntologyItemPickerEntry(selected)) {
 			return;
 		}
 
@@ -636,6 +642,12 @@ export class DiagramCommandDispatcher {
 			await this.repository.save(result.diagram);
 		}
 	}
+}
+
+type OntologyItemQuickPickItem = OntologyItemPickerEntry | vscode.QuickPickItem;
+
+function isOntologyItemPickerEntry(item: OntologyItemQuickPickItem): item is OntologyItemPickerEntry {
+	return 'payload' in item;
 }
 
 function createDefaultUseCases(): DiagramEditorUseCases {

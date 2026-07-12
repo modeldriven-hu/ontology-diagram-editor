@@ -60,6 +60,7 @@ the diagram shall be omitted from the picker so this workflow does not produce d
 notifications. Selecting a node-capable item shall create its node at the current
 viewport's center insertion point. Selecting a relationship shall use the normal edge
 materialization rules, including creation of unambiguous missing endpoint nodes.
+Available picker entries shall be visually grouped by ontology item type.
 Canceling the picker shall leave the diagram unchanged. Ambiguous selections shall use
 the same validation messages as model-tree drag and drop.
 

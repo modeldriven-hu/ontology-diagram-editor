@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 
 import { Bounds, DiagramEdge, DiagramMetadata, DiagramNode, OntologyDiagramDocument, Point } from '../documents/odiagram';
-import { availableOntologyItemPickerEntries, ontologyItemPickerEntries } from '../diagram-editor/ontology-item-picker';
+import { availableOntologyItemPickerEntries, ontologyItemPickerEntries, ontologyItemPickerGroups } from '../diagram-editor/ontology-item-picker';
 import type { LoadedOntology, OntologyItem } from '../ui/model-tree/ontology-model';
 
 suite('Ontology item picker', () => {
@@ -52,6 +52,27 @@ suite('Ontology item picker', () => {
 		assert.deepStrictEqual(entries.map((entry) => entry.detail), [
 			'first:Thing — first.ttl',
 			'second:Thing — second.ttl',
+		]);
+	});
+
+	test('groups picker entries by ontology item type', () => {
+		const entries = ontologyItemPickerEntries([{
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [
+				ontologyItem('objectProperty', 'ex:memberOf', 'member of'),
+				ontologyItem('class', 'ex:Person', 'Person'),
+				ontologyItem('individual', 'ex:alice', 'Alice'),
+			],
+		}]);
+
+		assert.deepStrictEqual(ontologyItemPickerGroups(entries).map((group) => ({
+			label: group.label,
+			entries: group.entries.map((entry) => entry.label),
+		})), [
+			{ label: 'Classes', entries: ['Person'] },
+			{ label: 'Individuals', entries: ['Alice'] },
+			{ label: 'Object properties', entries: ['member of'] },
 		]);
 	});
 
