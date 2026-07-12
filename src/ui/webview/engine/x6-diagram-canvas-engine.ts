@@ -72,14 +72,14 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				highlight: false,
 			},
 			interacting: (cellView: unknown) => ({
-				nodeMovable: !this.isMultiSelectedNodeView(cellView),
+				nodeMovable: isX6Node(cellViewCell(cellView)),
 				edgeMovable: false,
 				edgeLabelMovable: true,
 				arrowheadMovable: false,
 				vertexMovable: true,
 			}),
 		});
-		this.graph.use(new x6.Selection({
+		const selection = new x6.Selection({
 			rubberband: true,
 			rubberNode: true,
 			rubberEdge: true,
@@ -88,13 +88,19 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			strict: true,
 			multiple: true,
 			multipleSelectionModifiers: ['ctrl', 'meta', 'shift'],
-			movable: false,
+			movable: true,
 			showNodeSelectionBox: true,
 			showEdgeSelectionBox: true,
 			pointerEvents: 'none',
 			content: false,
 			filter: (cell: unknown) => (isX6Node(cell) || isX6Edge(cell)) && this.elementRegistry.element(cell.id) !== undefined,
-		}));
+		});
+		this.graph.use(selection);
+		if (isSelectionPlugin(selection)) {
+			selection.on?.('box:mouseup', () => {
+				this.persistMultiSelectionMovement();
+			});
+		}
 		this.graph.use(new x6.Transform({
 			resizing: {
 				enabled: true,
@@ -745,11 +751,6 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		});
 	}
 
-	private isMultiSelectedNodeView(cellView: unknown): boolean {
-		const cell = cellViewCell(cellView);
-		return this.selectedIds.length > 1 && isX6Node(cell) && this.selectedIds.includes(cell.id);
-	}
-
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
 		if (this.suppressBoundsEvents) {
 			return;
@@ -811,6 +812,51 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 					points: route.points,
 					label: route.label,
 				}];
+		});
+	}
+
+	private persistMultiSelectionMovement(): void {
+		if (this.selectedIds.length < 2) {
+			return;
+		}
+
+		const updates = this.selectedNodeCells()
+			.map(boundsUpdate)
+			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
+		if (updates.length > 0) {
+			this.suppressBoundsEvents = true;
+			try {
+				for (const update of updates) {
+					const cell = this.graph.getCellById(update.id);
+					if (!isX6Node(cell)) {
+						continue;
+					}
+
+					this.restoreClampedNodePosition(cell, update);
+					this.elementRegistry.updateBounds(update);
+				}
+			} finally {
+				this.suppressBoundsEvents = false;
+			}
+			this.publishSelectionChanged();
+			this.publishElementBounds(updates, 'move');
+		}
+
+		for (const edge of this.selectedOrConnectedEdgeCells()) {
+			this.markEdgeRouteChanged(edge);
+		}
+		this.flushEdgeRouteChanges();
+	}
+
+	private selectedOrConnectedEdgeCells(): readonly X6Edge[] {
+		const selectedIds = new Set(this.selectedIds);
+		return elementRegistryEdges(this.elementRegistry).flatMap((edge) => {
+			if (!selectedIds.has(edge.id) && !selectedIds.has(edge.source) && !selectedIds.has(edge.target)) {
+				return [];
+			}
+
+			const cell = this.graph.getCellById(edge.id);
+			return isX6Edge(cell) ? [cell] : [];
 		});
 	}
 

@@ -14,6 +14,7 @@ export class ArrangeDiagramUseCase {
 		diagram: OntologyDiagramDocument,
 		algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId,
 		elkLayeredOptions?: ElkLayeredLayoutOptions,
+		selectedNodeIds?: readonly string[],
 	): Promise<DiagramMutationResult> {
 		if (diagram.nodes.length === 0) {
 			return { notification: 'There are no ontology nodes to arrange.' };
@@ -24,8 +25,9 @@ export class ArrangeDiagramUseCase {
 			return { notification: `The diagram layout algorithm "${algorithmId}" is not available.` };
 		}
 
+		const layoutDiagram = layoutScope(diagram, selectedNodeIds);
 		const layout = await algorithm.layout(
-			diagram,
+			layoutDiagram,
 			algorithmId === 'elk-layered' ? elkLayeredOptions : undefined,
 		);
 		const arrangedBoundsById = layout.nodeBoundsById;
@@ -75,6 +77,27 @@ export class ArrangeDiagramUseCase {
 			}),
 		};
 	}
+}
+
+function layoutScope(
+	diagram: OntologyDiagramDocument,
+	selectedNodeIds: readonly string[] | undefined,
+): OntologyDiagramDocument {
+	if (selectedNodeIds === undefined || selectedNodeIds.length === 0) {
+		return diagram;
+	}
+
+	const selectedIds = new Set(selectedNodeIds);
+	const nodes = diagram.nodes.filter((node) => selectedIds.has(node.id.value));
+	if (nodes.length === 0) {
+		return diagram;
+	}
+
+	const scopedIds = new Set(nodes.map((node) => node.id.value));
+	return cloneDiagram(diagram, {
+		nodes,
+		edges: diagram.edges.filter((edge) => scopedIds.has(edge.source.value) && scopedIds.has(edge.target.value)),
+	});
 }
 
 function arrangeEdge(

@@ -112,13 +112,16 @@ export class ArrangeDiagramCommand {
 	public readonly type = 'arrangeDiagram';
 	public readonly algorithmId: DiagramLayoutAlgorithmId;
 	public readonly elkLayeredOptions: ElkLayeredLayoutOptions | undefined;
+	public readonly selectedNodeIds: readonly string[] | undefined;
 
 	public constructor(
 		algorithmId: DiagramLayoutAlgorithmId = defaultDiagramLayoutAlgorithmId,
 		elkLayeredOptions?: ElkLayeredLayoutOptions,
+		selectedNodeIds?: readonly string[],
 	) {
 		this.algorithmId = algorithmId;
 		this.elkLayeredOptions = elkLayeredOptions;
+		this.selectedNodeIds = selectedNodeIds;
 	}
 }
 

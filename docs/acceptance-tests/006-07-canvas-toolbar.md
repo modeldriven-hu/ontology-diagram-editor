@@ -14,6 +14,8 @@
 - Given the user chooses Add Note, Add Label, or Add Image, when the action completes, then the corresponding element is created through the canvas workflow.
 - Given the user chooses Export SVG or Export PNG, when the diagram has exportable content, then the export workflow defined in `006-11-canvas-export.md` starts.
 - Given the user chooses Arrange Diagram with ontology nodes present, when persistence completes, then nodes are arranged and connected edges are rerouted as one logical edit.
+- Given one or more ontology nodes are selected, when the user chooses Arrange Diagram, then only those nodes are arranged.
+- Given no ontology node is selected, when the user chooses Arrange Diagram, then every ontology node is arranged.
 - Given the user selects Directed Layers, ELK Layered, ELK Force, ELK Mr. Tree, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
 - Given the user selects ELK Layered, when they set the node or layer gap and choose Arrange Diagram, then the resulting layout uses the configured gaps without persisting those settings in the diagram file.
 - Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.

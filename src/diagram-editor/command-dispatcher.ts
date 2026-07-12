@@ -140,6 +140,7 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.algorithmId,
 					command.elkLayeredOptions,
+					command.selectedNodeIds,
 				));
 				return;
 			case 'undoDiagram':

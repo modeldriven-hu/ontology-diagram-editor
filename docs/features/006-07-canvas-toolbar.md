@@ -72,6 +72,8 @@ and theme settings.
 Arranging the diagram shall:
 
 - Allow the user to select from the available layout algorithms.
+- Arrange only selected ontology nodes when the selection contains at least one node;
+  otherwise arrange every ontology node on the canvas.
 - Provide a deterministic left-to-right directed-layers layout derived from
   ontology-backed edges, an ELK layered layout with orthogonal edge routing, an ELK
   force-directed layout, an ELK Mr. Tree layout, and a deterministic grid layout.

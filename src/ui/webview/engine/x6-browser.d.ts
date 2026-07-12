@@ -52,6 +52,7 @@ export interface X6SelectionPlugin {
 	unselect(cells: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): unknown;
 	isSelected(cell: X6Cell | string): boolean;
 	getSelectedCells(): X6Cell[];
+	on?(eventName: string, listener: (event: Record<string, unknown>) => void): void;
 }
 
 export interface X6Node extends X6Cell {

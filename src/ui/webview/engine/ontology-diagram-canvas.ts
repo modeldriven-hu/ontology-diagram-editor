@@ -357,6 +357,7 @@ arrangeDiagramButton.addEventListener('click', () => {
 	messageBus.publishCommand(new ArrangeDiagramCommand(
 		algorithmId,
 		algorithmId === 'elk-layered' ? elkLayeredSpacingOptions() : undefined,
+		selectedDiagramNodeIds(),
 	));
 });
 diagramLayoutAlgorithmSelect.addEventListener('change', () => {
@@ -889,6 +890,11 @@ function persistElkLayeredSpacing(): void {
 		elkLayeredNodeSpacing: spacing.nodeSpacing,
 		elkLayeredLayerSpacing: spacing.layerSpacing,
 	});
+}
+
+function selectedDiagramNodeIds(): readonly string[] | undefined {
+	const nodeIds = canvas.selectedElementIds().filter((id) => elementRegistry.element(id)?.kind === 'node');
+	return nodeIds.length > 0 ? nodeIds : undefined;
 }
 
 function updateWebviewState(update: Partial<WebviewState>): void {

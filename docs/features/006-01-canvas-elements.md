@@ -58,13 +58,13 @@ When a data-property restriction on the represented class declares an OWL cardin
 the node's data-property compartment shall show it after the property type using UML
 range notation: `[1]`, `[0..1]`, `[1..*]`, or `[0..*]`.
 
-When multiple bounded elements are selected, keyboard movement shall move those elements
-as a single unit. Mouse drag movement for multi-selection is disabled for version 1.
-Keyboard movement shall preserve each element's relative position within the selection
-and persist as one logical diagram movement. Edges whose source and target elements both
-move by the same group offset shall move with the selected elements: their persisted
-route points and label point shall be translated by the same offset instead of being
-rerouted. Version 1 multi-selection does not provide bulk property editing.
+When multiple bounded elements or edges are selected, keyboard or mouse-drag movement
+shall move the selection as a single unit. Movement shall preserve each element's
+relative position within the selection and persist as one logical diagram movement.
+Edges whose source and target elements both move by the same group offset shall move
+with the selected elements: their persisted route points and label point shall be
+translated by the same offset instead of being rerouted. Version 1 multi-selection does
+not provide bulk property editing.
 
 Selecting an element shall emit a `Canvas selection changed` event.
 

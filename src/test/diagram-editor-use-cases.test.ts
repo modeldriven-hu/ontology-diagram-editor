@@ -2445,6 +2445,45 @@ suite('Diagram editor use cases', () => {
 		});
 	});
 
+	test('arranges only selected nodes, or every node when none are selected', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_a', 'ex:A', new Bounds(10, 20, 100, 50)),
+				new DiagramNode('node_b', 'ex:B', new Bounds(200, 20, 100, 50)),
+				new DiagramNode('node_c', 'ex:C', new Bounds(390, 20, 100, 50)),
+			],
+			[
+				new DiagramEdge('edge_ab', 'node_a', 'node_b', 'ex:ab', new Point(150, 45), [new Point(110, 45), new Point(200, 45)]),
+				new DiagramEdge('edge_bc', 'node_b', 'node_c', 'ex:bc', new Point(340, 45), [new Point(300, 45), new Point(390, 45)]),
+			],
+		);
+		const layoutNodeIds: string[][] = [];
+		const algorithm: DiagramLayoutAlgorithm = {
+			id: 'grid',
+			layout: async (layoutDiagram) => {
+				layoutNodeIds.push(layoutDiagram.nodes.map((node) => node.id.value));
+				return {
+					nodeBoundsById: new Map(layoutDiagram.nodes.map((node, index) => [
+						node.id.value,
+						new Bounds(80 + (index * 160), 80, node.bounds.width, node.bounds.height),
+					])),
+				};
+			},
+		};
+		const useCase = new ArrangeDiagramUseCase([algorithm]);
+
+		const selectedResult = await useCase.execute(diagram, 'grid', undefined, ['node_b', 'node_c']);
+		assert.ok(selectedResult.diagram);
+		assert.deepStrictEqual(layoutNodeIds[0], ['node_b', 'node_c']);
+		assert.deepStrictEqual(selectedResult.diagram.nodes[0].bounds.toPersistenceObject(), { x: 10, y: 20, width: 100, height: 50 });
+
+		await useCase.execute(diagram, 'grid');
+		assert.deepStrictEqual(layoutNodeIds[1], ['node_a', 'node_b', 'node_c']);
+	});
+
 	test('saves UTF-8 diagram exports through the export save port', async () => {
 		const savePort = new RecordingDiagramExportSavePort('/workspace/example.svg');
 

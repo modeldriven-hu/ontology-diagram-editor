@@ -66,9 +66,9 @@ When a node is moved, edges connected to that node shall remain connected. The c
 shall update the first or last route point of each connected edge so it remains on the
 boundary of the moved node. Intermediate route points shall remain unchanged unless the
 user edits them directly. When multiple selected nodes are moved together with keyboard
-movement, edges whose source and target nodes both move by the same offset shall preserve
-their route shape and label position by translating the entire edge by that offset
-instead of rerouting.
+or mouse-drag movement, edges whose source and target nodes both move by the same offset
+shall preserve their route shape and label position by translating the entire edge by
+that offset instead of rerouting.
 
 # Resize Nodes
 
