@@ -797,7 +797,7 @@ function webviewStyles(): string {
 		position: relative;
 		width: 100%;
 		height: 100%;
-		min-width: 280px;
+		min-width: 200px;
 		min-height: 0;
 		overflow: auto;
 		border-left: 1px solid var(--vscode-panel-border);
@@ -907,10 +907,10 @@ function webviewStyles(): string {
 	.property-tab-list {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 2px;
 		min-width: 0;
 		border-bottom: 1px solid var(--vscode-panel-border);
-		overflow-x: auto;
 	}
 
 	.property-tab {
@@ -1146,7 +1146,15 @@ async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPay
 							reference: item.reference,
 							comments: item.metadata.comments ?? [],
 						})),
-					),
+				),
+				annotations: loadedOntologies.flatMap((ontology) =>
+					ontology.items
+						.filter((item) => (item.metadata.annotations ?? []).length > 0)
+						.map((item) => ({
+							reference: item.reference,
+							annotations: item.metadata.annotations ?? [],
+						})),
+				),
 			},
 			theme: await resolvedThemeOverrides(document, diagram),
 		};

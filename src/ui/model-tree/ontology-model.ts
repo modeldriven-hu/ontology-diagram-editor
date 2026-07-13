@@ -65,12 +65,21 @@ export interface OntologyItemMetadata {
 	readonly rangeReferences?: readonly string[];
 	readonly propertyCardinalities?: readonly OntologyPropertyCardinality[];
 	readonly comments?: readonly string[];
+	readonly annotations?: readonly OntologyAnnotation[];
 	readonly subclassReference?: string;
 	readonly superclassReference?: string;
 	readonly edgeOntologyRef?: string;
 	readonly sourceOntologyRef?: string;
 	readonly targetOntologyRef?: string;
 	readonly targetNodeType?: 'class' | 'datatype' | 'individual';
+}
+
+export interface OntologyAnnotation {
+	readonly propertyReference: string;
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly datatypeReference?: string;
+	readonly language?: string;
 }
 
 export interface OntologyPropertyCardinality {
@@ -359,6 +368,7 @@ function createOntologyItems(
 	const subjectsByType = new Map<string, Set<string>>();
 	const labels = new Map<string, Set<string>>();
 	const comments = new Map<string, Set<string>>();
+	const annotations = new Map<string, OntologyAnnotation[]>();
 	const domains = new Map<string, Set<string>>();
 	const ranges = new Map<string, Set<string>>();
 	const superclasses = new Map<string, Set<string>>();
@@ -431,12 +441,31 @@ function createOntologyItems(
 		}
 	}
 
+	const annotationPropertyReferences = new Set([
+		rdfsLabel,
+		rdfsComment,
+		...valuesFor(subjectsByType, owlAnnotationProperty),
+	]);
+	for (const quad of quads) {
+		const subject = resourceTermValue(quad.subject);
+		const predicate = namedTermValue(quad.predicate);
+		if (subject === undefined || predicate === undefined || !annotationPropertyReferences.has(predicate)) {
+			continue;
+		}
+
+		const annotation = createOntologyAnnotation(predicate, quad.object);
+		if (annotation !== undefined && !isBlankNodeReference(subject)) {
+			addArrayMapValue(annotations, subject, annotation);
+		}
+	}
+
 	const individualIris = createIndividualIris(subjectsByType, classAssertions, propertyAssertions);
 	const items = [
 		...createEntityItems('class', [owlClass, rdfsClass], subjectsByType, labels, namespaces, sourceOntologyPath, (iri) => ({
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 			superclassReferences: valuesFor(superclasses, iri),
 			equivalentClassReferences: valuesFor(equivalentClasses, iri),
 			propertyCardinalities: classPropertyCardinalities(
@@ -452,6 +481,7 @@ function createOntologyItems(
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
@@ -459,6 +489,7 @@ function createOntologyItems(
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
@@ -466,6 +497,7 @@ function createOntologyItems(
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 			domainReferences: valuesFor(domains, iri),
 			rangeReferences: valuesFor(ranges, iri),
 		})),
@@ -480,6 +512,7 @@ function createOntologyItems(
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 			assertedClassReferences: valuesFor(classAssertions, iri),
 			propertyAssertions: arrayValuesFor(propertyAssertions, iri),
 		})),
@@ -488,6 +521,7 @@ function createOntologyItems(
 			iri,
 			displayLabels: valuesFor(labels, iri),
 			comments: valuesFor(comments, iri),
+			annotations: arrayValuesFor(annotations, iri),
 		})),
 	];
 
@@ -572,6 +606,10 @@ function createPropertyAssertion(propertyReference: string, object: RdfTerm): On
 	}
 
 	return undefined;
+}
+
+function createOntologyAnnotation(propertyReference: string, object: RdfTerm): OntologyAnnotation | undefined {
+	return createPropertyAssertion(propertyReference, object);
 }
 
 function createObjectPropertyAssertionItems(

@@ -62,7 +62,11 @@ ex:manages a owl:ObjectProperty .
 
 ex:Requirement a owl:Class ;
   rdfs:label "Requirement" ;
-  rdfs:comment "A requirement captured from a stakeholder." .
+  rdfs:comment "A requirement captured from a stakeholder." ;
+  ex:editorialStatus "reviewed"@en .
+
+ex:editorialStatus a owl:AnnotationProperty ;
+  rdfs:label "Editorial status" .
 
 ex:identifier a owl:DatatypeProperty ;
   rdfs:domain ex:Requirement ;
@@ -85,6 +89,29 @@ ex:identifier a owl:DatatypeProperty ;
 			const requirement = ontology?.items.find((item) => item.reference === 'ex:Requirement');
 			const identifier = ontology?.items.find((item) => item.reference === 'ex:identifier');
 			assert.deepStrictEqual(requirement?.metadata.comments, ['A requirement captured from a stakeholder.']);
+			assert.deepStrictEqual(requirement?.metadata.annotations, [
+				{
+					propertyReference: 'http://www.w3.org/2000/01/rdf-schema#label',
+					value: 'Requirement',
+					valueType: 'literal',
+					datatypeReference: 'http://www.w3.org/2001/XMLSchema#string',
+					language: undefined,
+				},
+				{
+					propertyReference: 'http://www.w3.org/2000/01/rdf-schema#comment',
+					value: 'A requirement captured from a stakeholder.',
+					valueType: 'literal',
+					datatypeReference: 'http://www.w3.org/2001/XMLSchema#string',
+					language: undefined,
+				},
+				{
+					propertyReference: 'https://example.com/ontology#editorialStatus',
+					value: 'reviewed',
+					valueType: 'literal',
+					datatypeReference: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString',
+					language: 'en',
+				},
+			]);
 			assert.deepStrictEqual(identifier?.metadata.comments, ['Stable requirement identifier.']);
 		} finally {
 			await rm(directory, { recursive: true, force: true });

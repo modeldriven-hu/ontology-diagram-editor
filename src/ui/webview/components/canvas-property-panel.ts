@@ -10,6 +10,7 @@ import type { DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttributes, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
 import { ontologyCommentsForReference } from './ontology-comments';
+import { ontologyAnnotationFieldsForReference } from './ontology-annotations';
 import type { WebviewTheme } from '../webview-theme';
 
 interface CanvasPropertyPanelOptions {
@@ -178,7 +179,7 @@ export class CanvasPropertyPanel {
 
 	private clampWidth(width: number): number {
 		const editorWidth = this.editorElement()?.getBoundingClientRect().width ?? 0;
-		const minimumWidth = 280;
+		const minimumWidth = 200;
 		const maximumWidth = editorWidth > 0
 			? Math.max(minimumWidth, Math.min(640, editorWidth - 360))
 			: 640;
@@ -287,62 +288,67 @@ export class CanvasPropertyPanel {
 	private nodeTabs(node: DiagramNode, identitySection: HTMLElement): readonly PropertyTab[] {
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
 		const propertyValueAttributes = availableNodePropertyValueAttributes(node, this.options.payload);
+		const annotationFields = ontologyAnnotationFieldsForReference(node.ontology_ref, this.options.payload);
+		const ontologySections = [
+			sectionElement('Ontology', [
+				readonlyField('Ref', node.ontology_ref),
+			]),
+			...(annotationFields.length === 0 ? [] : [sectionElement('Annotations', annotationFields.map((annotation) =>
+				readonlyField(annotation.label, annotation.value),
+			))]),
+			...(node.ontology_item_type === 'individual' ? [] : [
+				sectionElement('Data Properties', [
+					readonlyField('Data Properties', String(dataPropertyAttributes.length)),
+					checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
+						if (value) {
+							this.resizeNodeToFitDetails({ ...node, show_data_properties: value }, dataPropertyAttributes);
+						}
+						this.propertyEdited('node', node.id, ['show_data_properties']);
+						this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
+					}),
+				]),
+			]),
+			...(node.ontology_item_type === 'individual' ? [
+				sectionElement('Instance', [
+					readonlyField('Property Values', String(propertyValueAttributes.length)),
+					checkboxField('Show Type', node.show_type !== false, (value) => {
+						const nextNode = { ...node, show_type: value };
+						if (value) {
+							this.resizeNodeToFitDetails(nextNode, node.show_property_values === true ? propertyValueAttributes : []);
+						}
+						this.propertyEdited('node', node.id, ['show_type']);
+						this.options.messageBus.publishCommand(new UpdateNodeTypeVisibilityCommand(node.id, value));
+					}),
+					checkboxField('Show Property Values', node.show_property_values === true, (value) => {
+						const nextNode = { ...node, show_property_values: value };
+						if (value) {
+							this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
+						}
+						this.propertyEdited('node', node.id, ['show_property_values']);
+						this.options.messageBus.publishCommand(new UpdateNodePropertyValuesVisibilityCommand(node.id, value));
+					}),
+					selectField('Long Values', node.property_value_text_overflow ?? 'truncate', propertyValueTextOverflowOptions, (value) => {
+						const textOverflow = value ?? 'truncate';
+						const nextNode = {
+							...node,
+							property_value_text_overflow: textOverflow === 'wrap' ? textOverflow : undefined,
+						};
+						this.updateElementContent({ kind: 'nodePropertyValueTextOverflow', id: node.id, textOverflow });
+						if (node.show_property_values === true) {
+							this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
+						}
+						this.propertyEdited('node', node.id, ['property_value_text_overflow']);
+						this.options.messageBus.publishCommand(new UpdateNodePropertyValueTextOverflowCommand(node.id, textOverflow));
+					}),
+				]),
+			] : []),
+		];
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
 					identitySection,
-					sectionElement('Ontology', [
-						readonlyField('Ref', node.ontology_ref),
-						...this.commentFields(node.ontology_ref),
-					]),
-					...(node.ontology_item_type === 'individual' ? [] : [
-						sectionElement('Data Properties', [
-							readonlyField('Data Properties', String(dataPropertyAttributes.length)),
-							checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
-								if (value) {
-									this.resizeNodeToFitDetails({ ...node, show_data_properties: value }, dataPropertyAttributes);
-								}
-								this.propertyEdited('node', node.id, ['show_data_properties']);
-								this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
-							}),
-						]),
-					]),
-					...(node.ontology_item_type === 'individual' ? [
-						sectionElement('Instance', [
-							readonlyField('Property Values', String(propertyValueAttributes.length)),
-							checkboxField('Show Type', node.show_type !== false, (value) => {
-								const nextNode = { ...node, show_type: value };
-								if (value) {
-									this.resizeNodeToFitDetails(nextNode, node.show_property_values === true ? propertyValueAttributes : []);
-								}
-								this.propertyEdited('node', node.id, ['show_type']);
-								this.options.messageBus.publishCommand(new UpdateNodeTypeVisibilityCommand(node.id, value));
-							}),
-							checkboxField('Show Property Values', node.show_property_values === true, (value) => {
-								const nextNode = { ...node, show_property_values: value };
-								if (value) {
-									this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
-								}
-								this.propertyEdited('node', node.id, ['show_property_values']);
-								this.options.messageBus.publishCommand(new UpdateNodePropertyValuesVisibilityCommand(node.id, value));
-							}),
-							selectField('Long Values', node.property_value_text_overflow ?? 'truncate', propertyValueTextOverflowOptions, (value) => {
-								const textOverflow = value ?? 'truncate';
-								const nextNode = {
-									...node,
-									property_value_text_overflow: textOverflow === 'wrap' ? textOverflow : undefined,
-								};
-								this.updateElementContent({ kind: 'nodePropertyValueTextOverflow', id: node.id, textOverflow });
-								if (node.show_property_values === true) {
-									this.resizeNodeToFitDetails(nextNode, propertyValueAttributes);
-								}
-								this.propertyEdited('node', node.id, ['property_value_text_overflow']);
-								this.options.messageBus.publishCommand(new UpdateNodePropertyValueTextOverflowCommand(node.id, textOverflow));
-							}),
-						]),
-					] : []),
 					sectionElement('Image', [
 						imageField('Image', node.image !== undefined, () => {
 							this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
@@ -354,6 +360,7 @@ export class CanvasPropertyPanel {
 					]),
 				],
 			},
+			{ id: 'ontology', label: 'Ontology', sections: ontologySections },
 			{
 				id: 'geometry',
 				label: 'Geometry',

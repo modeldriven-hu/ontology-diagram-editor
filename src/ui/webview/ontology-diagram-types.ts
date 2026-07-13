@@ -31,6 +31,7 @@ export interface DiagramPayload {
 		readonly property_cardinalities?: readonly DiagramPropertyCardinality[];
 		readonly individuals?: readonly DiagramOntologyIndividual[];
 		readonly comments?: readonly DiagramOntologyComment[];
+		readonly annotations?: readonly DiagramOntologyAnnotation[];
 	};
 	readonly theme?: WebviewThemeOverrideMap;
 	readonly error?: string;
@@ -90,6 +91,19 @@ export interface DiagramPropertyAssertion {
 export interface DiagramOntologyComment {
 	readonly reference: string;
 	readonly comments: readonly string[];
+}
+
+export interface DiagramOntologyAnnotation {
+	readonly reference: string;
+	readonly annotations: readonly DiagramAnnotationValue[];
+}
+
+export interface DiagramAnnotationValue {
+	readonly propertyReference: string;
+	readonly value: string;
+	readonly valueType: 'literal' | 'resource';
+	readonly datatypeReference?: string;
+	readonly language?: string;
 }
 
 export interface DiagramEdge {
