@@ -1,0 +1,13 @@
+metadata:
+  schema_version: "1.0"
+  title: City mobility class hierarchy
+  authors: []
+  diagram_version: "0.1.0"
+  theme_mode: light
+ontologies:
+  - path: city-mobility.ttl
+namespaces:
+  mobility: https://example.com/city-mobility#
+  rdfs: http://www.w3.org/2000/01/rdf-schema#
+nodes: []
+edges: []

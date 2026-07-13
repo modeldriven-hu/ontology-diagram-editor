@@ -1,0 +1,74 @@
+@prefix mobility: <https://example.com/city-mobility#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://example.com/city-mobility> a owl:Ontology ;
+	rdfs:label "City mobility example" .
+
+mobility:TransportEntity a owl:Class ;
+	rdfs:label "Transport entity" .
+
+mobility:FleetAsset a owl:Class ;
+	rdfs:label "Fleet asset" ;
+	rdfs:subClassOf mobility:TransportEntity .
+
+mobility:Place a owl:Class ;
+	rdfs:label "Place" ;
+	rdfs:subClassOf mobility:TransportEntity .
+
+mobility:Vehicle a owl:Class ;
+	rdfs:label "Vehicle" ;
+	rdfs:subClassOf mobility:FleetAsset .
+
+mobility:RailVehicle a owl:Class ;
+	rdfs:label "Rail vehicle" ;
+	rdfs:subClassOf mobility:Vehicle .
+
+mobility:RoadVehicle a owl:Class ;
+	rdfs:label "Road vehicle" ;
+	rdfs:subClassOf mobility:Vehicle .
+
+mobility:ElectricVehicle a owl:Class ;
+	rdfs:label "Electric vehicle" ;
+	rdfs:subClassOf mobility:Vehicle .
+
+# Multiple inheritance makes this class visible below both parent classes.
+mobility:ElectricTram a owl:Class ;
+	rdfs:label "Electric tram" ;
+	rdfs:subClassOf mobility:ElectricVehicle, mobility:RailVehicle .
+
+mobility:Station a owl:Class ;
+	rdfs:label "Station" ;
+	rdfs:subClassOf mobility:Place .
+
+mobility:RailStation a owl:Class ;
+	rdfs:label "Rail station" ;
+	rdfs:subClassOf mobility:Station .
+
+mobility:ChargingSite a owl:Class ;
+	rdfs:label "Charging site" ;
+	rdfs:subClassOf mobility:Place .
+
+# This class joins the station and charging-site branches.
+mobility:MobilityHub a owl:Class ;
+	rdfs:label "Mobility hub" ;
+	rdfs:subClassOf mobility:ChargingSite, mobility:RailStation .
+
+mobility:operatesFrom a owl:ObjectProperty ;
+	rdfs:label "operates from" ;
+	rdfs:domain mobility:Vehicle ;
+	rdfs:range mobility:Station .
+
+mobility:passengerCapacity a owl:DatatypeProperty ;
+	rdfs:label "passenger capacity" ;
+	rdfs:domain mobility:Vehicle ;
+	rdfs:range xsd:nonNegativeInteger .
+
+mobility:tram47 a owl:NamedIndividual, mobility:ElectricTram ;
+	rdfs:label "Tram 47" ;
+	mobility:operatesFrom mobility:centralHub ;
+	mobility:passengerCapacity "180"^^xsd:nonNegativeInteger .
+
+mobility:centralHub a owl:NamedIndividual, mobility:MobilityHub ;
+	rdfs:label "Central interchange" .

@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as vscode from 'vscode';
 
 import { ModelTree } from '../ui/model-tree/model-tree';
 import type { LoadedOntology, OntologyItem } from '../ui/model-tree/ontology-model';
@@ -195,7 +196,106 @@ suite('Model tree', () => {
 		const taskParent = modelTreeParent(tree, taskItems[0]);
 		assert.strictEqual(taskParent.label, 'Task');
 	});
+
+	test('nests classes under their superclasses', () => {
+		const thing = ontologyItem('class', 'ex:Thing', 'Thing');
+		const activity = ontologyItem('class', 'ex:Activity', 'Activity', {
+			superclassReferences: ['ex:Thing'],
+		});
+		const agent = ontologyItem('class', 'ex:Agent', 'Agent', {
+			superclassReferences: ['ex:Thing'],
+		});
+		const family = ontologyItem('class', 'ex:Family', 'Family', {
+			superclassReferences: ['ex:Agent'],
+		});
+		const nobleFamily = ontologyItem('class', 'ex:NobleFamily', 'Noble family', {
+			superclassReferences: ['ex:Family'],
+		});
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [nobleFamily, activity, family, thing, agent],
+		};
+		const tree = new ModelTree();
+		const classesGroup = ontologyGroup(tree, ontology, 'Classes');
+
+		const roots = modelTreeChildren(tree, classesGroup);
+		assert.deepStrictEqual(roots.map((node) => node.label), ['Thing']);
+		assert.strictEqual(tree.getTreeItem(roots[0]).collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
+
+		const thingChildren = modelTreeChildren(tree, roots[0]);
+		assert.deepStrictEqual(thingChildren.map((node) => node.label), ['Activity', 'Agent']);
+		const agentChildren = modelTreeChildren(tree, thingChildren[1]);
+		assert.deepStrictEqual(agentChildren.map((node) => node.label), ['Family']);
+		const familyChildren = modelTreeChildren(tree, agentChildren[0]);
+		assert.deepStrictEqual(familyChildren.map((node) => node.label), ['Noble family']);
+		assert.strictEqual(tree.getTreeItem(familyChildren[0]).collapsibleState, vscode.TreeItemCollapsibleState.None);
+
+		assert.strictEqual(modelTreeParent(tree, familyChildren[0]).label, 'Family');
+		assert.strictEqual(modelTreeParent(tree, roots[0]).label, 'Classes');
+	});
+
+	test('shows a multiply inherited class below each superclass', () => {
+		const agent = ontologyItem('class', 'ex:Agent', 'Agent');
+		const organisation = ontologyItem('class', 'ex:Organisation', 'Organisation');
+		const cooperative = ontologyItem('class', 'ex:Cooperative', 'Cooperative', {
+			superclassReferences: ['ex:Agent', 'ex:Organisation'],
+		});
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [cooperative, organisation, agent],
+		};
+		const tree = new ModelTree();
+		const roots = modelTreeChildren(tree, ontologyGroup(tree, ontology, 'Classes'));
+
+		assert.deepStrictEqual(roots.map((node) => node.label), ['Agent', 'Organisation']);
+		const agentChild = modelTreeChildren(tree, roots[0])[0];
+		const organisationChild = modelTreeChildren(tree, roots[1])[0];
+		assert.strictEqual(agentChild.label, 'Cooperative');
+		assert.strictEqual(organisationChild.label, 'Cooperative');
+		assert.notStrictEqual(tree.getTreeItem(agentChild).id, tree.getTreeItem(organisationChild).id);
+		assert.strictEqual(modelTreeParent(tree, agentChild).label, 'Agent');
+		assert.strictEqual(modelTreeParent(tree, organisationChild).label, 'Organisation');
+	});
+
+	test('keeps cyclic class hierarchies visible without repeating ancestors', () => {
+		const alpha = ontologyItem('class', 'ex:Alpha', 'Alpha', {
+			superclassReferences: ['ex:Beta'],
+		});
+		const beta = ontologyItem('class', 'ex:Beta', 'Beta', {
+			superclassReferences: ['ex:Alpha'],
+		});
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [beta, alpha],
+		};
+		const tree = new ModelTree();
+		const roots = modelTreeChildren(tree, ontologyGroup(tree, ontology, 'Classes'));
+
+		assert.deepStrictEqual(roots.map((node) => node.label), ['Alpha']);
+		const children = modelTreeChildren(tree, roots[0]);
+		assert.deepStrictEqual(children.map((node) => node.label), ['Beta']);
+		assert.deepStrictEqual(modelTreeChildren(tree, children[0]), []);
+	});
 });
+
+function ontologyGroup(
+	tree: ModelTree,
+	ontology: LoadedOntology,
+	label: string,
+): Parameters<ModelTree['getTreeItem']>[0] {
+	const ontologyFileNode = {
+		kind: 'ontologyFile',
+		id: `ontology:${ontology.relativePath}`,
+		label: ontology.relativePath,
+		ontology,
+	} as Parameters<ModelTree['getChildren']>[0];
+	const group = modelTreeChildren(tree, ontologyFileNode).find((node) => node.label === label);
+	assert.ok(group);
+	return group;
+}
 
 function modelTreeChildren(
 	tree: ModelTree,

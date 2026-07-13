@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
-import { DiagramMetadata, OntologyDiagramDocument, OntologyFileReference } from '../documents/odiagram';
+import { DiagramMetadata, OntologyDiagramDocument, OntologyFileReference, readOntologyDiagramFile } from '../documents/odiagram';
 import { findOntologyImportPaths, loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 
 suite('Ontology model', () => {
@@ -470,5 +470,24 @@ ex:REQ-002 req:appliesTo ex:AuthenticationService .
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
+	});
+
+	test('loads the class hierarchy example files', async () => {
+		const diagramPath = path.resolve(__dirname, '../../examples/class-hierarchy/city-mobility.odiagram');
+		const diagram = await readOntologyDiagramFile(diagramPath);
+		const [ontology] = await loadReferencedOntologies(diagramPath, diagram);
+
+		assert.strictEqual(ontology?.error, undefined);
+		assert.strictEqual(ontology?.items.filter((item) => item.type === 'class').length, 12);
+		const electricTram = ontology?.items.find((item) => item.displayLabel === 'Electric tram');
+		const mobilityHub = ontology?.items.find((item) => item.displayLabel === 'Mobility hub');
+		assert.deepStrictEqual(electricTram?.metadata.superclassReferences, [
+			'https://example.com/city-mobility#ElectricVehicle',
+			'https://example.com/city-mobility#RailVehicle',
+		]);
+		assert.deepStrictEqual(mobilityHub?.metadata.superclassReferences, [
+			'https://example.com/city-mobility#ChargingSite',
+			'https://example.com/city-mobility#RailStation',
+		]);
 	});
 });

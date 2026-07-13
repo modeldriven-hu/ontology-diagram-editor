@@ -464,7 +464,7 @@ function render(): void {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
-			'Drag a class, individual, or datatype from the model tree, or add an element from the canvas toolbar.',
+			'Drag a class, individual, or datatype from the model tree and hold Shift when releasing it on the canvas, or add an element from the canvas toolbar.',
 		));
 		messageBus.publishEvent(new CanvasRenderedEvent({
 			diagramFilePath: webviewConfig.payload.file?.fsPath,

@@ -29,6 +29,11 @@ tree structure.
 - Under each ontology file, ontology items are grouped by type.
 - Groups and items are sorted alphabetically by display label unless the ontology
   parser provides a stable source order.
+- Classes with an in-ontology superclass are nested below that superclass in the Classes
+  group. Root classes remain direct children of the Classes group.
+- A class with several in-ontology superclasses is shown below each superclass. Cyclic
+  subclass declarations must not cause infinitely repeating tree nodes, and every class
+  must remain reachable.
 
 Version 1 displays only ontology files directly referenced by the `.odiagram` file.
 When the user adds an ontology, the editor follows its transitive `owl:imports`
@@ -236,6 +241,7 @@ The toolbar shall contain:
 
 | Command | Enabled when | Result |
 |---------|--------------|--------|
+| Filter model tree | A `.odiagram` file is open | Opens an ontology-item search. Moving through matching results expands the model tree to that item's parent path and selects it. |
 | Add ontology | A `.odiagram` file is open | Opens the add ontology flow |
 | Remove ontology | An ontology file node is selected | Opens the remove ontology confirmation flow |
 | Refresh diagram dependencies | A `.odiagram` file is open | Reloads the model tree, referenced ontology files, active theme, and open canvas for the current diagram. |

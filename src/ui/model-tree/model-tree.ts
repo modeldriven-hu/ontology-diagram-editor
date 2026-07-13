@@ -22,6 +22,7 @@ import { getOntologyItemIcon } from './ontology-item-icons';
 import { findOntologySourceRange } from './ontology-source-navigation';
 
 export const modelTreeViewId = 'ontology-diagram-editor.modelTree';
+export const filterModelTreeCommand = 'ontology-diagram-editor.modelTree.filter';
 export const refreshModelTreeCommand = 'ontology-diagram-editor.modelTree.refresh';
 export const addOntologyCommand = 'ontology-diagram-editor.modelTree.addOntology';
 export const removeOntologyCommand = 'ontology-diagram-editor.modelTree.removeOntology';
@@ -60,11 +61,16 @@ interface OntologyItemTreeNode extends BaseTreeNode {
 	readonly kind: 'ontologyItem';
 	readonly ontology: LoadedOntology;
 	readonly item: OntologyItem;
+	readonly classAncestorReferences?: readonly string[];
 }
 
 interface ErrorTreeNode extends BaseTreeNode {
 	readonly kind: 'error';
 	readonly message: string;
+}
+
+interface ModelTreeSearchItem extends vscode.QuickPickItem {
+	readonly node: OntologyItemTreeNode;
 }
 
 export interface ModelTreeSelectionEvent {
@@ -134,6 +140,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				this.onDidRequestDiagramRefreshEmitter.fire({ diagramUri: this.diagramDocument.uri });
 			}
 		});
+		const filterDisposable = vscode.commands.registerCommand(filterModelTreeCommand, async () => {
+			await this.searchModelTree();
+		});
 		const addDisposable = vscode.commands.registerCommand(addOntologyCommand, async () => {
 			await this.addOntology();
 		});
@@ -159,6 +168,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		});
 		this.disposables.push(
 			this.treeView,
+			filterDisposable,
 			refreshDisposable,
 			addDisposable,
 			removeDisposable,
@@ -285,11 +295,30 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		}
 
 		if (node.kind === 'ontologyGroup') {
+			if (node.groupKind === 'itemType' && node.itemType === 'class') {
+				return classHierarchyRoots(node.ontology, this.namespaces())
+					.map((item) => this.createOntologyItemNode(node.ontology, item, []));
+			}
+
 			if (node.groupKind === 'itemType' && node.itemType === 'individual') {
 				return this.createIndividualTypeGroupNodes(node.ontology, node.items);
 			}
 
 			return node.items.map((item) => this.createOntologyItemNode(node.ontology, item));
+		}
+
+		if (node.kind === 'ontologyItem' && node.item.type === 'class') {
+			const ancestors = node.classAncestorReferences
+				?? classAncestorPath(node.ontology, node.item, this.namespaces())
+				?? [];
+			const excludedReferences = [...ancestors, node.item.reference];
+			return classHierarchyChildren(node.ontology, node.item, this.namespaces())
+				.filter((item) => !excludedReferences.some((reference) => ontologyReferencesEqual(
+					item.reference,
+					reference,
+					this.namespaces(),
+				)))
+				.map((item) => this.createOntologyItemNode(node.ontology, item, excludedReferences));
 		}
 
 		return [];
@@ -307,6 +336,19 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		}
 
 		if (node.kind === 'ontologyItem') {
+			if (node.item.type === 'class') {
+				const ancestors = node.classAncestorReferences
+					?? classAncestorPath(node.ontology, node.item, this.namespaces())
+					?? [];
+				const parentReference = ancestors.at(-1);
+				const parent = parentReference === undefined
+					? undefined
+					: classItemForReference(node.ontology, parentReference, this.namespaces());
+				return parent === undefined
+					? this.createOntologyGroupNode(node.ontology, 'class')
+					: this.createOntologyItemNode(node.ontology, parent, ancestors.slice(0, -1));
+			}
+
 			return this.createOntologyItemParentGroupNode(node.ontology, node.item);
 		}
 
@@ -609,6 +651,66 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		return false;
 	}
 
+	private async searchModelTree(): Promise<void> {
+		const treeView = this.treeView;
+		if (treeView === undefined) {
+			return;
+		}
+
+		const picker = vscode.window.createQuickPick<ModelTreeSearchItem>();
+		picker.title = 'Filter Model Tree';
+		picker.placeholder = 'Search ontology items';
+		picker.matchOnDescription = true;
+		picker.matchOnDetail = true;
+		picker.items = this.modelTreeSearchItems();
+
+		await new Promise<void>((resolve) => {
+			const activeDisposable = picker.onDidChangeActive((items) => {
+				if (items[0] !== undefined) {
+					void this.revealSearchItem(items[0].node, false);
+				}
+			});
+			const acceptDisposable = picker.onDidAccept(() => {
+				const item = picker.selectedItems[0] ?? picker.activeItems[0];
+				if (item !== undefined) {
+					void this.revealSearchItem(item.node, true);
+				}
+				picker.hide();
+			});
+			const hideDisposable = picker.onDidHide(() => {
+				activeDisposable.dispose();
+				acceptDisposable.dispose();
+				hideDisposable.dispose();
+				picker.dispose();
+				resolve();
+			});
+			picker.show();
+		});
+	}
+
+	private modelTreeSearchItems(): readonly ModelTreeSearchItem[] {
+		return this.loadedOntologies
+			.filter((ontology) => ontology.error === undefined)
+			.flatMap((ontology) => ontology.items.map((item) => ({
+				label: item.displayLabel,
+				description: `${getOntologyItemTypeLabel(item.type)} · ${ontology.relativePath}`,
+				detail: item.reference,
+				node: this.createOntologyItemNode(ontology, item),
+			})))
+			.sort((left, right) => compareText(left.label, right.label)
+				|| compareText(left.description ?? '', right.description ?? '')
+				|| compareText(left.detail ?? '', right.detail ?? ''));
+	}
+
+	private async revealSearchItem(node: OntologyItemTreeNode, focus: boolean): Promise<void> {
+		const treeView = this.treeView;
+		if (treeView === undefined) {
+			return;
+		}
+
+		await treeView.reveal(node, { select: true, focus });
+	}
+
 	private createDiagramNode(): DiagramTreeNode {
 		const document = this.diagramDocument;
 		const label = document === undefined ? 'No diagram' : path.basename(document.uri.fsPath);
@@ -676,13 +778,25 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		};
 	}
 
-	private createOntologyItemNode(ontology: LoadedOntology, item: OntologyItem): OntologyItemTreeNode {
+	private createOntologyItemNode(
+		ontology: LoadedOntology,
+		item: OntologyItem,
+		classAncestorReferences?: readonly string[],
+	): OntologyItemTreeNode {
+		const resolvedClassAncestorReferences = item.type === 'class'
+			? classAncestorReferences ?? classAncestorPath(ontology, item, this.namespaces()) ?? []
+			: undefined;
+		const itemKey = item.type === 'class'
+			? [...(resolvedClassAncestorReferences ?? []), item.reference].map(encodeURIComponent).join('/')
+			: `${encodeURIComponent(item.reference)}:${encodeURIComponent(item.displayLabel)}`;
+
 		return {
 			kind: 'ontologyItem',
-			id: `${this.createOntologyItemParentGroupNode(ontology, item).id}:item:${item.reference}:${item.displayLabel}`,
+			id: `${this.createOntologyGroupNode(ontology, item.type).id}:item:${itemKey}`,
 			label: item.displayLabel,
 			ontology,
 			item,
+			classAncestorReferences: resolvedClassAncestorReferences,
 		};
 	}
 
@@ -733,14 +847,26 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	}
 
 	private createOntologyItemTreeItem(node: OntologyItemTreeNode): vscode.TreeItem {
-		const namespaces = this.parsedDiagram?.namespaces ?? new Map<string, string>();
-		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+		const namespaces = this.namespaces();
+		const hasClassChildren = node.item.type === 'class'
+			&& classHierarchyChildren(node.ontology, node.item, namespaces).some((item) => {
+				return ![...(node.classAncestorReferences ?? []), node.item.reference]
+					.some((reference) => ontologyReferencesEqual(item.reference, reference, namespaces));
+			});
+		const item = new vscode.TreeItem(
+			node.label,
+			hasClassChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+		);
 		item.id = node.id;
 		item.contextValue = 'ontologyItem';
 		item.description = ontologyItemDescription(node.item, node.label, node.ontology, namespaces);
 		item.iconPath = this.iconPathForItemType(node.item.type);
 		item.tooltip = ontologyItemTooltip(node, namespaces);
 		return item;
+	}
+
+	private namespaces(): ReadonlyMap<string, string> {
+		return this.parsedDiagram?.namespaces ?? new Map<string, string>();
 	}
 
 	private createErrorTreeItem(node: ErrorTreeNode): vscode.TreeItem {
@@ -797,6 +923,118 @@ function compareIndividualTypeGroups(left: OntologyGroupTreeNode, right: Ontolog
 
 	return compareText(left.label, right.label)
 		|| compareText(left.id, right.id);
+}
+
+function classHierarchyRoots(
+	ontology: LoadedOntology,
+	namespaces: ReadonlyMap<string, string>,
+): readonly OntologyItem[] {
+	const classes = ontology.items
+		.filter((item) => item.type === 'class')
+		.sort(compareOntologyItemsByDisplayLabel);
+	const roots = classes.filter((item) => classHierarchyParents(ontology, item, namespaces).length === 0);
+	const reachable = new Set<OntologyItem>();
+	const markReachable = (item: OntologyItem): void => {
+		if (reachable.has(item)) {
+			return;
+		}
+
+		reachable.add(item);
+		for (const child of classHierarchyChildren(ontology, item, namespaces)) {
+			markReachable(child);
+		}
+	};
+
+	for (const root of roots) {
+		markReachable(root);
+	}
+
+	// Invalid ontologies can contain subclass cycles. Give each disconnected cyclic
+	// component a deterministic root so its classes remain visible in the tree.
+	for (const item of classes) {
+		if (!reachable.has(item)) {
+			roots.push(item);
+			markReachable(item);
+		}
+	}
+
+	return roots.sort(compareOntologyItemsByDisplayLabel);
+}
+
+function classHierarchyParents(
+	ontology: LoadedOntology,
+	item: OntologyItem,
+	namespaces: ReadonlyMap<string, string>,
+): readonly OntologyItem[] {
+	const parents = new Set<OntologyItem>();
+	for (const reference of item.metadata.superclassReferences ?? []) {
+		const parent = classItemForReference(ontology, reference, namespaces);
+		if (parent !== undefined && parent !== item) {
+			parents.add(parent);
+		}
+	}
+
+	return [...parents].sort(compareOntologyItemsByDisplayLabel);
+}
+
+function classHierarchyChildren(
+	ontology: LoadedOntology,
+	item: OntologyItem,
+	namespaces: ReadonlyMap<string, string>,
+): readonly OntologyItem[] {
+	return ontology.items
+		.filter((candidate) => candidate.type === 'class'
+			&& classHierarchyParents(ontology, candidate, namespaces).includes(item))
+		.sort(compareOntologyItemsByDisplayLabel);
+}
+
+function classAncestorPath(
+	ontology: LoadedOntology,
+	target: OntologyItem,
+	namespaces: ReadonlyMap<string, string>,
+): readonly string[] | undefined {
+	const visit = (
+		item: OntologyItem,
+		ancestors: readonly string[],
+		visited: ReadonlySet<OntologyItem>,
+	): readonly string[] | undefined => {
+		if (item === target) {
+			return ancestors;
+		}
+
+		const nextVisited = new Set(visited);
+		nextVisited.add(item);
+		for (const child of classHierarchyChildren(ontology, item, namespaces)) {
+			if (nextVisited.has(child)) {
+				continue;
+			}
+
+			const result = visit(child, [...ancestors, item.reference], nextVisited);
+			if (result !== undefined) {
+				return result;
+			}
+		}
+
+		return undefined;
+	};
+
+	for (const root of classHierarchyRoots(ontology, namespaces)) {
+		const result = visit(root, [], new Set());
+		if (result !== undefined) {
+			return result;
+		}
+	}
+
+	return undefined;
+}
+
+function classItemForReference(
+	ontology: LoadedOntology,
+	reference: string,
+	namespaces: ReadonlyMap<string, string>,
+): OntologyItem | undefined {
+	return ontology.items.find((item) => item.type === 'class'
+		&& ontologyReferencesEqual(item.reference, reference, namespaces));
 }
 
 function sortedIndividualTypeReferences(
@@ -887,6 +1125,10 @@ function ontologyItemEndpointTooltipLines(
 	ontology: LoadedOntology,
 	namespaces: ReadonlyMap<string, string>,
 ): readonly string[] {
+	if (item.type === 'class') {
+		return endpointTooltipLines('Superclass', item.metadata.superclassReferences, ontology, namespaces);
+	}
+
 	if (item.type === 'objectProperty' || item.type === 'dataProperty' || item.type === 'annotationProperty') {
 		return [
 			...endpointTooltipLines('Domain', item.metadata.domainReferences, ontology, namespaces),

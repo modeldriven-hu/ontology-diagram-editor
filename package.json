@@ -51,6 +51,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "ontology-diagram-editor.modelTree.filter",
+        "title": "Filter Model Tree",
+        "icon": "$(filter)"
+      },
+      {
         "command": "ontology-diagram-editor.modelTree.addOntology",
         "title": "Add Ontology",
         "icon": "$(add)"
@@ -98,14 +103,19 @@
       ],
       "view/title": [
         {
+          "command": "ontology-diagram-editor.modelTree.filter",
+          "when": "view == ontology-diagram-editor.modelTree && ontologyDiagramEditor.hasDiagram",
+          "group": "navigation@1"
+        },
+        {
           "command": "ontology-diagram-editor.modelTree.addOntology",
           "when": "view == ontology-diagram-editor.modelTree && ontologyDiagramEditor.hasDiagram",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "ontology-diagram-editor.modelTree.refresh",
           "when": "view == ontology-diagram-editor.modelTree && ontologyDiagramEditor.hasDiagram",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
