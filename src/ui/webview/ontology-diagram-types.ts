@@ -60,6 +60,7 @@ export interface DiagramOntologyItem {
 	readonly displayLabel: string;
 	readonly type: string;
 	readonly sourceOntologyPath?: string;
+	readonly sourceOntologyName?: string;
 }
 
 export interface DiagramOntologyFile {

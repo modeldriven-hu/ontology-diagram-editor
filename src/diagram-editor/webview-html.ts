@@ -1120,6 +1120,7 @@ async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPay
 						displayLabel: item.displayLabel,
 							type: item.type,
 							sourceOntologyPath: ontology.relativePath,
+							sourceOntologyName: ontologyName(ontology.ontologyIri),
 					})),
 				),
 				data_properties: loadedOntologies.flatMap((ontology) =>
@@ -1181,6 +1182,14 @@ async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPay
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
+}
+
+function ontologyName(ontologyIri: string | undefined): string | undefined {
+	if (ontologyIri === undefined) {
+		return undefined;
+	}
+	const parts = ontologyIri.replace(/[/#]+$/u, '').split(/[/#]/u);
+	return parts[parts.length - 1] || undefined;
 }
 
 async function resolvedThemeOverrides(document: vscode.TextDocument, diagram: ReturnType<typeof parseOntologyDiagramTextDocument>): Promise<WebviewThemeOverrideMap | undefined> {

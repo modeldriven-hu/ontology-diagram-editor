@@ -1,7 +1,7 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
-import { nodeOntologySuffix, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from './ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
@@ -261,6 +261,7 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
 	const border = borderStyle(node.style, ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload) ?? theme.nodeBorder : theme.nodeBorder, 1);
 	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground);
+	const ontologyLabel = nodeOntologyLabel(node.ontology_ref, payload);
 	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
@@ -288,12 +289,28 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	});
 	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 
+	const ontologyLabelPart = ontologyLabel === undefined ? [] : [renderTextBlock({
+		id: `${node.id}_ontology`,
+		text: ontologyLabel,
+		bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 16 },
+		color: textColor,
+		fontFamily,
+		fontSize: Math.max(8, fontSize - 3),
+		bold: false,
+		italic: fontItalic,
+		align: 'center',
+		verticalAlign: 'middle',
+		padding: 4,
+	})];
 	const parts = [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+		...ontologyLabelPart,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,
-			text: `${nodeTitleText(node, payload)}${nodeOntologySuffix(node.ontology_ref, payload)}`,
-			bounds: hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds,
+			text: nodeTitleText(node, payload),
+			bounds: ontologyLabel === undefined
+				? hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds
+				: hasAttributes ? { ...bounds, y: bounds.y + 12, height: Math.max(1, layout.headerHeight - 12) } : { ...bounds, y: bounds.y + 12, height: Math.max(1, bounds.height - 12) },
 			color: textColor,
 			fontFamily,
 			fontSize,

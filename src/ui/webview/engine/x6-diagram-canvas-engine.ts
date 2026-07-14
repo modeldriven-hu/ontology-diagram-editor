@@ -1,7 +1,7 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
-import { nodeOntologySuffix, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from '../components/ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from '../components/ontology-legend';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
@@ -1281,6 +1281,8 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground);
+	const ontologyLabel = nodeOntologyLabel(node.ontology_ref, payload);
+	const showsOntologyLabel = ontologyLabel !== undefined;
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: node.height,
 		fontSize,
@@ -1302,7 +1304,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 	const titleWidth = Math.max(0, node.width - (hasImage && hasAttributes ? 56 : 20));
 	const title = truncateText({
-		text: `${nodeTitleText(node, payload)}${nodeOntologySuffix(node.ontology_ref, payload)}`,
+		text: nodeTitleText(node, payload),
 		width: titleWidth,
 		fontSize,
 		fontFamily,
@@ -1330,10 +1332,25 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	return {
 		hasAttributes,
 		markup: [
+			...(showsOntologyLabel ? [{ tagName: 'text', selector: 'ontologyLabel' }] : []),
 			...(hasAttributes ? [{ tagName: 'rect', selector: 'separator' }] : []),
 			...[...Array(attributeLineCount).keys()].map((index) => ({ tagName: 'text', selector: `attribute${index}` })),
 		],
 		attrs: {
+			...(showsOntologyLabel ? {
+				ontologyLabel: {
+					text: ontologyLabel,
+					fill: textColor,
+					opacity: 0.78,
+					fontFamily,
+					fontSize: Math.max(8, fontSize - 3),
+					textAnchor: 'middle',
+					textVerticalAnchor: 'middle',
+					refX: '50%',
+					refY: 10,
+					pointerEvents: 'none',
+				},
+			} : {}),
 			label: {
 				text: title,
 				fill: textColor,
@@ -1344,7 +1361,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 				textAnchor: 'middle',
 				textVerticalAnchor: 'middle',
 				refX: '50%',
-				refY: hasAttributes ? layout.headerHeight / 2 : hasImage ? '68%' : '50%',
+				refY: showsOntologyLabel ? (hasAttributes ? Math.max(21, layout.headerHeight - 10) : '62%') : hasAttributes ? layout.headerHeight / 2 : hasImage ? '68%' : '50%',
 			},
 			...(hasAttributes ? {
 				separator: {

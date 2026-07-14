@@ -31,17 +31,12 @@ export function ontologySource(reference: string, payload: DiagramPayload): stri
 	return payload.ontology?.items?.find((item) => item.reference === reference)?.sourceOntologyPath;
 }
 
-export function ontologySourceLabel(reference: string, payload: DiagramPayload): string | undefined {
-	const source = ontologySource(reference, payload);
-	if (source === undefined) {return undefined;}
-	const parts = source.replaceAll('\\', '/').split('/');
-	return parts[parts.length - 1];
+export function ontologyName(reference: string, payload: DiagramPayload): string | undefined {
+	return payload.ontology?.items?.find((item) => item.reference === reference)?.sourceOntologyName;
 }
 
-export function nodeOntologySuffix(reference: string, payload: DiagramPayload): string {
-	return payload.diagram?.metadata?.show_ontology_information === true
-		? ` · ${ontologySourceLabel(reference, payload) ?? reference}`
-		: '';
+export function nodeOntologyLabel(reference: string, payload: DiagramPayload): string | undefined {
+	return payload.diagram?.metadata?.show_ontology_information === true ? ontologyName(reference, payload) : undefined;
 }
 
 function hexColor(value: string): readonly [number, number, number] | undefined {

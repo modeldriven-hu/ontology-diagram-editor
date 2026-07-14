@@ -100,6 +100,7 @@ export interface LoadedOntology {
 	readonly relativePath: string;
 	readonly absolutePath: string;
 	readonly items: readonly OntologyItem[];
+	readonly ontologyIri?: string;
 	readonly error?: string;
 }
 
@@ -184,6 +185,7 @@ export async function loadReferencedOntologies(diagramPath: string, diagram: Ont
 				relativePath: ontology.path,
 				absolutePath,
 				items: createOntologyItems(ontology.path, quads, diagram.namespaces),
+				ontologyIri: declaredOntologyIri(quads),
 			};
 		} catch (error) {
 			return {
@@ -194,6 +196,15 @@ export async function loadReferencedOntologies(diagramPath: string, diagram: Ont
 			};
 		}
 	}));
+}
+
+function declaredOntologyIri(quads: readonly RdfQuad[]): string | undefined {
+	for (const quad of quads) {
+		if (namedTermValue(quad.predicate) === rdfType && namedTermValue(quad.object) === owlOntology) {
+			return resourceTermValue(quad.subject);
+		}
+	}
+	return undefined;
 }
 
 export function isPotentialOntologyFilePath(filePath: string): boolean {
