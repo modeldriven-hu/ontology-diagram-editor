@@ -8,6 +8,8 @@ export const minimumLabelWidth = 48;
 export const minimumLabelHeight = 24;
 export const minimumMetadataWidth = 180;
 export const minimumMetadataHeight = 84;
+export const minimumLegendWidth = 180;
+export const minimumLegendHeight = 72;
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -27,6 +29,7 @@ export type NoteBoundsUpdate = BoundsUpdate;
 export type ImageBoundsUpdate = BoundsUpdate;
 export type LabelBoundsUpdate = BoundsUpdate;
 export type MetadataBoundsUpdate = BoundsUpdate;
+export type LegendBoundsUpdate = BoundsUpdate;
 
 export interface EdgeRouteUpdate {
 	readonly id: string;

@@ -1,12 +1,13 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
+import { nodeOntologySuffix, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from '../components/ontology-legend';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from '../components/edge-cardinality-labels';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
 import type { X6Cell, X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node, X6SelectionPlugin } from './x6-browser';
 
@@ -142,6 +143,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			for (const element of payload.diagram?.metadata_elements ?? []) {
 				this.graph.addNode(x6MetadataElement(element, payload, theme));
 			}
+			for (const element of payload.diagram?.legend_elements ?? []) {this.graph.addNode(x6LegendElement(element, payload, theme));}
 			const connectableElementById = new Map<string, ConnectableElement>([
 				...(payload.diagram?.nodes ?? []).map((node) => [node.id, node] as const),
 				...(payload.diagram?.notes ?? []).map((note) => [note.id, note] as const),
@@ -1142,6 +1144,8 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 	const hasImage = node.image !== undefined && node.image.trim() !== '';
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
 	const presentation = x6OntologyNodePresentation(node, payload, theme);
+	const ontologyColorValue = ontologyColor(node.ontology_ref, payload);
+	const colorMode = ontologyColorMode(payload);
 	const imageAttrs = presentation.hasAttributes
 		? {
 			width: 18,
@@ -1178,8 +1182,8 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 				refHeight: '100%',
 				rx: radius,
 				ry: radius,
-				fill: node.style?.bg_color ?? theme.nodeBackground,
-				...borderAttrs(node.style?.border, theme.nodeBorder, 1),
+				fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground),
+				...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? theme.nodeBorder : theme.nodeBorder, 1),
 				filter: shadowFilter(node.style, theme.elementShadow, theme),
 			},
 			nodeImage: imageAttrs,
@@ -1245,6 +1249,25 @@ function x6MetadataElement(element: DiagramMetadataElement, payload: DiagramPayl
 	};
 }
 
+function x6LegendElement(element: DiagramLegendElement, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
+	const style = element.style;
+	const rows = payload.diagram?.ontologies ?? [];
+	const rowHeight = Math.max(22, (element.height - 28) / Math.max(1, rows.length));
+	const markup: Record<string, string>[] = [{ tagName: 'rect', selector: 'body' }, { tagName: 'text', selector: 'title' }];
+	for (let index = 0; index < rows.length; index += 1) {markup.push({ tagName: 'rect', selector: `swatch${index}` }, { tagName: 'text', selector: `label${index}` });}
+	return {
+		id: element.id, x: element.x, y: element.y, width: element.width, height: element.height, markup,
+		attrs: {
+			body: { refWidth: '100%', refHeight: '100%', rx: cornerRadius(style, theme.nodeCornerRadius), ry: cornerRadius(style, theme.nodeCornerRadius), fill: style?.bg_color ?? theme.nodeBackground, ...borderAttrs(style?.border, theme.nodeBorder, 1), filter: shadowFilter(style, theme.elementShadow, theme) },
+			title: { text: 'Ontology legend', refX: 10, refY: 16, fill: style?.text_color ?? theme.editorForeground, fontFamily: style?.font?.family ?? theme.fontFamily, fontSize: style?.font?.size ?? theme.fontSize, fontWeight: 700, textAnchor: 'start', textVerticalAnchor: 'middle', pointerEvents: 'none' },
+			...Object.fromEntries(rows.flatMap((ontology, index) => {
+				const y = 28 + rowHeight * index;
+				return [[`swatch${index}`, { x: 10, y: y + 4, width: 14, height: 14, rx: 2, ry: 2, fill: element.colors[ontology.path] ?? theme.nodeBorder, pointerEvents: 'none' }], [`label${index}`, { text: ontology.path, refX: 32, refY: y + 11, fill: style?.text_color ?? theme.editorForeground, fontFamily: style?.font?.family ?? theme.fontFamily, fontSize: style?.font?.size ?? theme.fontSize, textAnchor: 'start', textVerticalAnchor: 'middle', pointerEvents: 'none' }]];
+			})),
+		}, zIndex: 20,
+	};
+}
+
 function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): {
 	readonly hasAttributes: boolean;
 	readonly markup: readonly Record<string, string>[];
@@ -1257,6 +1280,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
+	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground);
 	const layout = nodeDataPropertyLayout({
 		nodeHeight: node.height,
 		fontSize,
@@ -1278,7 +1302,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 	const titleWidth = Math.max(0, node.width - (hasImage && hasAttributes ? 56 : 20));
 	const title = truncateText({
-		text: nodeTitleText(node, payload),
+		text: `${nodeTitleText(node, payload)}${nodeOntologySuffix(node.ontology_ref, payload)}`,
 		width: titleWidth,
 		fontSize,
 		fontFamily,
@@ -1291,7 +1315,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 		{
 			text: displayAttributeTexts[index] ?? '',
 			opacity: displayAttributeTexts[index] === undefined ? 0 : 1,
-			fill: node.style?.text_color ?? theme.editorForeground,
+			fill: textColor,
 			fontFamily,
 			fontSize: attributeLayout.attributeFontSize,
 			fontWeight: 400,
@@ -1312,7 +1336,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 		attrs: {
 			label: {
 				text: title,
-				fill: node.style?.text_color ?? theme.editorForeground,
+				fill: textColor,
 				fontFamily,
 				fontSize,
 				fontWeight: fontBold === true ? 700 : 400,
@@ -1327,7 +1351,7 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 					refWidth: '100%',
 					height: 1,
 					refY: layout.headerHeight,
-					fill: node.style?.border?.color ?? theme.nodeBorder,
+				fill: node.style?.border?.color ?? (ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload) ?? theme.nodeBorder : theme.nodeBorder),
 					pointerEvents: 'none',
 				},
 			} : {}),
@@ -1359,7 +1383,7 @@ function x6Edge(
 	const targetElement = elementById.get(edge.target);
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const lineStyle = edge.style?.line_style;
-	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
+	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? ontologyColor(edge.ontology_ref, payload) ?? theme.edgeColor;
 	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
 	const cardinalities = edgeCardinalityLabels(edge, payload);
 

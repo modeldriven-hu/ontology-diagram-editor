@@ -12,6 +12,7 @@ import {
 	CreateImageUseCase,
 	CreateLabelUseCase,
 	CreateMetadataElementUseCase,
+	CreateLegendElementUseCase,
 	CreateNodeUseCase,
 	CreateNoteConnectionUseCase,
 	CreateNoteUseCase,
@@ -20,6 +21,7 @@ import {
 	DeleteImageUseCase,
 	DeleteLabelUseCase,
 	DeleteMetadataElementUseCase,
+	DeleteLegendElementUseCase,
 	DeleteNodeUseCase,
 	DeleteNoteUseCase,
 	OptimizeEdgeRouteUseCase,
@@ -35,6 +37,8 @@ import {
 	UpdateImageSourceUseCase,
 	UpdateLabelBoundsUseCase,
 	UpdateMetadataBoundsUseCase,
+	UpdateLegendBoundsUseCase,
+	UpdateLegendColorsUseCase,
 	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
@@ -68,6 +72,7 @@ interface DiagramEditorUseCases {
 	readonly createImage: CreateImageUseCase;
 	readonly createLabel: CreateLabelUseCase;
 	readonly createMetadataElement: CreateMetadataElementUseCase;
+	readonly createLegendElement: CreateLegendElementUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
 	readonly deleteElements: DeleteElementsUseCase;
 	readonly deleteEdge: DeleteEdgeUseCase;
@@ -75,6 +80,7 @@ interface DiagramEditorUseCases {
 	readonly deleteImage: DeleteImageUseCase;
 	readonly deleteLabel: DeleteLabelUseCase;
 	readonly deleteMetadataElement: DeleteMetadataElementUseCase;
+	readonly deleteLegendElement: DeleteLegendElementUseCase;
 	readonly optimizeEdgeRoute: OptimizeEdgeRouteUseCase;
 	readonly straightenEdgeRoute: StraightenEdgeRouteUseCase;
 	readonly showRelatedElements: ShowRelatedElementsUseCase;
@@ -95,6 +101,8 @@ interface DiagramEditorUseCases {
 	readonly updateImageSource: UpdateImageSourceUseCase;
 	readonly updateLabelBounds: UpdateLabelBoundsUseCase;
 	readonly updateMetadataBounds: UpdateMetadataBoundsUseCase;
+	readonly updateLegendBounds: UpdateLegendBoundsUseCase;
+	readonly updateLegendColors: UpdateLegendColorsUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
 	readonly updateThemeMode: UpdateThemeModeUseCase;
@@ -264,6 +272,9 @@ export class DiagramCommandDispatcher {
 			case 'createMetadataElement':
 				await this.handleResult(this.useCases.createMetadataElement.execute(this.repository.load(), command.position));
 				return;
+			case 'createLegendElement':
+				await this.handleResult(this.useCases.createLegendElement.execute(this.repository.load(), command.position));
+				return;
 			case 'saveDiagramExport':
 				await this.saveDiagramExport(command);
 				return;
@@ -287,6 +298,9 @@ export class DiagramCommandDispatcher {
 				return;
 			case 'deleteMetadataElement':
 				await this.deleteMetadataElement(command);
+				return;
+			case 'deleteLegendElement':
+				await this.handleResult(this.useCases.deleteLegendElement.execute(this.repository.load(), command.id));
 				return;
 			case 'updateNoteBounds':
 				await this.handleResult(this.useCases.updateNoteBounds.execute(
@@ -321,6 +335,12 @@ export class DiagramCommandDispatcher {
 				return;
 			case 'updateMetadataBounds':
 				await this.handleResult(this.useCases.updateMetadataBounds.execute(this.repository.load(), command.updates));
+				return;
+			case 'updateLegendBounds':
+				await this.handleResult(this.useCases.updateLegendBounds.execute(this.repository.load(), command.updates));
+				return;
+			case 'updateLegendColors':
+				await this.handleResult(this.useCases.updateLegendColors.execute(this.repository.load(), command.id, command.colors, command.colorMode));
 				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
@@ -685,6 +705,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		createImage: new CreateImageUseCase(),
 		createLabel: new CreateLabelUseCase(),
 		createMetadataElement: new CreateMetadataElementUseCase(),
+		createLegendElement: new CreateLegendElementUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
 		deleteElements: new DeleteElementsUseCase(),
 		deleteEdge: new DeleteEdgeUseCase(),
@@ -692,6 +713,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		deleteImage: new DeleteImageUseCase(),
 		deleteLabel: new DeleteLabelUseCase(),
 		deleteMetadataElement: new DeleteMetadataElementUseCase(),
+		deleteLegendElement: new DeleteLegendElementUseCase(),
 		optimizeEdgeRoute: new OptimizeEdgeRouteUseCase(),
 		straightenEdgeRoute: new StraightenEdgeRouteUseCase(),
 		showRelatedElements: new ShowRelatedElementsUseCase(),
@@ -712,6 +734,8 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateImageSource: new UpdateImageSourceUseCase(),
 		updateLabelBounds: new UpdateLabelBoundsUseCase(),
 		updateMetadataBounds: new UpdateMetadataBoundsUseCase(),
+		updateLegendBounds: new UpdateLegendBoundsUseCase(),
+		updateLegendColors: new UpdateLegendColorsUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
 		updateThemeMode: new UpdateThemeModeUseCase(),

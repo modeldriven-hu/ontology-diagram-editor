@@ -1,8 +1,8 @@
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
-import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField, textField } from './canvas-property-fields';
@@ -241,6 +241,9 @@ export class CanvasPropertyPanel {
 						textField('Theme', metadata?.theme_file ?? '', (value) => {
 							this.updateDiagramMetadata({ theme_file: blankToUndefined(value) }, ['theme_file']);
 						}),
+						checkboxField('Show ontology labels', metadata?.show_ontology_information === true, (value) => {
+							this.updateDiagramMetadata({ show_ontology_information: value }, ['show_ontology_information']);
+						}),
 						readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
 					]),
 				],
@@ -264,9 +267,34 @@ export class CanvasPropertyPanel {
 			this.renderTabs(element.value.id, this.labelTabs(element.value, identitySection));
 		} else if (element.kind === 'metadata') {
 			this.renderTabs(element.value.id, this.metadataTabs(element.value, identitySection));
+		} else if (element.kind === 'legend') {
+			this.renderTabs(element.value.id, this.legendTabs(element.value, identitySection));
 		} else {
 			this.renderTabs(element.value.id, this.imageTabs(element.value, identitySection));
 		}
+	}
+
+	private legendTabs(element: DiagramLegendElement, identitySection: HTMLElement): readonly PropertyTab[] {
+		const ontologies = this.options.payload.diagram?.ontologies ?? [];
+		return [
+			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Color Application', [
+				selectField('Apply Colors To', element.color_mode ?? 'border', [
+					{ value: 'border', label: 'Node Borders' },
+					{ value: 'background', label: 'Node Backgrounds' },
+				], (colorMode) => {
+					this.propertyEdited('legend', element.id, ['color_mode']);
+					this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, element.colors, colorMode ?? 'border'));
+				}),
+			]), sectionElement('Ontology Colors', ontologies.map((ontology) => colorField(ontology.path, element.colors[ontology.path] ?? '#808080', (color) => {
+				this.propertyEdited('legend', element.id, ['colors', ontology.path]);
+				this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, { ...element.colors, [ontology.path]: color }, element.color_mode));
+			}))) ] },
+			{ id: 'geometry', label: 'Geometry', sections: [sectionElement('Geometry', this.geometryFields(element, (update) => {
+				this.propertyEdited('legend', element.id, ['x', 'y', 'width', 'height']);
+				this.options.messageBus.publishCommand(new UpdateLegendBoundsCommand([update]));
+			}, minimumLegendWidth, minimumLegendHeight))] },
+			{ id: 'style', label: 'Style', sections: [this.commonStyleSection('legend', element.id, element.style)] },
+		];
 	}
 
 	private metadataTabs(element: DiagramMetadataElement, identitySection: HTMLElement): readonly PropertyTab[] {
@@ -635,7 +663,7 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private commonStyleSection(elementType: 'node' | 'note' | 'metadata', id: string, style: DiagramElementStyle | undefined): HTMLElement {
+	private commonStyleSection(elementType: 'node' | 'note' | 'metadata' | 'legend', id: string, style: DiagramElementStyle | undefined): HTMLElement {
 		const commit = (nextStyle: CommonStylePatch | undefined): void => {
 			this.updateElementStyle(elementType, id, nextStyle);
 		};

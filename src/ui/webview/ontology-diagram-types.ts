@@ -15,15 +15,17 @@ export interface DiagramPayload {
 			readonly diagram_version?: string;
 			readonly theme_file?: string;
 			readonly theme_mode?: 'light' | 'dark';
+			readonly show_ontology_information?: boolean;
 		};
-		readonly ontologies?: readonly unknown[];
+		readonly ontologies?: readonly DiagramOntologyFile[];
 		readonly namespaces?: Record<string, string>;
 		readonly nodes?: readonly DiagramNode[];
 		readonly edges?: readonly DiagramEdge[];
 		readonly notes?: readonly DiagramNote[];
 		readonly images?: readonly DiagramImage[];
 		readonly labels?: readonly DiagramLabel[];
-		readonly metadata_elements?: readonly DiagramMetadataElement[];
+			readonly metadata_elements?: readonly DiagramMetadataElement[];
+			readonly legend_elements?: readonly DiagramLegendElement[];
 	};
 	readonly ontology?: {
 		readonly items?: readonly DiagramOntologyItem[];
@@ -57,6 +59,11 @@ export interface DiagramOntologyItem {
 	readonly reference: string;
 	readonly displayLabel: string;
 	readonly type: string;
+	readonly sourceOntologyPath?: string;
+}
+
+export interface DiagramOntologyFile {
+	readonly path: string;
 }
 
 export interface DiagramDataProperty {
@@ -157,6 +164,17 @@ export interface DiagramMetadataElement {
 	readonly y: number;
 	readonly width: number;
 	readonly height: number;
+	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramLegendElement {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly colors: Record<string, string>;
+	readonly color_mode?: 'border' | 'background';
 	readonly style?: DiagramElementStyle;
 }
 

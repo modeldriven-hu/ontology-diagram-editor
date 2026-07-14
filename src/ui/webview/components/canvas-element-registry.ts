@@ -2,7 +2,7 @@ import type { BoundsUpdate } from '../../../shared/canvas-geometry';
 import type { CanvasElementType } from '../../../shared/canvas-editor-events';
 import type { ElementStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { CanvasElementContentUpdate } from '../engine/diagram-canvas-engine';
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 
 export type CanvasPropertyElement =
 	| { readonly kind: 'node'; readonly value: DiagramNode }
@@ -10,7 +10,8 @@ export type CanvasPropertyElement =
 	| { readonly kind: 'note'; readonly value: DiagramNote }
 	| { readonly kind: 'label'; readonly value: DiagramLabel }
 	| { readonly kind: 'image'; readonly value: DiagramImage }
-	| { readonly kind: 'metadata'; readonly value: DiagramMetadataElement };
+	| { readonly kind: 'metadata'; readonly value: DiagramMetadataElement }
+	| { readonly kind: 'legend'; readonly value: DiagramLegendElement };
 
 export class CanvasElementRegistry {
 	private readonly nodes = new Map<string, DiagramNode>();
@@ -19,6 +20,7 @@ export class CanvasElementRegistry {
 	private readonly labels = new Map<string, DiagramLabel>();
 	private readonly images = new Map<string, DiagramImage>();
 	private readonly metadataElements = new Map<string, DiagramMetadataElement>();
+	private readonly legendElements = new Map<string, DiagramLegendElement>();
 
 	public constructor(payload: DiagramPayload) {
 		for (const node of payload.diagram?.nodes ?? []) {
@@ -39,6 +41,7 @@ export class CanvasElementRegistry {
 		for (const element of payload.diagram?.metadata_elements ?? []) {
 			this.metadataElements.set(element.id, element);
 		}
+		for (const element of payload.diagram?.legend_elements ?? []) {this.legendElements.set(element.id, element);}
 	}
 
 	public renderedElementIdentifiers(): readonly string[] {
@@ -49,6 +52,7 @@ export class CanvasElementRegistry {
 			...this.notes.keys(),
 			...this.labels.keys(),
 			...this.metadataElements.keys(),
+			...this.legendElements.keys(),
 		];
 	}
 
@@ -77,6 +81,8 @@ export class CanvasElementRegistry {
 		if (metadata !== undefined) {
 			return { kind: 'metadata', value: metadata };
 		}
+		const legend = this.legendElements.get(id);
+		if (legend !== undefined) {return { kind: 'legend', value: legend };}
 
 		return undefined;
 	}
@@ -113,6 +119,8 @@ export class CanvasElementRegistry {
 		if (metadata !== undefined) {
 			this.metadataElements.set(update.id, { ...metadata, ...update });
 		}
+		const legend = this.legendElements.get(update.id);
+		if (legend !== undefined) {this.legendElements.set(update.id, { ...legend, ...update });}
 	}
 
 	public updateContent(update: CanvasElementContentUpdate): void {
@@ -191,6 +199,11 @@ export class CanvasElementRegistry {
 			if (element !== undefined) {
 				this.metadataElements.set(id, { ...element, style });
 			}
+			return;
+		}
+		if (elementType === 'legend') {
+			const element = this.legendElements.get(id);
+			if (element !== undefined) {this.legendElements.set(id, { ...element, style });}
 			return;
 		}
 

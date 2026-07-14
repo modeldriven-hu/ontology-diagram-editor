@@ -4,6 +4,7 @@ import {
 	DiagramEdge,
 	DiagramImage,
 	DiagramLabel,
+	DiagramLegendElement,
 	DiagramMetadataElement,
 	DiagramNode,
 	DiagramNote,
@@ -42,6 +43,9 @@ export class UpdateElementStyleUseCase {
 			if (elementType === 'metadata') {
 				return updateMetadataStyle(diagram, id, style);
 			}
+			if (elementType === 'legend') {
+				return updateLegendStyle(diagram, id, style);
+			}
 
 			return updateLabelStyle(diagram, id, style);
 		} catch (error) {
@@ -52,6 +56,18 @@ export class UpdateElementStyleUseCase {
 			throw error;
 		}
 	}
+}
+
+function updateLegendStyle(diagram: OntologyDiagramDocument, id: string, style: ElementStylePatch | undefined): DiagramMutationResult {
+	let changed = false;
+	const legendElements = diagram.legendElements.map((element) => {
+		if (element.id.value !== id) {return element;}
+		const nextStyle = style === undefined ? undefined : commonStyle(style);
+		if (JSON.stringify(element.style?.toPersistenceObject()) === JSON.stringify(nextStyle?.toPersistenceObject())) {return element;}
+		changed = true;
+		return new DiagramLegendElement(element.id.value, element.bounds, element.colors, nextStyle, element.extra, element.colorMode);
+	});
+	return changed ? { diagram: cloneDiagram(diagram, { legendElements }) } : {};
 }
 
 function updateMetadataStyle(diagram: OntologyDiagramDocument, id: string, style: ElementStylePatch | undefined): DiagramMutationResult {

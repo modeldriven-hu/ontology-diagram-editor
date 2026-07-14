@@ -1,5 +1,5 @@
 import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
-import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
 
@@ -11,7 +11,7 @@ export interface ModelTreeItemDropPayload {
 	readonly ontologyItemMetadata?: unknown;
 }
 
-export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
+export type StyledCanvasElementType = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
 export type DiagramThemeMode = 'light' | 'dark';
 
 export interface DiagramMetadataPatch {
@@ -19,6 +19,7 @@ export interface DiagramMetadataPatch {
 	readonly authors?: readonly string[];
 	readonly diagram_version?: string;
 	readonly theme_file?: string;
+	readonly show_ontology_information?: boolean;
 }
 
 export interface FontStylePatch {
@@ -73,6 +74,7 @@ export type WebviewCommand =
 	| CreateImageCommand
 	| CreateLabelCommand
 	| CreateMetadataElementCommand
+	| CreateLegendElementCommand
 	| SaveDiagramExportCommand
 	| DeleteElementsCommand
 	| DeleteEdgeCommand
@@ -81,6 +83,7 @@ export type WebviewCommand =
 	| DeleteImageCommand
 	| DeleteLabelCommand
 	| DeleteMetadataElementCommand
+	| DeleteLegendElementCommand
 	| UpdateElementBoundsCommand
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
@@ -92,6 +95,8 @@ export type WebviewCommand =
 	| UpdateImageBoundsCommand
 	| UpdateLabelBoundsCommand
 	| UpdateMetadataBoundsCommand
+	| UpdateLegendBoundsCommand
+	| UpdateLegendColorsCommand
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
@@ -214,6 +219,7 @@ export class UpdateElementBoundsCommand {
 	public readonly imageUpdates: readonly ImageBoundsUpdate[];
 	public readonly labelUpdates: readonly LabelBoundsUpdate[];
 	public readonly metadataUpdates: readonly MetadataBoundsUpdate[];
+	public readonly legendUpdates: readonly LegendBoundsUpdate[];
 
 	public constructor(options: {
 		readonly nodeUpdates?: readonly NodeBoundsUpdate[];
@@ -221,12 +227,14 @@ export class UpdateElementBoundsCommand {
 		readonly imageUpdates?: readonly ImageBoundsUpdate[];
 		readonly labelUpdates?: readonly LabelBoundsUpdate[];
 		readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
+		readonly legendUpdates?: readonly LegendBoundsUpdate[];
 	}) {
 		this.nodeUpdates = options.nodeUpdates ?? [];
 		this.noteUpdates = options.noteUpdates ?? [];
 		this.imageUpdates = options.imageUpdates ?? [];
 		this.labelUpdates = options.labelUpdates ?? [];
 		this.metadataUpdates = options.metadataUpdates ?? [];
+		this.legendUpdates = options.legendUpdates ?? [];
 	}
 }
 
@@ -336,6 +344,11 @@ export class CreateMetadataElementCommand {
 	public constructor(public readonly position: CanvasPoint) {}
 }
 
+export class CreateLegendElementCommand {
+	public readonly type = 'createLegendElement';
+	public constructor(public readonly position: CanvasPoint) {}
+}
+
 export class SaveDiagramExportCommand {
 	public readonly type = 'saveDiagramExport';
 	public readonly format: 'svg' | 'png';
@@ -416,6 +429,11 @@ export class DeleteMetadataElementCommand {
 	public constructor(public readonly id: string) {}
 }
 
+export class DeleteLegendElementCommand {
+	public readonly type = 'deleteLegendElement';
+	public constructor(public readonly id: string) {}
+}
+
 export class UpdateNoteBoundsCommand {
 	public readonly type = 'updateNoteBounds';
 	public readonly updates: readonly NoteBoundsUpdate[];
@@ -447,6 +465,16 @@ export class UpdateMetadataBoundsCommand {
 	public readonly type = 'updateMetadataBounds';
 
 	public constructor(public readonly updates: readonly MetadataBoundsUpdate[]) {}
+}
+
+export class UpdateLegendBoundsCommand {
+	public readonly type = 'updateLegendBounds';
+	public constructor(public readonly updates: readonly LegendBoundsUpdate[]) {}
+}
+
+export class UpdateLegendColorsCommand {
+	public readonly type = 'updateLegendColors';
+	public constructor(public readonly id: string, public readonly colors: Readonly<Record<string, string>>, public readonly colorMode?: 'border' | 'background') {}
 }
 
 export class UpdateNodeImageCommand {

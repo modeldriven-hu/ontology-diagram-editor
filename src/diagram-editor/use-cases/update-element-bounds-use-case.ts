@@ -1,5 +1,5 @@
-import { DiagramEdge, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
+import { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type LegendBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
 import { boundsEqual, toBounds } from './bounds';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
@@ -11,6 +11,7 @@ export interface ElementBoundsUpdates {
 	readonly imageUpdates: readonly ImageBoundsUpdate[];
 	readonly labelUpdates: readonly LabelBoundsUpdate[];
 	readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
+	readonly legendUpdates?: readonly LegendBoundsUpdate[];
 }
 
 export class UpdateElementBoundsUseCase {
@@ -24,6 +25,7 @@ export class UpdateElementBoundsUseCase {
 			...updates.imageUpdates,
 			...updates.labelUpdates,
 			...(updates.metadataUpdates ?? []),
+			...(updates.legendUpdates ?? []),
 		];
 		if (allUpdates.length === 0) {
 			return {};
@@ -49,6 +51,8 @@ export class UpdateElementBoundsUseCase {
 		if (invalidMetadataUpdate !== undefined) {
 			return { notification: `Diagram information must be at least ${minimumMetadataWidth} x ${minimumMetadataHeight}.` };
 		}
+		const invalidLegendUpdate = updates.legendUpdates?.find((update) => update.width < minimumLegendWidth || update.height < minimumLegendHeight);
+		if (invalidLegendUpdate !== undefined) {return { notification: `Ontology legends must be at least ${minimumLegendWidth} x ${minimumLegendHeight}.` };}
 
 		const updateById = new Map<string, BoundsUpdate>(allUpdates.map((update) => [update.id, update]));
 		const originalBoundsByElementId = new Map([
@@ -161,6 +165,14 @@ export class UpdateElementBoundsUseCase {
 			changed = true;
 			return new DiagramMetadataElement(element.id.value, nextBounds, element.style, element.extra);
 		});
+		const nextLegendElements = diagram.legendElements.map((element) => {
+			const update = updateById.get(element.id.value);
+			if (update === undefined) {return element;}
+			const nextBounds = toBounds(update);
+			if (boundsEqual(element.bounds, nextBounds)) {return element;}
+			changed = true;
+			return new DiagramLegendElement(element.id.value, nextBounds, element.colors, element.style, element.extra, element.colorMode);
+		});
 		const nextEdges = diagram.edges.map((edge) => {
 			return translateEdgeMovedWithEndpoints(edge, moveDeltaByElementId)
 				?? recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId);
@@ -178,6 +190,7 @@ export class UpdateElementBoundsUseCase {
 				images: nextImages,
 				labels: nextLabels,
 				metadataElements: nextMetadataElements,
+				legendElements: nextLegendElements,
 				edges: nextEdges,
 			}),
 		};

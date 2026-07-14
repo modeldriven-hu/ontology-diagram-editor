@@ -7,11 +7,12 @@ export type JsonObject = { [key: string]: JsonValue };
 const identifierLocalPartPattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const compactIriPattern = /^([^:/?#]+):(.+)$/;
 
-export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata';
+export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
 export type PropertyValueTextOverflow = 'truncate' | 'wrap';
+export type OntologyColorMode = 'border' | 'background';
 
 export class OntologyDiagramValidationError extends Error {
 	public constructor(message: string, public readonly issues: readonly string[] = [message]) {
@@ -249,6 +250,7 @@ export class DiagramMetadata {
 		public readonly additional?: JsonObject,
 		public readonly extra: JsonObject = {},
 		public readonly themeMode?: 'light' | 'dark',
+		public readonly showOntologyInformation?: boolean,
 	) {}
 
 	public static createEmpty(title: string): DiagramMetadata {
@@ -264,6 +266,7 @@ export class DiagramMetadata {
 			diagram_version: this.diagramVersion,
 			theme_file: this.themeFile,
 			theme_mode: this.themeMode,
+			show_ontology_information: this.showOntologyInformation,
 			additional: this.additional,
 		});
 	}
@@ -498,6 +501,35 @@ export class DiagramMetadataElement {
 	}
 }
 
+/** A canvas element that activates ontology colours and displays their file mapping. */
+export class DiagramLegendElement {
+	public readonly id: DiagramIdentifier;
+	public readonly bounds: Bounds;
+
+	public constructor(
+		id: string,
+		bounds: Bounds,
+		public readonly colors: ReadonlyMap<string, string>,
+		public readonly style?: CommonStyle,
+		public readonly extra: JsonObject = {},
+		public readonly colorMode?: OntologyColorMode,
+	) {
+		this.id = DiagramIdentifier.create(id, 'legend');
+		this.bounds = bounds;
+	}
+
+	public toPersistenceObject(): JsonObject {
+		return omitUndefined({
+			...this.extra,
+			id: this.id.value,
+			...this.bounds.toPersistenceObject(),
+			colors: Object.fromEntries(this.colors),
+			style: this.style?.toPersistenceObject(),
+			color_mode: this.colorMode,
+		});
+	}
+}
+
 export class OntologyDiagramDocument {
 	public constructor(
 		public readonly metadata: DiagramMetadata,
@@ -510,6 +542,7 @@ export class OntologyDiagramDocument {
 		public readonly labels: readonly DiagramLabel[] = [],
 		public readonly extra: JsonObject = {},
 		public readonly metadataElements: readonly DiagramMetadataElement[] = [],
+		public readonly legendElements: readonly DiagramLegendElement[] = [],
 	) {
 		validateDocument(this);
 	}
@@ -536,6 +569,7 @@ export class OntologyDiagramDocument {
 			images: optionalList(this.images, (image) => image.toPersistenceObject()),
 			labels: optionalList(this.labels, (label) => label.toPersistenceObject()),
 			metadata_elements: optionalList(this.metadataElements, (element) => element.toPersistenceObject()),
+			legend_elements: optionalList(this.legendElements, (element) => element.toPersistenceObject()),
 		});
 	}
 }
@@ -599,6 +633,7 @@ const metadataSchema = z.object({
 	diagram_version: z.string(),
 	theme_file: z.string().optional(),
 	theme_mode: z.enum(['light', 'dark']).optional(),
+	show_ontology_information: z.boolean().optional(),
 	additional: jsonObjectSchema.optional(),
 }).passthrough();
 
@@ -654,6 +689,13 @@ const metadataElementSchema = boundsFieldsSchema.extend({
 	style: commonStyleSchema.optional(),
 }).passthrough();
 
+const legendElementSchema = boundsFieldsSchema.extend({
+	id: z.string(),
+	colors: z.record(z.string(), z.string()),
+	color_mode: z.enum(['border', 'background']).optional(),
+	style: commonStyleSchema.optional(),
+}).passthrough();
+
 const documentSchema = z.object({
 	metadata: metadataSchema,
 	ontologies: z.array(ontologyFileReferenceSchema),
@@ -664,6 +706,7 @@ const documentSchema = z.object({
 	images: z.array(imageSchema).optional(),
 	labels: z.array(labelSchema).optional(),
 	metadata_elements: z.array(metadataElementSchema).optional(),
+	legend_elements: z.array(legendElementSchema).optional(),
 }).passthrough();
 
 export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocument {
@@ -683,8 +726,9 @@ export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocum
 		(document.notes ?? []).map(parseNote),
 		(document.images ?? []).map(parseImage),
 		(document.labels ?? []).map(parseLabel),
-		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels', 'metadata_elements']),
+		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels', 'metadata_elements', 'legend_elements']),
 		(document.metadata_elements ?? []).map(parseMetadataElement),
+		(document.legend_elements ?? []).map(parseLegendElement),
 	);
 }
 
@@ -696,8 +740,9 @@ function parseMetadata(value: z.infer<typeof metadataSchema>): DiagramMetadata {
 		value.diagram_version,
 		value.theme_file,
 		value.additional,
-		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'theme_mode', 'additional']),
+		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'theme_mode', 'show_ontology_information', 'additional']),
 		value.theme_mode,
+		value.show_ontology_information,
 	);
 }
 
@@ -771,6 +816,17 @@ function parseMetadataElement(value: z.infer<typeof metadataElementSchema>): Dia
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.style ? parseCommonStyle(value.style) : undefined,
 		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'style']),
+	);
+}
+
+function parseLegendElement(value: z.infer<typeof legendElementSchema>): DiagramLegendElement {
+	return new DiagramLegendElement(
+		value.id,
+		new Bounds(value.x, value.y, value.width, value.height),
+		new Map(Object.entries(value.colors)),
+		value.style ? parseCommonStyle(value.style) : undefined,
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'colors', 'style', 'color_mode']),
+		value.color_mode,
 	);
 }
 
@@ -857,6 +913,7 @@ function validateUniqueElementIds(document: OntologyDiagramDocument): string[] {
 		...document.images.map((image) => image.id.value),
 		...document.labels.map((label) => label.id.value),
 		...document.metadataElements.map((element) => element.id.value),
+		...document.legendElements.map((element) => element.id.value),
 	];
 	const seen = new Set<string>();
 	const duplicates = ids.filter((id) => {

@@ -14,6 +14,7 @@ export class UpdateDiagramMetadataUseCase {
 			diagram.metadata.additional,
 			diagram.metadata.extra,
 			diagram.metadata.themeMode,
+			Object.hasOwn(patch, 'show_ontology_information') ? patch.show_ontology_information : diagram.metadata.showOntologyInformation,
 		);
 
 		if (JSON.stringify(metadata.toPersistenceObject()) === JSON.stringify(diagram.metadata.toPersistenceObject())) {

@@ -68,6 +68,7 @@ function webviewBody(
 					<button class="canvas-action" id="addLabelButton" type="button" title="Add label" aria-label="Add label"></button>
 					<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
 					<button class="canvas-action" id="addMetadataButton" type="button" title="Add diagram information" aria-label="Add diagram information"></button>
+					<button class="canvas-action" id="addLegendButton" type="button" title="Add ontology legend" aria-label="Add ontology legend"></button>
 					<span class="canvas-action-separator" aria-hidden="true"></span>
 					<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 					<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
@@ -1117,7 +1118,8 @@ async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPay
 					ontology.items.map((item) => ({
 						reference: item.reference,
 						displayLabel: item.displayLabel,
-						type: item.type,
+							type: item.type,
+							sourceOntologyPath: ontology.relativePath,
 					})),
 				),
 				data_properties: loadedOntologies.flatMap((ontology) =>

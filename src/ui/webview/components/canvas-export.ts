@@ -1,6 +1,7 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
-import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { nodeOntologySuffix, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
@@ -96,6 +97,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 	const images = diagram.images ?? [];
 	const labels = diagram.labels ?? [];
 	const metadataElements = diagram.metadata_elements ?? [];
+	const legendElements = diagram.legend_elements ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
 		...edges.flatMap(edgeExportBounds),
@@ -103,6 +105,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		...images,
 		...labels,
 		...metadataElements,
+		...legendElements,
 	]);
 	if (contentBounds === undefined) {
 		return undefined;
@@ -124,7 +127,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		'<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
 		'<feDropShadow dx="3" dy="3" stdDeviation="1.6" flood-color="#000000" flood-opacity="0.16"/>',
 		'</filter>',
-		...edges.flatMap((edge) => renderEdgeMarkerDefinitions(edge, theme)),
+		...edges.flatMap((edge) => renderEdgeMarkerDefinitions(edge, payload, theme)),
 		'</defs>',
 		`<style>${noteHtmlResetStyle()}</style>`,
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
@@ -134,6 +137,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
 		...metadataElements.map((element) => renderMetadataElement(element, payload, theme)),
+		...legendElements.map((element) => renderLegendElement(element, payload, theme)),
 		'</svg>',
 	].join('\n');
 
@@ -153,7 +157,7 @@ function renderEdge(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTh
 
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const lineStyle = edge.style?.line_style;
-	const stroke = edgeStroke(edge, theme);
+	const stroke = edgeStroke(edge, payload, theme);
 	const dashArray = lineStyle === 'dotted'
 		? ` stroke-dasharray="${numberValue(strokeWidth)} ${numberValue(strokeWidth * 3)}"`
 		: lineStyle === 'dashed'
@@ -220,7 +224,7 @@ function renderEdgeCardinalityLabel(
 	});
 }
 
-function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): readonly string[] {
+function renderEdgeMarkerDefinitions(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): readonly string[] {
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	if (edge.style?.line_style === 'none' || strokeWidth === 0) {
 		return [];
@@ -229,7 +233,7 @@ function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): re
 		return [];
 	}
 
-	const stroke = edgeStroke(edge, theme);
+	const stroke = edgeStroke(edge, payload, theme);
 	if (edge.ontology_item_type === 'subclassRelationship') {
 		return [
 			`<marker id="${edgeMarkerId(edge, 'hollow-triangle')}" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 1 1 L 11 5 L 1 9 Z" fill="${escapeAttribute(theme.canvasBackground)}" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"/></marker>`,
@@ -241,9 +245,9 @@ function renderEdgeMarkerDefinitions(edge: DiagramEdge, theme: WebviewTheme): re
 	];
 }
 
-function edgeStroke(edge: DiagramEdge, theme: WebviewTheme): string {
+function edgeStroke(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): string {
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
-	return edge.style?.line_style === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? theme.edgeColor;
+	return edge.style?.line_style === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? ontologyColor(edge.ontology_ref, payload) ?? theme.edgeColor;
 }
 
 function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow'): string {
@@ -255,7 +259,8 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 }
 
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
-	const border = borderStyle(node.style, theme.nodeBorder, 1);
+	const border = borderStyle(node.style, ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload) ?? theme.nodeBorder : theme.nodeBorder, 1);
+	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground);
 	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
@@ -284,12 +289,12 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 
 	const parts = [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(node.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,
-			text: nodeTitleText(node, payload),
+			text: `${nodeTitleText(node, payload)}${nodeOntologySuffix(node.ontology_ref, payload)}`,
 			bounds: hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds,
-			color: node.style?.text_color ?? theme.editorForeground,
+			color: textColor,
 			fontFamily,
 			fontSize,
 			bold: fontBold,
@@ -312,7 +317,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 					width: bounds.width,
 					height: Math.max(1, bounds.height - layout.headerHeight - 1),
 				},
-				color: node.style?.text_color ?? theme.editorForeground,
+				color: textColor,
 				fontFamily,
 				fontSize: attributeLayout.attributeFontSize,
 				bold: false,
@@ -415,6 +420,25 @@ function renderMetadataElement(element: DiagramMetadataElement, payload: Diagram
 		const y = bounds.y + rowHeight * index;
 		parts.push(renderTextBlock({ id: `${element.id}_key${index}`, text: row[0], bounds: { x: bounds.x, y, width: keyWidth, height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: true, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 9 }));
 		parts.push(renderTextBlock({ id: `${element.id}_value${index}`, text: row[1], bounds: { x: bounds.x + keyWidth, y, width: bounds.width - keyWidth, height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: element.style?.font?.bold, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 9 }));
+	});
+	return parts.join('\n');
+}
+
+function renderLegendElement(element: DiagramLegendElement, payload: DiagramPayload, theme: WebviewTheme): string {
+	const bounds = elementBounds(element);
+	const border = borderStyle(element.style, theme.nodeBorder, 1);
+	const fontFamily = element.style?.font?.family ?? theme.fontFamily;
+	const fontSize = element.style?.font?.size ?? theme.fontSize;
+	const ontologies = payload.diagram?.ontologies ?? [];
+	const rowHeight = Math.max(22, (bounds.height - 28) / Math.max(1, ontologies.length));
+	const parts = [
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(element.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(element.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(element.style, theme.elementShadow)}/>`,
+		renderTextBlock({ id: `${element.id}_title`, text: 'Ontology legend', bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: 28 }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: true, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 10 }),
+	];
+	ontologies.forEach((ontology, index) => {
+		const y = bounds.y + 28 + rowHeight * index;
+		parts.push(`<rect x="${numberValue(bounds.x + 10)}" y="${numberValue(y + 4)}" width="14" height="14" rx="2" fill="${escapeAttribute(element.colors[ontology.path] ?? theme.nodeBorder)}"/>`);
+		parts.push(renderTextBlock({ id: `${element.id}_${index}`, text: ontology.path, bounds: { x: bounds.x + 28, y, width: Math.max(1, bounds.width - 36), height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: element.style?.font?.bold, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 4 }));
 	});
 	return parts.join('\n');
 }

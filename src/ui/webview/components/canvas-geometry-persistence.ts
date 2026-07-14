@@ -1,6 +1,6 @@
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type EdgeRouteUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type LegendBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasDragCompletedEvent } from '../../../shared/canvas-editor-events';
-import { UpdateEdgeRouteCommand, UpdateElementBoundsCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../../../shared/webview-commands';
+import { UpdateEdgeRouteCommand, UpdateElementBoundsCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLegendBoundsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNoteBoundsCommand } from '../../../shared/webview-commands';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import type { BoundsDragKind, DiagramCanvasEngine } from '../engine/diagram-canvas-engine';
 
@@ -17,6 +17,7 @@ export class CanvasGeometryPersistence {
 	private readonly persistedImageBounds = new Map<string, ImageBoundsUpdate>();
 	private readonly persistedLabelBounds = new Map<string, LabelBoundsUpdate>();
 	private readonly persistedMetadataBounds = new Map<string, MetadataBoundsUpdate>();
+	private readonly persistedLegendBounds = new Map<string, LegendBoundsUpdate>();
 	private readonly persistedEdgeRoutes = new Map<string, EdgeRouteUpdate>();
 	private readonly persistedNoteText = new Map<string, string>();
 	private readonly persistedLabelText = new Map<string, string>();
@@ -57,6 +58,8 @@ export class CanvasGeometryPersistence {
 
 	public trackMetadataBounds(update: MetadataBoundsUpdate): void { this.persistedMetadataBounds.set(update.id, update); }
 	public hasMetadata(id: string): boolean { return this.persistedMetadataBounds.has(id); }
+	public trackLegendBounds(update: LegendBoundsUpdate): void { this.persistedLegendBounds.set(update.id, update); }
+	public hasLegend(id: string): boolean { return this.persistedLegendBounds.has(id); }
 
 	public hasImage(id: string): boolean {
 		return this.persistedImageBounds.has(id);
@@ -114,6 +117,7 @@ export class CanvasGeometryPersistence {
 		const imageUpdates: ImageBoundsUpdate[] = [];
 		const labelUpdates: LabelBoundsUpdate[] = [];
 		const metadataUpdates: MetadataBoundsUpdate[] = [];
+		const legendUpdates: LegendBoundsUpdate[] = [];
 		for (const update of bounds) {
 			if (this.persistedNodeBounds.has(update.id)) {
 				nodeUpdates.push(update);
@@ -136,7 +140,9 @@ export class CanvasGeometryPersistence {
 			}
 			if (this.persistedMetadataBounds.has(update.id)) {
 				metadataUpdates.push(update);
+				continue;
 			}
+			if (this.persistedLegendBounds.has(update.id)) {legendUpdates.push(update);}
 		}
 
 		const normalizedNodeUpdates = clampBoundsUpdates(nodeUpdates, minimumNodeWidth, minimumNodeHeight);
@@ -144,12 +150,14 @@ export class CanvasGeometryPersistence {
 		const normalizedImageUpdates = clampBoundsUpdates(imageUpdates, minimumImageWidth, minimumImageHeight);
 		const normalizedLabelUpdates = clampBoundsUpdates(labelUpdates, minimumLabelWidth, minimumLabelHeight);
 		const normalizedMetadataUpdates = clampBoundsUpdates(metadataUpdates, minimumMetadataWidth, minimumMetadataHeight);
+		const normalizedLegendUpdates = clampBoundsUpdates(legendUpdates, minimumLegendWidth, minimumLegendHeight);
 		const normalizedUpdates = [
 			...normalizedNodeUpdates,
 			...normalizedNoteUpdates,
 			...normalizedImageUpdates,
 			...normalizedLabelUpdates,
 			...normalizedMetadataUpdates,
+			...normalizedLegendUpdates,
 		];
 		if (normalizedUpdates.some((update) => !boundsUpdateEqual(update.normalized, update.original))) {
 			this.restoreNormalizedBounds(normalizedUpdates.map((update) => update.normalized));
@@ -161,6 +169,7 @@ export class CanvasGeometryPersistence {
 			normalizedImageUpdates.map((update) => update.normalized),
 			normalizedLabelUpdates.map((update) => update.normalized),
 			normalizedMetadataUpdates.map((update) => update.normalized),
+			normalizedLegendUpdates.map((update) => update.normalized),
 			dragKind,
 		);
 	}
@@ -195,6 +204,7 @@ export class CanvasGeometryPersistence {
 		imageUpdates: readonly ImageBoundsUpdate[],
 		labelUpdates: readonly LabelBoundsUpdate[],
 		metadataUpdates: readonly MetadataBoundsUpdate[],
+		legendUpdates: readonly LegendBoundsUpdate[],
 		dragKind: BoundsDragKind,
 	): void {
 		for (const update of nodeUpdates) {
@@ -212,6 +222,7 @@ export class CanvasGeometryPersistence {
 		for (const update of metadataUpdates) {
 			this.persistedMetadataBounds.set(update.id, update);
 		}
+		for (const update of legendUpdates) {this.persistedLegendBounds.set(update.id, update);}
 		for (const update of nodeUpdates) {
 			this.publishDragCompleted('node', update, dragKind);
 		}
@@ -227,13 +238,15 @@ export class CanvasGeometryPersistence {
 		for (const update of metadataUpdates) {
 			this.publishDragCompleted('metadata', update, dragKind);
 		}
-		if (dragKind === 'move' && nodeUpdates.length + noteUpdates.length + imageUpdates.length + labelUpdates.length + metadataUpdates.length > 1) {
+		for (const update of legendUpdates) {this.publishDragCompleted('legend', update, dragKind);}
+		if (dragKind === 'move' && nodeUpdates.length + noteUpdates.length + imageUpdates.length + labelUpdates.length + metadataUpdates.length + legendUpdates.length > 1) {
 			this.options.messageBus.publishCommand(new UpdateElementBoundsCommand({
 				nodeUpdates,
 				noteUpdates,
 				imageUpdates,
 				labelUpdates,
 				metadataUpdates,
+				legendUpdates,
 			}));
 			return;
 		}
@@ -252,10 +265,11 @@ export class CanvasGeometryPersistence {
 		if (metadataUpdates.length > 0) {
 			this.options.messageBus.publishCommand(new UpdateMetadataBoundsCommand(metadataUpdates));
 		}
+		if (legendUpdates.length > 0) {this.options.messageBus.publishCommand(new UpdateLegendBoundsCommand(legendUpdates));}
 	}
 
 	private publishDragCompleted(
-		elementType: 'node' | 'note' | 'image' | 'label' | 'metadata',
+		elementType: 'node' | 'note' | 'image' | 'label' | 'metadata' | 'legend',
 		changedBounds: BoundsUpdate,
 		dragKind: BoundsDragKind,
 	): void {
