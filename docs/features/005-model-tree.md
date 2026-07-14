@@ -242,6 +242,7 @@ The toolbar shall contain:
 | Command | Enabled when | Result |
 |---------|--------------|--------|
 | Filter model tree | A `.odiagram` file is open | Opens an ontology-item search. Moving through matching results expands the model tree to that item's parent path and selects it. |
+| Show unadded ontology elements | A `.odiagram` file is open | Chooses an ontology (or uses the selected ontology) and filters the tree to its addable items that are not yet materialized in the current diagram. Invoking it again for the same ontology clears the filter. |
 | Add ontology | A `.odiagram` file is open | Opens the add ontology flow |
 | Remove ontology | An ontology file node is selected | Opens the remove ontology confirmation flow |
 | Refresh diagram dependencies | A `.odiagram` file is open | Reloads the model tree, referenced ontology files, active theme, and open canvas for the current diagram. |

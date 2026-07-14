@@ -8,6 +8,8 @@
 - Given a class has multiple in-ontology superclasses, when those superclasses expand, then the class appears below each of them with a valid parent path.
 - Given subclass declarations contain a cycle, when the Classes group expands, then every class remains reachable and ancestors do not repeat indefinitely.
 - Given a diagram is open, when Filter Model Tree is invoked and a matching result becomes active, then the model tree expands its ancestor path and selects the matching ontology item.
+- Given a diagram is open, when Show Unadded Ontology Elements is invoked for one ontology, then the tree shows only that ontology's addable items that are not already materialized as diagram nodes or concrete relationship edges.
+- Given the unadded-elements filter is active for an ontology, when the command is invoked for that ontology again, then the normal unfiltered tree is restored.
 - Given an ontology file cannot be loaded, when the tree refreshes, then the ontology file node remains visible with an error status.
 - Given the currently displayed diagram editor is closed and no other diagram editor is active, when the model tree refreshes, then the tree is empty and diagram-dependent commands are disabled.
 - Given two diagram custom-editor tabs are open, when the user activates the other tab, then the model tree refreshes from that tab's `.odiagram` document.

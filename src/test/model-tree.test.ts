@@ -1,10 +1,48 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
+import { Bounds, DiagramMetadata, DiagramNode, OntologyDiagramDocument } from '../documents/odiagram';
 import { ModelTree } from '../ui/model-tree/model-tree';
 import type { LoadedOntology, OntologyItem } from '../ui/model-tree/ontology-model';
 
 suite('Model tree', () => {
+	test('shows only unadded addable items and promotes classes whose displayed parent is filtered out', () => {
+		const person = ontologyItem('class', 'ex:Person', 'Person');
+		const employee = ontologyItem('class', 'ex:Employee', 'Employee', {
+			superclassReferences: ['ex:Person'],
+		});
+		const note = ontologyItem('annotationProperty', 'ex:note', 'note');
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [person, employee, note],
+		};
+		const tree = new ModelTree();
+		const state = tree as unknown as {
+			parsedDiagram?: OntologyDiagramDocument;
+			unaddedItemsOntologyPath?: string;
+		};
+		state.parsedDiagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map<string, string>(),
+			[new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 160, 80))],
+			[],
+		);
+		state.unaddedItemsOntologyPath = ontology.relativePath;
+		const ontologyFileNode = {
+			kind: 'ontologyFile',
+			id: 'ontology:model.ttl',
+			label: 'model.ttl',
+			ontology,
+		} as Parameters<ModelTree['getChildren']>[0];
+
+		const groups = modelTreeChildren(tree, ontologyFileNode);
+		assert.deepStrictEqual(groups.map((node) => node.label), ['Classes']);
+		const classes = modelTreeChildren(tree, groups[0]);
+		assert.deepStrictEqual(classes.map((node) => node.label), ['Employee']);
+	});
+
 	test('does not show class references in tree description', () => {
 		const requirement = ontologyItem('class', 'https://example.com/ontology#Requirement', 'Requirement');
 		const ontology: LoadedOntology = {

@@ -20,9 +20,11 @@ import {
 } from './ontology-model';
 import { getOntologyItemIcon } from './ontology-item-icons';
 import { findOntologySourceRange } from './ontology-source-navigation';
+import { isAddableOntologyItem, isOntologyItemMaterialized } from '../../diagram-editor/ontology-item-materialization';
 
 export const modelTreeViewId = 'ontology-diagram-editor.modelTree';
 export const filterModelTreeCommand = 'ontology-diagram-editor.modelTree.filter';
+export const showUnaddedOntologyItemsCommand = 'ontology-diagram-editor.modelTree.showUnaddedItems';
 export const refreshModelTreeCommand = 'ontology-diagram-editor.modelTree.refresh';
 export const addOntologyCommand = 'ontology-diagram-editor.modelTree.addOntology';
 export const removeOntologyCommand = 'ontology-diagram-editor.modelTree.removeOntology';
@@ -73,6 +75,10 @@ interface ModelTreeSearchItem extends vscode.QuickPickItem {
 	readonly node: OntologyItemTreeNode;
 }
 
+interface OntologyPickerItem extends vscode.QuickPickItem {
+	readonly ontology: LoadedOntology;
+}
+
 export interface ModelTreeSelectionEvent {
 	readonly nodeKind: NodeKind;
 	readonly displayLabel: string;
@@ -121,6 +127,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private parsedDiagram?: OntologyDiagramDocument;
 	private loadedOntologies: readonly LoadedOntology[] = [];
 	private diagramError?: string;
+	private unaddedItemsOntologyPath?: string;
 	private selectedNode?: ModelTreeNode;
 	private lastDraggedItem?: ModelTreeItemDraggedEvent;
 	private extensionUri?: vscode.Uri;
@@ -142,6 +149,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		});
 		const filterDisposable = vscode.commands.registerCommand(filterModelTreeCommand, async () => {
 			await this.searchModelTree();
+		});
+		const showUnaddedItemsDisposable = vscode.commands.registerCommand(showUnaddedOntologyItemsCommand, async (node?: ModelTreeNode) => {
+			await this.toggleUnaddedOntologyItems(node);
 		});
 		const addDisposable = vscode.commands.registerCommand(addOntologyCommand, async () => {
 			await this.addOntology();
@@ -169,6 +179,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		this.disposables.push(
 			this.treeView,
 			filterDisposable,
+			showUnaddedItemsDisposable,
 			refreshDisposable,
 			addDisposable,
 			removeDisposable,
@@ -199,6 +210,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		this.diagramDocument = undefined;
 		this.selectedNode = undefined;
 		this.lastDraggedItem = undefined;
+		this.unaddedItemsOntologyPath = undefined;
 		await this.refresh();
 		this.updateSelectionContext();
 	}
@@ -225,6 +237,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			this.parsedDiagram = undefined;
 			this.loadedOntologies = [];
 			this.diagramError = undefined;
+			this.unaddedItemsOntologyPath = undefined;
 			this.onDidChangeTreeDataEmitter.fire(undefined);
 			this.updateDiagramContext();
 			return;
@@ -234,6 +247,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			this.parsedDiagram = parseOntologyDiagramTextDocument(this.diagramDocument);
 			this.diagramError = undefined;
 			this.loadedOntologies = await loadReferencedOntologies(this.diagramDocument.uri.fsPath, this.parsedDiagram);
+			if (this.filteredOntology(this.unaddedItemsOntologyPath).length === 0) {
+				this.unaddedItemsOntologyPath = undefined;
+			}
 		} catch (error) {
 			this.parsedDiagram = undefined;
 			this.loadedOntologies = [];
@@ -274,7 +290,8 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				}];
 			}
 
-			return this.loadedOntologies.map((ontology) => this.createOntologyFileNode(ontology));
+			return this.filteredOntology(this.unaddedItemsOntologyPath)
+				.map((ontology) => this.createOntologyFileNode(ontology));
 		}
 
 		if (node.kind === 'ontologyFile') {
@@ -296,7 +313,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 
 		if (node.kind === 'ontologyGroup') {
 			if (node.groupKind === 'itemType' && node.itemType === 'class') {
-				return classHierarchyRoots(node.ontology, this.namespaces())
+				return classHierarchyRoots(node.ontology, this.namespaces(), node.items)
 					.map((item) => this.createOntologyItemNode(node.ontology, item, []));
 			}
 
@@ -312,7 +329,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				?? classAncestorPath(node.ontology, node.item, this.namespaces())
 				?? [];
 			const excludedReferences = [...ancestors, node.item.reference];
-			return classHierarchyChildren(node.ontology, node.item, this.namespaces())
+			return classHierarchyChildren(node.ontology, node.item, this.namespaces(), this.visibleClassItems(node.ontology))
 				.filter((item) => !excludedReferences.some((reference) => ontologyReferencesEqual(
 					item.reference,
 					reference,
@@ -644,6 +661,10 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 				continue;
 			}
 
+			if (!this.isVisibleOntologyItem(ontology, item)) {
+				this.unaddedItemsOntologyPath = undefined;
+				this.onDidChangeTreeDataEmitter.fire(undefined);
+			}
 			await treeView.reveal(this.createOntologyItemNode(ontology, item), { select: true, focus: true });
 			return true;
 		}
@@ -686,6 +707,50 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			});
 			picker.show();
 		});
+	}
+
+	private async toggleUnaddedOntologyItems(node?: ModelTreeNode): Promise<void> {
+		const ontology = this.ontologyForNode(node)
+			?? this.ontologyForNode(this.selectedNode)
+			?? await this.pickOntologyForUnaddedItems();
+		if (ontology === undefined) {
+			return;
+		}
+
+		if (normalizePath(ontology.relativePath) === normalizePath(this.unaddedItemsOntologyPath ?? '')) {
+			this.unaddedItemsOntologyPath = undefined;
+			this.onDidChangeTreeDataEmitter.fire(undefined);
+			return;
+		}
+
+		this.unaddedItemsOntologyPath = ontology.relativePath;
+		this.onDidChangeTreeDataEmitter.fire(undefined);
+		if (this.unaddedOntologyItems(ontology).length === 0) {
+			await vscode.window.showInformationMessage(`All addable elements from "${ontology.relativePath}" are already displayed in this diagram.`);
+		}
+	}
+
+	private ontologyForNode(node: ModelTreeNode | undefined): LoadedOntology | undefined {
+		if (node?.kind === 'ontologyFile' || node?.kind === 'ontologyGroup' || node?.kind === 'ontologyItem') {
+			return node.ontology;
+		}
+
+		return undefined;
+	}
+
+	private async pickOntologyForUnaddedItems(): Promise<LoadedOntology | undefined> {
+		const items: readonly OntologyPickerItem[] = this.loadedOntologies
+			.filter((ontology) => ontology.error === undefined)
+			.map((ontology) => ({
+				label: ontology.relativePath,
+				description: `${this.unaddedOntologyItems(ontology).length} unadded element${this.unaddedOntologyItems(ontology).length === 1 ? '' : 's'}`,
+				ontology,
+			}));
+		const selected = await vscode.window.showQuickPick(items, {
+			title: 'Show Unadded Ontology Elements',
+			placeHolder: 'Choose an ontology to filter',
+		});
+		return selected?.ontology;
 	}
 
 	private modelTreeSearchItems(): readonly ModelTreeSearchItem[] {
@@ -732,7 +797,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	}
 
 	private createOntologyGroupNode(ontology: LoadedOntology, itemType: OntologyItemType): OntologyGroupTreeNode {
-		const items = ontology.items.filter((item) => item.type === itemType);
+		const items = this.visibleOntologyItems(ontology).filter((item) => item.type === itemType);
 
 		return {
 			kind: 'ontologyGroup',
@@ -821,6 +886,10 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		item.contextValue = 'diagram';
 		item.iconPath = new vscode.ThemeIcon('type-hierarchy');
 		item.tooltip = this.diagramDocument?.uri.fsPath;
+		const filteredOntology = this.unaddedItemsOntologyPath === undefined
+			? undefined
+			: this.filteredOntology(this.unaddedItemsOntologyPath)[0];
+		item.description = filteredOntology === undefined ? undefined : `unadded: ${filteredOntology.relativePath}`;
 		return item;
 	}
 
@@ -832,8 +901,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		item.id = node.id;
 		item.contextValue = 'ontologyFile';
 		item.iconPath = new vscode.ThemeIcon(node.ontology.error === undefined ? 'file-code' : 'error');
-		item.description = node.ontology.error === undefined ? undefined : 'error';
-		item.tooltip = node.ontology.error ?? node.ontology.absolutePath;
+		const isFiltering = this.isUnaddedItemsFilterActive(node.ontology);
+		item.description = node.ontology.error === undefined ? isFiltering ? 'unadded elements' : undefined : 'error';
+		item.tooltip = node.ontology.error ?? `${node.ontology.absolutePath}${isFiltering ? '\nShowing only unadded elements.' : ''}`;
 		return item;
 	}
 
@@ -896,6 +966,42 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		vscode.commands.executeCommand('setContext', 'ontologyDiagramEditor.selectedOntologyFile', this.selectedNode?.kind === 'ontologyFile');
 	}
 
+	private filteredOntology(path: string | undefined): readonly LoadedOntology[] {
+		if (path === undefined) {
+			return this.loadedOntologies;
+		}
+
+		return this.loadedOntologies.filter((ontology) => normalizePath(ontology.relativePath) === normalizePath(path));
+	}
+
+	private visibleOntologyItems(ontology: LoadedOntology): readonly OntologyItem[] {
+		return this.isUnaddedItemsFilterActive(ontology)
+			? this.unaddedOntologyItems(ontology)
+			: ontology.items;
+	}
+
+	private visibleClassItems(ontology: LoadedOntology): readonly OntologyItem[] {
+		return this.visibleOntologyItems(ontology).filter((item) => item.type === 'class');
+	}
+
+	private unaddedOntologyItems(ontology: LoadedOntology): readonly OntologyItem[] {
+		const diagram = this.parsedDiagram;
+		if (diagram === undefined) {
+			return [];
+		}
+
+		return ontology.items.filter((item) => isAddableOntologyItem(item) && !isOntologyItemMaterialized(item, diagram));
+	}
+
+	private isVisibleOntologyItem(ontology: LoadedOntology, item: OntologyItem): boolean {
+		return this.visibleOntologyItems(ontology).includes(item);
+	}
+
+	private isUnaddedItemsFilterActive(ontology: LoadedOntology): boolean {
+		return this.unaddedItemsOntologyPath !== undefined
+			&& normalizePath(ontology.relativePath) === normalizePath(this.unaddedItemsOntologyPath);
+	}
+
 	private iconPathForItemType(itemType: OntologyItemType): vscode.ThemeIcon | vscode.Uri {
 		const icon = getOntologyItemIcon(itemType);
 		if (this.extensionUri === undefined) {
@@ -928,11 +1034,10 @@ function compareIndividualTypeGroups(left: OntologyGroupTreeNode, right: Ontolog
 function classHierarchyRoots(
 	ontology: LoadedOntology,
 	namespaces: ReadonlyMap<string, string>,
+	classes: readonly OntologyItem[] = ontology.items.filter((item) => item.type === 'class'),
 ): readonly OntologyItem[] {
-	const classes = ontology.items
-		.filter((item) => item.type === 'class')
-		.sort(compareOntologyItemsByDisplayLabel);
-	const roots = classes.filter((item) => classHierarchyParents(ontology, item, namespaces).length === 0);
+	const sortedClasses = [...classes].sort(compareOntologyItemsByDisplayLabel);
+	const roots = sortedClasses.filter((item) => classHierarchyParents(ontology, item, namespaces, sortedClasses).length === 0);
 	const reachable = new Set<OntologyItem>();
 	const markReachable = (item: OntologyItem): void => {
 		if (reachable.has(item)) {
@@ -940,7 +1045,7 @@ function classHierarchyRoots(
 		}
 
 		reachable.add(item);
-		for (const child of classHierarchyChildren(ontology, item, namespaces)) {
+		for (const child of classHierarchyChildren(ontology, item, namespaces, sortedClasses)) {
 			markReachable(child);
 		}
 	};
@@ -951,7 +1056,7 @@ function classHierarchyRoots(
 
 	// Invalid ontologies can contain subclass cycles. Give each disconnected cyclic
 	// component a deterministic root so its classes remain visible in the tree.
-	for (const item of classes) {
+	for (const item of sortedClasses) {
 		if (!reachable.has(item)) {
 			roots.push(item);
 			markReachable(item);
@@ -965,10 +1070,11 @@ function classHierarchyParents(
 	ontology: LoadedOntology,
 	item: OntologyItem,
 	namespaces: ReadonlyMap<string, string>,
+	classes: readonly OntologyItem[] = ontology.items.filter((candidate) => candidate.type === 'class'),
 ): readonly OntologyItem[] {
 	const parents = new Set<OntologyItem>();
 	for (const reference of item.metadata.superclassReferences ?? []) {
-		const parent = classItemForReference(ontology, reference, namespaces);
+		const parent = classItemForReference(ontology, reference, namespaces, classes);
 		if (parent !== undefined && parent !== item) {
 			parents.add(parent);
 		}
@@ -981,10 +1087,10 @@ function classHierarchyChildren(
 	ontology: LoadedOntology,
 	item: OntologyItem,
 	namespaces: ReadonlyMap<string, string>,
+	classes: readonly OntologyItem[] = ontology.items.filter((candidate) => candidate.type === 'class'),
 ): readonly OntologyItem[] {
-	return ontology.items
-		.filter((candidate) => candidate.type === 'class'
-			&& classHierarchyParents(ontology, candidate, namespaces).includes(item))
+	return classes
+		.filter((candidate) => classHierarchyParents(ontology, candidate, namespaces, classes).includes(item))
 		.sort(compareOntologyItemsByDisplayLabel);
 }
 
@@ -1032,9 +1138,9 @@ function classItemForReference(
 	ontology: LoadedOntology,
 	reference: string,
 	namespaces: ReadonlyMap<string, string>,
+	classes: readonly OntologyItem[] = ontology.items.filter((item) => item.type === 'class'),
 ): OntologyItem | undefined {
-	return ontology.items.find((item) => item.type === 'class'
-		&& ontologyReferencesEqual(item.reference, reference, namespaces));
+	return classes.find((item) => ontologyReferencesEqual(item.reference, reference, namespaces));
 }
 
 function sortedIndividualTypeReferences(
