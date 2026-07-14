@@ -1,5 +1,5 @@
 import { Bounds, Point, type DiagramEdge, type OntologyDiagramDocument } from '../../documents/odiagram';
-import { defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
+import { defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 import type { DiagramLayoutAlgorithm, DiagramLayoutEdgeRoute, DiagramLayoutResult } from './diagram-layout-algorithm';
 import { roundLayoutCoordinate } from './layout-coordinate';
 
@@ -64,6 +64,7 @@ export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
 	public async layout(diagram: OntologyDiagramDocument, elkLayeredOptions?: ElkLayeredLayoutOptions): Promise<DiagramLayoutResult> {
 		const graph = await this.elk.layout(elkGraph(diagram, {
 			...this.layoutOptions,
+			...this.directionOptions(elkLayeredOptions),
 			...this.spacingOptions(elkLayeredOptions),
 		}));
 		return {
@@ -96,6 +97,17 @@ export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
 				defaultElkLayeredLayerSpacing,
 			)),
 		};
+	}
+
+	protected directionOptions(elkLayeredOptions: ElkLayeredLayoutOptions | undefined): Readonly<Record<string, string>> {
+		const direction = elkLayeredOptions?.direction ?? defaultElkLayeredDirection;
+		const elkDirection = {
+			'horizontal': 'RIGHT',
+			'right-to-left': 'LEFT',
+			'vertical': 'DOWN',
+			'bottom-up': 'UP',
+		}[direction];
+		return { 'elk.direction': elkDirection };
 	}
 }
 

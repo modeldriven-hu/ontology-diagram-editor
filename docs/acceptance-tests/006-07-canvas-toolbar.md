@@ -18,7 +18,7 @@
 - Given one or more ontology nodes are selected, when the user chooses Arrange Diagram, then only those nodes are arranged.
 - Given no ontology node is selected, when the user chooses Arrange Diagram, then every ontology node is arranged.
 - Given the user selects Directed Layers, ELK Layered, ELK Force, ELK Mr. Tree, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
-- Given the user selects ELK Layered, when they set the node or layer gap and choose Arrange Diagram, then the resulting layout uses the configured gaps without persisting those settings in the diagram file.
+- Given the user selects ELK Layered, when they set the direction, node gap, or layer gap and choose Arrange Diagram, then the resulting layout uses the configured options without persisting those settings in the diagram file.
 - Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.
 - Given the user changes only the layout algorithm selection, when the document is inspected, then the `.odiagram` content is unchanged.
 - Given the user chooses Fit, Reset, Zoom In, or Zoom Out, when the viewport changes, then persisted diagram coordinates are unchanged.

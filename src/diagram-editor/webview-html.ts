@@ -6,7 +6,7 @@ import { readOntologyDiagramThemeFile, resolveNodeStyle } from '../documents/oth
 import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
-import { diagramLayoutAlgorithms } from '../shared/diagram-layout';
+import { diagramLayoutAlgorithms, elkLayeredDirections } from '../shared/diagram-layout';
 import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
 import type { CanvasViewport } from '../shared/canvas-viewport';
 
@@ -87,6 +87,7 @@ function webviewBody(
 					<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
 				</div>
 				<span class="canvas-layout-spacing" id="elkLayeredSpacingControls" hidden>
+					<label class="canvas-layout-spacing-field">Direction<select class="canvas-layout-spacing-input canvas-layout-direction-select" id="elkLayeredDirectionSelect" aria-label="ELK Layered direction">${elkLayeredDirectionOptions()}</select></label>
 					<label class="canvas-layout-spacing-field">Node gap<input class="canvas-layout-spacing-input" id="elkLayeredNodeSpacingInput" type="number" min="16" max="480" step="1" inputmode="numeric" aria-label="ELK Layered node gap"></label>
 					<label class="canvas-layout-spacing-field">Layer gap<input class="canvas-layout-spacing-input" id="elkLayeredLayerSpacingInput" type="number" min="16" max="480" step="1" inputmode="numeric" aria-label="ELK Layered layer gap"></label>
 				</span>
@@ -164,6 +165,12 @@ function webviewBody(
 function diagramLayoutAlgorithmOptions(): string {
 	return diagramLayoutAlgorithms
 		.map((algorithm) => `<option value="${escapeHtml(algorithm.id)}">${escapeHtml(algorithm.label)}</option>`)
+		.join('\n');
+}
+
+function elkLayeredDirectionOptions(): string {
+	return elkLayeredDirections
+		.map((direction) => `<option value="${escapeHtml(direction.id)}">${escapeHtml(direction.label)}</option>`)
 		.join('\n');
 }
 
@@ -366,6 +373,10 @@ function webviewStyles(): string {
 		color: var(--vscode-dropdown-foreground);
 		font: inherit;
 		font-size: 12px;
+	}
+
+	.canvas-layout-direction-select {
+		width: 116px;
 	}
 
 	.canvas-layout-spacing-input:hover,

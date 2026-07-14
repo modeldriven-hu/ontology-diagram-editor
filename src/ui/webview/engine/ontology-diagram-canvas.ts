@@ -1,6 +1,6 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
-import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId } from '../../../shared/diagram-layout';
+import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
 import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
@@ -59,6 +59,7 @@ interface WebviewState {
 	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
 	readonly elkLayeredNodeSpacing?: number;
 	readonly elkLayeredLayerSpacing?: number;
+	readonly elkLayeredDirection?: string;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -89,6 +90,7 @@ const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
 const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
 const diagramLayoutAlgorithmSelect = requiredElement('diagramLayoutAlgorithmSelect') as HTMLSelectElement;
 const elkLayeredSpacingControls = requiredElement('elkLayeredSpacingControls');
+const elkLayeredDirectionSelect = requiredElement('elkLayeredDirectionSelect') as HTMLSelectElement;
 const elkLayeredNodeSpacingInput = requiredElement('elkLayeredNodeSpacingInput') as HTMLInputElement;
 const elkLayeredLayerSpacingInput = requiredElement('elkLayeredLayerSpacingInput') as HTMLInputElement;
 const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
@@ -147,6 +149,10 @@ const savedElkLayeredLayerSpacing = normalizeElkLayeredSpacing(
 	vscode.getState()?.elkLayeredLayerSpacing,
 	defaultElkLayeredLayerSpacing,
 );
+const savedElkLayeredDirection = vscode.getState()?.elkLayeredDirection;
+elkLayeredDirectionSelect.value = savedElkLayeredDirection !== undefined && isElkLayeredDirection(savedElkLayeredDirection)
+	? savedElkLayeredDirection
+	: defaultElkLayeredDirection;
 elkLayeredNodeSpacingInput.value = String(savedElkLayeredNodeSpacing);
 elkLayeredLayerSpacingInput.value = String(savedElkLayeredLayerSpacing);
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
@@ -356,7 +362,7 @@ arrangeDiagramButton.addEventListener('click', () => {
 	showStatus(`Arranging diagram using ${diagramLayoutAlgorithmSelect.selectedOptions[0]?.text ?? algorithmId}.`);
 	messageBus.publishCommand(new ArrangeDiagramCommand(
 		algorithmId,
-		algorithmId === 'elk-layered' ? elkLayeredSpacingOptions() : undefined,
+		algorithmId === 'elk-layered' ? elkLayeredLayoutOptions() : undefined,
 		selectedDiagramNodeIds(),
 	));
 });
@@ -368,10 +374,13 @@ diagramLayoutAlgorithmSelect.addEventListener('change', () => {
 	updateElkLayeredSpacingControls();
 });
 elkLayeredNodeSpacingInput.addEventListener('change', () => {
-	persistElkLayeredSpacing();
+	persistElkLayeredLayoutOptions();
 });
 elkLayeredLayerSpacingInput.addEventListener('change', () => {
-	persistElkLayeredSpacing();
+	persistElkLayeredLayoutOptions();
+});
+elkLayeredDirectionSelect.addEventListener('change', () => {
+	persistElkLayeredLayoutOptions();
 });
 zoomOutButton.addEventListener('click', () => {
 	zoomBy(1 / 1.2, 'zoom');
@@ -869,7 +878,7 @@ function updateElkLayeredSpacingControls(): void {
 	fixedToolbarController.update();
 }
 
-function elkLayeredSpacingOptions(): { readonly nodeSpacing: number; readonly layerSpacing: number } {
+function elkLayeredLayoutOptions(): { readonly nodeSpacing: number; readonly layerSpacing: number; readonly direction: ElkLayeredDirection } {
 	const nodeSpacing = normalizeElkLayeredSpacing(
 		elkLayeredNodeSpacingInput.valueAsNumber,
 		defaultElkLayeredNodeSpacing,
@@ -880,15 +889,20 @@ function elkLayeredSpacingOptions(): { readonly nodeSpacing: number; readonly la
 	);
 	elkLayeredNodeSpacingInput.value = String(nodeSpacing);
 	elkLayeredLayerSpacingInput.value = String(layerSpacing);
+	const direction = isElkLayeredDirection(elkLayeredDirectionSelect.value)
+		? elkLayeredDirectionSelect.value
+		: defaultElkLayeredDirection;
+	elkLayeredDirectionSelect.value = direction;
 
-	return { nodeSpacing, layerSpacing };
+	return { nodeSpacing, layerSpacing, direction };
 }
 
-function persistElkLayeredSpacing(): void {
-	const spacing = elkLayeredSpacingOptions();
+function persistElkLayeredLayoutOptions(): void {
+	const options = elkLayeredLayoutOptions();
 	updateWebviewState({
-		elkLayeredNodeSpacing: spacing.nodeSpacing,
-		elkLayeredLayerSpacing: spacing.layerSpacing,
+		elkLayeredNodeSpacing: options.nodeSpacing,
+		elkLayeredLayerSpacing: options.layerSpacing,
+		elkLayeredDirection: options.direction,
 	});
 }
 

@@ -28,7 +28,7 @@ Version 1 toolbar actions are:
 | Export SVG | Saves the diagram as an SVG export, as defined in `006-11-canvas-export.md`. |
 | Export PNG | Saves the diagram as a PNG export, as defined in `006-11-canvas-export.md`. |
 | Layout algorithm | Selects the algorithm used by Arrange Diagram without changing diagram content. |
-| ELK layered gaps | Sets the node gap and the gap between layers used by ELK Layered. |
+| ELK layered options | Sets the direction, node gap, and gap between layers used by ELK Layered. |
 | Arrange diagram | Automatically positions ontology-backed nodes with the selected algorithm and reroutes connected edges. |
 | Zoom out | Decreases canvas zoom without changing persisted coordinates. |
 | Zoom in | Increases canvas zoom without changing persisted coordinates. |
@@ -86,9 +86,11 @@ Arranging the diagram shall:
 The selected layout algorithm is viewport state rather than diagram content. Changing the
 selection alone shall not modify the `.odiagram` document.
 
-When ELK Layered is selected, the toolbar shall show editable node-gap and layer-gap
-controls in a second toolbar row. Their values are viewport state, and shall not modify
-the `.odiagram` document until Arrange Diagram is invoked.
+When ELK Layered is selected, the toolbar shall show editable direction, node-gap, and
+layer-gap controls in a second toolbar row. Node and layer gaps default to 30. The
+direction may be left-to-right, right-to-left, top-to-bottom, or bottom-to-top. These
+values are viewport state, and shall not modify the `.odiagram` document until Arrange
+Diagram is invoked.
 
 If the diagram has no ontology-backed nodes, the toolbar action shall be disabled or show
 a concise user-visible problem without changing the `.odiagram` document.

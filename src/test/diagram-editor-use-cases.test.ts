@@ -2449,7 +2449,7 @@ suite('Diagram editor use cases', () => {
 			[new DiagramNode('node_a', 'ex:A', new Bounds(80, 80, 100, 50))],
 			[],
 		);
-		let receivedOptions: { readonly nodeSpacing?: number; readonly layerSpacing?: number } | undefined;
+		let receivedOptions: { readonly nodeSpacing?: number; readonly layerSpacing?: number; readonly direction?: 'horizontal' | 'right-to-left' | 'vertical' | 'bottom-up' } | undefined;
 		const algorithm: DiagramLayoutAlgorithm = {
 			id: 'elk-layered',
 			layout: async (_diagram, elkLayeredOptions) => {
@@ -2461,11 +2461,13 @@ suite('Diagram editor use cases', () => {
 		await new ArrangeDiagramUseCase([algorithm]).execute(diagram, 'elk-layered', {
 			nodeSpacing: 104,
 			layerSpacing: 240,
+			direction: 'vertical',
 		});
 
 		assert.deepStrictEqual(receivedOptions, {
 			nodeSpacing: 104,
 			layerSpacing: 240,
+			direction: 'vertical',
 		});
 	});
 
