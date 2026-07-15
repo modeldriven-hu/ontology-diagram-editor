@@ -8,7 +8,7 @@ export class UpdateLegendBoundsUseCase {
 		const byId = new Map(updates.map((update) => [update.id, update]));
 		const legendElements = diagram.legendElements.map((element) => {
 			const update = byId.get(element.id.value);
-			return update === undefined ? element : new DiagramLegendElement(element.id.value, new Bounds(update.x, update.y, update.width, update.height), element.colors, element.style, element.extra, element.colorMode);
+			return update === undefined ? element : new DiagramLegendElement(element.id.value, new Bounds(update.x, update.y, update.width, update.height), element.colors, element.style, element.extra, element.colorMode, element.colorBy);
 		});
 		return { diagram: cloneDiagram(diagram, { legendElements }) };
 	}

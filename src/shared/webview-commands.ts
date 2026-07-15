@@ -1,4 +1,4 @@
-import type { EdgeRouteLayout, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { EdgeRouteLayout, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -97,6 +97,7 @@ export type WebviewCommand =
 	| UpdateMetadataBoundsCommand
 	| UpdateLegendBoundsCommand
 	| UpdateLegendColorsCommand
+	| UpdateLegendColorByCommand
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
@@ -477,7 +478,17 @@ export class UpdateLegendBoundsCommand {
 
 export class UpdateLegendColorsCommand {
 	public readonly type = 'updateLegendColors';
-	public constructor(public readonly id: string, public readonly colors: Readonly<Record<string, string>>, public readonly colorMode?: 'border' | 'background') {}
+	public constructor(
+		public readonly id: string,
+		public readonly colors: Readonly<Record<string, string>>,
+		public readonly colorMode?: 'border' | 'background',
+		public readonly colorBy?: OntologyColorBy,
+	) {}
+}
+
+export class UpdateLegendColorByCommand {
+	public readonly type = 'updateLegendColorBy';
+	public constructor(public readonly id: string, public readonly colorBy: OntologyColorBy) {}
 }
 
 export class UpdateNodeImageCommand {

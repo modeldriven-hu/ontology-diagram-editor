@@ -65,7 +65,7 @@ function updateLegendStyle(diagram: OntologyDiagramDocument, id: string, style: 
 		const nextStyle = style === undefined ? undefined : commonStyle(style);
 		if (JSON.stringify(element.style?.toPersistenceObject()) === JSON.stringify(nextStyle?.toPersistenceObject())) {return element;}
 		changed = true;
-		return new DiagramLegendElement(element.id.value, element.bounds, element.colors, nextStyle, element.extra, element.colorMode);
+		return new DiagramLegendElement(element.id.value, element.bounds, element.colors, nextStyle, element.extra, element.colorMode, element.colorBy);
 	});
 	return changed ? { diagram: cloneDiagram(diagram, { legendElements }) } : {};
 }

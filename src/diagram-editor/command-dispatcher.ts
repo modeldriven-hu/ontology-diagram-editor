@@ -6,6 +6,7 @@ import {
 	AlignEdgeEndPointsUseCase,
 	AlignEdgeStartPointsUseCase,
 	AlignSubclassEndpointsUseCase,
+	ApplyLegendColoringUseCase,
 	ArrangeDiagramUseCase,
 	CreateEdgeUseCase,
 	CreateCommentNoteUseCase,
@@ -39,6 +40,7 @@ import {
 	UpdateMetadataBoundsUseCase,
 	UpdateLegendBoundsUseCase,
 	UpdateLegendColorsUseCase,
+	UpdateLegendColorByUseCase,
 	UpdateLabelTextUseCase,
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
@@ -63,6 +65,7 @@ interface DiagramEditorUseCases {
 	readonly alignEdgeEndPoints: AlignEdgeEndPointsUseCase;
 	readonly alignEdgeStartPoints: AlignEdgeStartPointsUseCase;
 	readonly alignSubclassEndpoints: AlignSubclassEndpointsUseCase;
+	readonly applyLegendColoring: ApplyLegendColoringUseCase;
 	readonly arrangeDiagram: ArrangeDiagramUseCase;
 	readonly createNode: CreateNodeUseCase;
 	readonly createEdge: CreateEdgeUseCase;
@@ -103,6 +106,7 @@ interface DiagramEditorUseCases {
 	readonly updateMetadataBounds: UpdateMetadataBoundsUseCase;
 	readonly updateLegendBounds: UpdateLegendBoundsUseCase;
 	readonly updateLegendColors: UpdateLegendColorsUseCase;
+	readonly updateLegendColorBy: UpdateLegendColorByUseCase;
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
 	readonly updateThemeMode: UpdateThemeModeUseCase;
@@ -340,7 +344,10 @@ export class DiagramCommandDispatcher {
 				await this.handleResult(this.useCases.updateLegendBounds.execute(this.repository.load(), command.updates));
 				return;
 			case 'updateLegendColors':
-				await this.handleResult(this.useCases.updateLegendColors.execute(this.repository.load(), command.id, command.colors, command.colorMode));
+				await this.handleResult(this.useCases.updateLegendColors.execute(this.repository.load(), command.id, command.colors, command.colorMode, command.colorBy));
+				return;
+			case 'updateLegendColorBy':
+				await this.handleResult(this.useCases.updateLegendColorBy.execute(this.repository.load(), command.id, command.colorBy));
 				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
@@ -482,7 +489,8 @@ export class DiagramCommandDispatcher {
 			changed = true;
 		}
 		if (changed) {
-			await this.repository.save(diagram);
+			const legendResult = this.useCases.applyLegendColoring.execute(diagram);
+			await this.repository.save(legendResult.diagram ?? diagram);
 		}
 
 		for (const [index, payload] of payloads.entries()) {
@@ -716,7 +724,8 @@ export class DiagramCommandDispatcher {
 			await vscode.window.showInformationMessage(result.notification);
 		}
 		if (result.diagram !== undefined) {
-			await this.repository.save(result.diagram);
+			const legendResult = this.useCases.applyLegendColoring.execute(result.diagram);
+			await this.repository.save(legendResult.diagram ?? result.diagram);
 		}
 	}
 }
@@ -741,6 +750,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		alignEdgeEndPoints: new AlignEdgeEndPointsUseCase(),
 		alignEdgeStartPoints: new AlignEdgeStartPointsUseCase(),
 		alignSubclassEndpoints: new AlignSubclassEndpointsUseCase(),
+		applyLegendColoring: new ApplyLegendColoringUseCase(),
 		arrangeDiagram: new ArrangeDiagramUseCase(),
 		createNode: new CreateNodeUseCase(),
 		createEdge: new CreateEdgeUseCase(),
@@ -781,6 +791,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateMetadataBounds: new UpdateMetadataBoundsUseCase(),
 		updateLegendBounds: new UpdateLegendBoundsUseCase(),
 		updateLegendColors: new UpdateLegendColorsUseCase(),
+		updateLegendColorBy: new UpdateLegendColorByUseCase(),
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
 		updateThemeMode: new UpdateThemeModeUseCase(),

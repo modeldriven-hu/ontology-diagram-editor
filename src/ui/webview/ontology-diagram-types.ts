@@ -176,6 +176,7 @@ export interface DiagramLegendElement {
 	readonly height: number;
 	readonly colors: Record<string, string>;
 	readonly color_mode?: 'border' | 'background';
+	readonly color_by?: 'ontologySource' | 'elementType' | 'none';
 	readonly style?: DiagramElementStyle;
 }
 

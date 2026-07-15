@@ -1,8 +1,9 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { ontologyLegendEntries } from './ontology-legend';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
 import { actionButton, checkboxField, colorField, imageField, numberField, optionalNumberComboField, optionalNumberField, readonlyField, sectionElement, selectField, textAreaField, textField } from './canvas-property-fields';
@@ -275,20 +276,31 @@ export class CanvasPropertyPanel {
 	}
 
 	private legendTabs(element: DiagramLegendElement, identitySection: HTMLElement): readonly PropertyTab[] {
-		const ontologies = this.options.payload.diagram?.ontologies ?? [];
+		const entries = ontologyLegendEntries(this.options.payload);
 		return [
-			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Color Application', [
+			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Color Viewpoint', [
+				selectField('Color Elements By', element.color_by ?? 'ontologySource', [
+					{ value: 'ontologySource', label: 'Source Ontology' },
+					{ value: 'elementType', label: 'Element Type' },
+					{ value: 'none', label: 'None' },
+				], (colorBy) => {
+					this.propertyEdited('legend', element.id, ['color_by']);
+					this.options.messageBus.publishCommand(new UpdateLegendColorByCommand(element.id, (colorBy ?? 'ontologySource') as 'ontologySource' | 'elementType' | 'none'));
+				}),
+			]), sectionElement('Color Application', [
 				selectField('Apply Colors To', element.color_mode ?? 'border', [
 					{ value: 'border', label: 'Node Borders' },
 					{ value: 'background', label: 'Node Backgrounds' },
 				], (colorMode) => {
 					this.propertyEdited('legend', element.id, ['color_mode']);
-					this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, element.colors, colorMode ?? 'border'));
+					this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, element.colors, colorMode ?? 'border', element.color_by));
 				}),
-			]), sectionElement('Ontology Colors', ontologies.map((ontology) => colorField(ontology.path, element.colors[ontology.path] ?? '#808080', (color) => {
-				this.propertyEdited('legend', element.id, ['colors', ontology.path]);
-				this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, { ...element.colors, [ontology.path]: color }, element.color_mode));
-			}))) ] },
+			]), sectionElement('Legend Colors', entries.length === 0
+				? [readonlyField('Status', 'Coloring is disabled.')]
+				: entries.map((entry) => colorField(entry.label, element.colors[entry.key] ?? '#808080', (color) => {
+					this.propertyEdited('legend', element.id, ['colors', entry.key]);
+					this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, { ...element.colors, [entry.key]: color }, element.color_mode, element.color_by));
+				})))] },
 			{ id: 'geometry', label: 'Geometry', sections: [sectionElement('Geometry', this.geometryFields(element, (update) => {
 				this.propertyEdited('legend', element.id, ['x', 'y', 'width', 'height']);
 				this.options.messageBus.publishCommand(new UpdateLegendBoundsCommand([update]));

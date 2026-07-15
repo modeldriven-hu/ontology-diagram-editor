@@ -171,7 +171,7 @@ export class UpdateElementBoundsUseCase {
 			const nextBounds = toBounds(update);
 			if (boundsEqual(element.bounds, nextBounds)) {return element;}
 			changed = true;
-			return new DiagramLegendElement(element.id.value, nextBounds, element.colors, element.style, element.extra, element.colorMode);
+			return new DiagramLegendElement(element.id.value, nextBounds, element.colors, element.style, element.extra, element.colorMode, element.colorBy);
 		});
 		const nextEdges = diagram.edges.map((edge) => {
 			return translateEdgeMovedWithEndpoints(edge, moveDeltaByElementId)

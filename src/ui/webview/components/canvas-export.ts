@@ -1,7 +1,7 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
-import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyTextColor } from './ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, ontologyTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
@@ -247,7 +247,7 @@ function renderEdgeMarkerDefinitions(edge: DiagramEdge, payload: DiagramPayload,
 
 function edgeStroke(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): string {
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
-	return edge.style?.line_style === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? ontologyColor(edge.ontology_ref, payload) ?? theme.edgeColor;
+	return edge.style?.line_style === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? ontologyColor(edge.ontology_ref, payload, edge.ontology_item_type) ?? theme.edgeColor;
 }
 
 function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow'): string {
@@ -259,8 +259,8 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 }
 
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): string {
-	const border = borderStyle(node.style, ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload) ?? theme.nodeBorder : theme.nodeBorder, 1);
-	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground);
+	const border = borderStyle(node.style, ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload, node.ontology_item_type) ?? theme.nodeBorder : theme.nodeBorder, 1);
+	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
 	const ontologyLabel = nodeOntologyLabel(node.ontology_ref, payload);
 	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
@@ -303,7 +303,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 		padding: 4,
 	})];
 	const parts = [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		...ontologyLabelPart,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,
@@ -446,16 +446,16 @@ function renderLegendElement(element: DiagramLegendElement, payload: DiagramPayl
 	const border = borderStyle(element.style, theme.nodeBorder, 1);
 	const fontFamily = element.style?.font?.family ?? theme.fontFamily;
 	const fontSize = element.style?.font?.size ?? theme.fontSize;
-	const ontologies = payload.diagram?.ontologies ?? [];
-	const rowHeight = Math.max(22, (bounds.height - 28) / Math.max(1, ontologies.length));
+	const entries = ontologyLegendEntries(payload);
+	const rowHeight = Math.max(22, (bounds.height - 28) / Math.max(1, entries.length));
 	const parts = [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(element.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(element.style?.bg_color ?? theme.nodeBackground)}" ${borderAttributes(border)}${shadowAttribute(element.style, theme.elementShadow)}/>`,
-		renderTextBlock({ id: `${element.id}_title`, text: 'Ontology legend', bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: 28 }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: true, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 10 }),
+		renderTextBlock({ id: `${element.id}_title`, text: 'Color legend', bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: 28 }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: true, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 10 }),
 	];
-	ontologies.forEach((ontology, index) => {
+	entries.forEach((entry, index) => {
 		const y = bounds.y + 28 + rowHeight * index;
-		parts.push(`<rect x="${numberValue(bounds.x + 10)}" y="${numberValue(y + 4)}" width="14" height="14" rx="2" fill="${escapeAttribute(element.colors[ontology.path] ?? theme.nodeBorder)}"/>`);
-		parts.push(renderTextBlock({ id: `${element.id}_${index}`, text: ontology.path, bounds: { x: bounds.x + 28, y, width: Math.max(1, bounds.width - 36), height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: element.style?.font?.bold, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 4 }));
+		parts.push(`<rect x="${numberValue(bounds.x + 10)}" y="${numberValue(y + 4)}" width="14" height="14" rx="2" fill="${escapeAttribute(element.colors[entry.key] ?? theme.nodeBorder)}"/>`);
+		parts.push(renderTextBlock({ id: `${element.id}_${index}`, text: entry.label, bounds: { x: bounds.x + 28, y, width: Math.max(1, bounds.width - 36), height: rowHeight }, color: element.style?.text_color ?? theme.editorForeground, fontFamily, fontSize, bold: element.style?.font?.bold, italic: element.style?.font?.italic, align: 'left', verticalAlign: 'middle', padding: 4 }));
 	});
 	return parts.join('\n');
 }

@@ -13,6 +13,7 @@ export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
 export type PropertyValueTextOverflow = 'truncate' | 'wrap';
 export type OntologyColorMode = 'border' | 'background';
+export type OntologyColorBy = 'ontologySource' | 'elementType' | 'none';
 
 export class OntologyDiagramValidationError extends Error {
 	public constructor(message: string, public readonly issues: readonly string[] = [message]) {
@@ -513,6 +514,7 @@ export class DiagramLegendElement {
 		public readonly style?: CommonStyle,
 		public readonly extra: JsonObject = {},
 		public readonly colorMode?: OntologyColorMode,
+		public readonly colorBy?: OntologyColorBy,
 	) {
 		this.id = DiagramIdentifier.create(id, 'legend');
 		this.bounds = bounds;
@@ -526,6 +528,7 @@ export class DiagramLegendElement {
 			colors: Object.fromEntries(this.colors),
 			style: this.style?.toPersistenceObject(),
 			color_mode: this.colorMode,
+			color_by: this.colorBy,
 		});
 	}
 }
@@ -693,6 +696,7 @@ const legendElementSchema = boundsFieldsSchema.extend({
 	id: z.string(),
 	colors: z.record(z.string(), z.string()),
 	color_mode: z.enum(['border', 'background']).optional(),
+	color_by: z.enum(['ontologySource', 'elementType', 'none']).optional(),
 	style: commonStyleSchema.optional(),
 }).passthrough();
 
@@ -825,8 +829,9 @@ function parseLegendElement(value: z.infer<typeof legendElementSchema>): Diagram
 		new Bounds(value.x, value.y, value.width, value.height),
 		new Map(Object.entries(value.colors)),
 		value.style ? parseCommonStyle(value.style) : undefined,
-		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'colors', 'style', 'color_mode']),
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'colors', 'style', 'color_mode', 'color_by']),
 		value.color_mode,
+		value.color_by,
 	);
 }
 

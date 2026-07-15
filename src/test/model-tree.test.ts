@@ -52,7 +52,7 @@ suite('Model tree', () => {
 		state.parsedDiagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
 			[],
-			new Map<string, string>(),
+			new Map<string, string>([['ex', 'https://example.com/ontology#']]),
 			[new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 160, 80))],
 			[],
 		);

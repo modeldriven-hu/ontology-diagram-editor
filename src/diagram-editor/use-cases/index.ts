@@ -31,6 +31,8 @@ export { UpdateLabelBoundsUseCase } from './update-label-bounds-use-case';
 export { UpdateMetadataBoundsUseCase } from './update-metadata-bounds-use-case';
 export { UpdateLegendBoundsUseCase } from './update-legend-bounds-use-case';
 export { UpdateLegendColorsUseCase } from './update-legend-colors-use-case';
+export { UpdateLegendColorByUseCase } from './update-legend-color-by-use-case';
+export { ApplyLegendColoringUseCase } from './apply-legend-coloring-use-case';
 export { UpdateLabelTextUseCase } from './update-label-text-use-case';
 export { UpdateEdgeRouteUseCase } from './update-edge-route-use-case';
 export { UpdateEdgeRouteLayoutUseCase } from './update-edge-route-layout-use-case';
