@@ -2,10 +2,37 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 
 import { Bounds, DiagramMetadata, DiagramNode, OntologyDiagramDocument } from '../documents/odiagram';
-import { ModelTree } from '../ui/model-tree/model-tree';
+import { ModelTree, modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import type { LoadedOntology, OntologyItem } from '../ui/model-tree/ontology-model';
 
 suite('Model tree', () => {
+	test('serializes every selected ontology item in one drag payload', async () => {
+		const ontology: LoadedOntology = {
+			relativePath: 'model.ttl',
+			absolutePath: '/workspace/model.ttl',
+			items: [],
+		};
+		const person = ontologyItem('class', 'ex:Person', 'Person');
+		const organization = ontologyItem('class', 'ex:Organization', 'Organization');
+		const source = [person, organization].map((item) => ({
+			kind: 'ontologyItem',
+			id: `item:${item.reference}`,
+			label: item.displayLabel,
+			ontology,
+			item,
+		})) as Parameters<ModelTree['handleDrag']>[0];
+		const dataTransfer = new vscode.DataTransfer();
+
+		const tree = new ModelTree();
+		tree.handleDrag(source, dataTransfer);
+
+		const serialized = await dataTransfer.get(modelTreeDragMimeType)?.asString();
+		assert.ok(serialized);
+		const payload = JSON.parse(serialized ?? '{}') as { readonly items?: readonly { readonly ontologyItemReference: string }[] };
+		assert.deepStrictEqual(payload.items?.map((item) => item.ontologyItemReference), ['ex:Person', 'ex:Organization']);
+		assert.deepStrictEqual(tree.getLastDraggedItems().map((item) => item.ontologyItemReference), ['ex:Person', 'ex:Organization']);
+	});
+
 	test('shows only unadded addable items and promotes classes whose displayed parent is filtered out', () => {
 		const person = ontologyItem('class', 'ex:Person', 'Person');
 		const employee = ontologyItem('class', 'ex:Employee', 'Employee', {

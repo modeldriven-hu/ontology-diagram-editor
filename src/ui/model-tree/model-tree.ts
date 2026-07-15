@@ -96,6 +96,10 @@ export interface ModelTreeItemDraggedEvent {
 	readonly ontologyItemMetadata: unknown;
 }
 
+interface ModelTreeItemsDragPayload {
+	readonly items: readonly ModelTreeItemDraggedEvent[];
+}
+
 export interface DiagramRefreshRequestedEvent {
 	readonly diagramUri: vscode.Uri;
 }
@@ -130,6 +134,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private unaddedItemsOntologyPath?: string;
 	private selectedNode?: ModelTreeNode;
 	private lastDraggedItem?: ModelTreeItemDraggedEvent;
+	private lastDraggedItems: readonly ModelTreeItemDraggedEvent[] = [];
 	private extensionUri?: vscode.Uri;
 	private refreshQueue = Promise.resolve();
 
@@ -139,6 +144,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			treeDataProvider: this,
 			dragAndDropController: this,
 			showCollapseAll: true,
+			canSelectMany: true,
 		});
 
 		const refreshDisposable = vscode.commands.registerCommand(refreshModelTreeCommand, async () => {
@@ -210,6 +216,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		this.diagramDocument = undefined;
 		this.selectedNode = undefined;
 		this.lastDraggedItem = undefined;
+		this.lastDraggedItems = [];
 		this.unaddedItemsOntologyPath = undefined;
 		await this.refresh();
 		this.updateSelectionContext();
@@ -377,22 +384,27 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	}
 
 	public handleDrag(source: readonly ModelTreeNode[], dataTransfer: vscode.DataTransfer): void {
-		const itemNode = source.find((node): node is OntologyItemTreeNode => node.kind === 'ontologyItem');
-		if (itemNode === undefined) {
+		const payloads = source
+			.filter((node): node is OntologyItemTreeNode => node.kind === 'ontologyItem')
+			.map(dragPayloadForItemNode);
+		if (payloads.length === 0) {
 			return;
 		}
 
-		const payload = dragPayloadForItemNode(itemNode);
-
-		const serializedPayload = JSON.stringify(payload);
+		const serializedPayload = JSON.stringify({ items: payloads } satisfies ModelTreeItemsDragPayload);
 		dataTransfer.set(modelTreeDragMimeType, new vscode.DataTransferItem(serializedPayload));
 		dataTransfer.set('text/plain', new vscode.DataTransferItem(serializedPayload));
-		this.lastDraggedItem = payload;
-		this.onDidDragItemEmitter.fire(payload);
+		this.lastDraggedItem = payloads[0];
+		this.lastDraggedItems = payloads;
+		this.onDidDragItemEmitter.fire(payloads[0]);
 	}
 
 	public getLastDraggedItem(): ModelTreeItemDraggedEvent | undefined {
 		return this.lastDraggedItem;
+	}
+
+	public getLastDraggedItems(): readonly ModelTreeItemDraggedEvent[] {
+		return this.lastDraggedItems;
 	}
 
 	public async revealDiagramElement(elementId: string): Promise<boolean> {

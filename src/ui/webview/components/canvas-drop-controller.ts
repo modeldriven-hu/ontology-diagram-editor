@@ -63,7 +63,8 @@ export class CanvasDropController {
 	public register(): void {
 		this.options.scrollElement.addEventListener('dragover', (event) => {
 			event.preventDefault();
-			const dragPayload = this.readDragPayload(event.dataTransfer);
+			const dragPayloads = this.readDragPayloads(event.dataTransfer);
+			const dragPayload = dragPayloads?.length === 1 ? dragPayloads[0] : undefined;
 			const dropPosition = this.dropPosition(event);
 			const preview = dragPayload === undefined ? undefined : edgePreview(this.options.payload, dragPayload, dropPosition);
 
@@ -98,7 +99,8 @@ export class CanvasDropController {
 			this.options.scrollElement.classList.remove('drop-active', 'drop-rejected');
 			this.clearPreview();
 
-			const dragPayload = this.readDragPayload(event.dataTransfer);
+			const dragPayloads = this.readDragPayloads(event.dataTransfer);
+			const dragPayload = dragPayloads?.length === 1 ? dragPayloads[0] : undefined;
 			const preview = dragPayload === undefined ? undefined : edgePreview(this.options.payload, dragPayload, this.dropPosition(event));
 			if (preview?.valid === false && !preview.requiresEndpointSelection) {
 				this.options.showStatus(preview.message);
@@ -107,6 +109,7 @@ export class CanvasDropController {
 
 			this.options.messageBus.publishCommand(new CreateNodeCommand({
 				payload: dragPayload,
+				payloads: dragPayloads !== undefined && dragPayloads.length > 1 ? dragPayloads : undefined,
 				position: this.dropPosition(event),
 				size: dragPayload === undefined ? undefined : nodeSizeForDragPayload(this.options.payload, dragPayload, this.options.getTheme()),
 			}));
@@ -203,7 +206,7 @@ export class CanvasDropController {
 		};
 	}
 
-	private readDragPayload(dataTransfer: DataTransfer | null): ModelTreeItemDropPayload | undefined {
+	private readDragPayloads(dataTransfer: DataTransfer | null): readonly ModelTreeItemDropPayload[] | undefined {
 		if (dataTransfer === null) {
 			return undefined;
 		}
@@ -216,11 +219,23 @@ export class CanvasDropController {
 		}
 
 		try {
-			return JSON.parse(raw) as ModelTreeItemDropPayload;
+			const payload = JSON.parse(raw) as ModelTreeItemDropPayload | { readonly items?: readonly ModelTreeItemDropPayload[] };
+			if ('items' in payload && Array.isArray(payload.items)) {
+				const items = payload.items.filter(isModelTreeItemDropPayload);
+				return items.length === 0 ? undefined : items;
+			}
+			return isModelTreeItemDropPayload(payload) ? [payload] : undefined;
 		} catch {
 			return undefined;
 		}
 	}
+}
+
+function isModelTreeItemDropPayload(value: unknown): value is ModelTreeItemDropPayload {
+	return isObject(value)
+		&& typeof value.ontologyItemType === 'string'
+		&& typeof value.ontologyItemReference === 'string'
+		&& typeof value.displayLabel === 'string';
 }
 
 function edgePreview(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayload, position: CanvasPoint): EdgePreview | undefined {

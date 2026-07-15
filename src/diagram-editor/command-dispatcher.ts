@@ -114,7 +114,7 @@ export class DiagramCommandDispatcher {
 
 	public constructor(
 		private readonly repository: DiagramDocumentRepository,
-		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
+		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean> = async () => false,
 		useCases: DiagramEditorUseCases = createDefaultUseCases(),
 	) {
@@ -440,11 +440,17 @@ export class DiagramCommandDispatcher {
 	}
 
 	private async createNode(command: Extract<WebviewCommand, { readonly type: 'createNode' }>): Promise<void> {
-		const resolvedPayload = command.payload ?? this.getLastDraggedModelTreeItem();
-		if (resolvedPayload === undefined) {
+		const resolvedPayloads = command.payloads ?? (command.payload === undefined ? this.getLastDraggedModelTreeItems() : [command.payload]);
+		if (resolvedPayloads.length === 0) {
 			await vscode.window.showInformationMessage('Drag a model-tree item onto the canvas while holding Shift.');
 			return;
 		}
+		if (resolvedPayloads.length > 1) {
+			await this.createMultipleNodes(resolvedPayloads, command.position);
+			return;
+		}
+
+		const resolvedPayload = resolvedPayloads[0];
 
 		if (isConnectionCapableOntologyItem(resolvedPayload.ontologyItemType)) {
 			await this.createOntologyEdge(this.repository.load(), resolvedPayload, command.position);
@@ -457,6 +463,36 @@ export class DiagramCommandDispatcher {
 			command.position,
 			command.size,
 		));
+	}
+
+	private async createMultipleNodes(payloads: readonly ModelTreeItemDropPayload[], position: { readonly x: number; readonly y: number }): Promise<void> {
+		let diagram = this.repository.load();
+		let changed = false;
+		let skipped = 0;
+		for (const [index, payload] of payloads.entries()) {
+			if (isConnectionCapableOntologyItem(payload.ontologyItemType)) {
+				continue;
+			}
+			const result = this.useCases.createNode.execute(diagram, payload, batchPosition(position, index));
+			if (result.diagram === undefined) {
+				skipped += 1;
+				continue;
+			}
+			diagram = result.diagram;
+			changed = true;
+		}
+		if (changed) {
+			await this.repository.save(diagram);
+		}
+
+		for (const [index, payload] of payloads.entries()) {
+			if (isConnectionCapableOntologyItem(payload.ontologyItemType)) {
+				await this.createOntologyEdge(this.repository.load(), payload, batchPosition(position, index));
+			}
+		}
+		if (skipped > 0) {
+			await vscode.window.showInformationMessage(`${skipped} selected item${skipped === 1 ? ' was' : 's were'} already present or cannot be rendered as nodes.`);
+		}
 	}
 
 	private async createOntologyEdge(
@@ -684,6 +720,15 @@ export class DiagramCommandDispatcher {
 		}
 	}
 }
+
+function batchPosition(position: { readonly x: number; readonly y: number }, index: number): { readonly x: number; readonly y: number } {
+	const columnCount = 3;
+	return {
+		x: position.x + (index % columnCount) * 220,
+		y: position.y + Math.floor(index / columnCount) * 132,
+	};
+}
+
 
 type OntologyItemQuickPickItem = OntologyItemPickerEntry | vscode.QuickPickItem;
 

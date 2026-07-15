@@ -20,7 +20,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidActivateDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidChangeDiagramDependency: (document: vscode.TextDocument, event: DiagramDependencyChangedEvent) => void | Promise<void>,
-		private readonly getLastDraggedModelTreeItem: () => ModelTreeItemDraggedEvent | undefined,
+		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
 		private readonly workspaceState: vscode.Memento,
@@ -87,7 +87,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			}
 		});
 		const repository = new DiagramDocumentRepository(document);
-		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItem, this.revealModelTreeItem);
+		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItems, this.revealModelTreeItem);
 		let dispatchQueue = Promise.resolve();
 		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
 			if (command.type === 'updateCanvasViewport') {

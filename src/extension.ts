@@ -21,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (event.kind === 'ontology') {
 				await modelTree.refreshDiagramDependency(document);
 			}
-		}, () => modelTree.getLastDraggedItem(), async (diagramElementId) => {
+		}, () => modelTree.getLastDraggedItems(), async (diagramElementId) => {
 			return modelTree.revealDiagramElement(diagramElementId);
 		}, modelTree.onDidRequestDiagramRefresh, context.workspaceState),
 		{
