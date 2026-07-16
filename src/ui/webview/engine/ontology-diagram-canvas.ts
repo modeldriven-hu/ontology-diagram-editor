@@ -21,6 +21,7 @@ import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagr
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
 import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, showTransientStatus } from './canvas-dom';
+import { isSelectAllShortcut } from './canvas-keyboard-shortcuts';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
 import { FixedToolbarController } from './fixed-toolbar-controller';
@@ -420,6 +421,7 @@ new CanvasDropController({
 geometryPersistence.register();
 registerNoteEditHandlers();
 registerUndoRedoHandlers();
+registerSelectAllHandler();
 registerKeyboardNudgeHandlers();
 registerDeleteHandlers();
 
@@ -1026,6 +1028,18 @@ function undoRedoAction(event: KeyboardEvent): 'undo' | 'redo' | undefined {
 	}
 
 	return undefined;
+}
+
+function registerSelectAllHandler(): void {
+	document.addEventListener('keydown', (event) => {
+		if (noteEditorController.isOpen() || isTextEditingTarget(event.target) || !isSelectAllShortcut(event)) {
+			return;
+		}
+
+		canvas.selectElements(elementRegistry.renderedElementIdentifiers());
+		event.preventDefault();
+		event.stopPropagation();
+	}, { capture: true });
 }
 
 function registerKeyboardNudgeHandlers(): void {

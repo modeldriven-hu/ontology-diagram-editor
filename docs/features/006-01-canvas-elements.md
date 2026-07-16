@@ -135,6 +135,9 @@ Deletion shall emit a `Canvas elements deleted` event and persist the updated
 
 The canvas shall support keyboard deletion of the selected element with `Delete`.
 
+When focus is in the canvas rather than an editable text field, `Ctrl+A` (or `Cmd+A`
+on macOS) shall select every rendered diagram element.
+
 When a node, note, image, standalone label, or edge is selected, the canvas shall support
 keyboard movement with the arrow keys. For edges, arrow keys shall move the edge label.
 For nodes, notes, images, and standalone labels, arrow keys shall move the selected
