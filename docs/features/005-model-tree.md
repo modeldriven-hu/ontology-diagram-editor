@@ -165,6 +165,18 @@ The model tree emits the following events:
 | Ontology added | An ontology file is added to the `.odiagram` file | Added ontology file path |
 | Ontology removed | An ontology file is removed from the `.odiagram` file | Removed ontology file path, removed diagram node identifiers, removed diagram edge identifiers |
 
+## Add all to diagram
+
+The context menu for an ontology file node and every ontology item group node shall
+provide an `Add All to Diagram` action. The ontology-file action considers every
+addable item in that ontology; the group action considers only the items in that group.
+
+The action shall add all items that are not already materialized in the diagram. It shall
+create node-capable items before relationship items so that applicable relationships can
+be added between their endpoints. Unsupported items and already materialized elements
+shall be skipped. If no addable items remain, the editor shall show a concise message and
+leave the diagram unchanged.
+
 ## Open ontology source
 
 The model tree shall provide an action to open a referenced ontology file in the built-in

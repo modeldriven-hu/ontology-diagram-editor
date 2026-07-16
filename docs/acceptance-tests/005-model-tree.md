@@ -32,6 +32,13 @@
 - Given a user drags an ontology item node, when dragging starts, then `Model tree item dragged` is emitted with the ontology item payload.
 - Given a group, ontology file, or diagram node is shown, when the user attempts to drag it, then it is not draggable.
 
+## Add All To Diagram
+
+- Given an ontology file node is selected, when Add All to Diagram is invoked, then every addable, unmaterialized item from that ontology is added to the diagram.
+- Given an ontology item group is selected, when Add All to Diagram is invoked, then every addable, unmaterialized item from only that group is added to the diagram.
+- Given node and relationship items are added together, when materialization runs, then nodes are created before their relationship edges.
+- Given all addable items in the selected ontology or group are already materialized, when Add All to Diagram is invoked, then the diagram is unchanged and an informational message is shown.
+
 ## Open Ontology Source
 
 - Given a referenced ontology file node is selected, when the user invokes Open Ontology File, then the ontology file opens in the built-in text editor.

@@ -389,6 +389,14 @@ export class DiagramCommandDispatcher {
 		}
 	}
 
+	public async addModelTreeItems(items: readonly ModelTreeItemDropPayload[]): Promise<void> {
+		if (items.length === 0) {
+			return;
+		}
+
+		await this.createMultipleNodes(items, modelTreeBatchPosition(this.repository.load()));
+	}
+
 	private async revealSelectedModelTreeItem(diagramElementId: string): Promise<void> {
 		if (!await this.revealModelTreeItem(diagramElementId)) {
 			await vscode.window.showInformationMessage('No corresponding ontology item was found in the model tree.');
@@ -736,6 +744,11 @@ function batchPosition(position: { readonly x: number; readonly y: number }, ind
 		x: position.x + (index % columnCount) * 220,
 		y: position.y + Math.floor(index / columnCount) * 132,
 	};
+}
+
+function modelTreeBatchPosition(diagram: ReturnType<DiagramDocumentRepository['load']>): { readonly x: number; readonly y: number } {
+	const maximumRight = Math.max(0, ...diagram.nodes.map((node) => node.bounds.x + node.bounds.width));
+	return { x: maximumRight + 80, y: 80 };
 }
 
 

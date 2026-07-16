@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}, () => modelTree.getLastDraggedItems(), async (diagramElementId) => {
 			return modelTree.revealDiagramElement(diagramElementId);
-		}, modelTree.onDidRequestDiagramRefresh, context.workspaceState),
+		}, modelTree.onDidRequestDiagramRefresh, modelTree.onDidRequestItemsAdd, context.workspaceState),
 		{
 			supportsMultipleEditorsPerDocument: false,
 		},

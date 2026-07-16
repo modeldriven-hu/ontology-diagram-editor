@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { DiagramRefreshRequestedEvent, ModelTreeItemDraggedEvent } from '../ui/model-tree/model-tree';
+import type { DiagramRefreshRequestedEvent, ModelTreeItemDraggedEvent, ModelTreeItemsAddRequestedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
@@ -23,6 +23,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
+		private readonly onDidRequestItemsAdd: vscode.Event<ModelTreeItemsAddRequestedEvent>,
 		private readonly workspaceState: vscode.Memento,
 	) {}
 
@@ -64,6 +65,9 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 
 		let nextSuppressedRefreshId = 0;
 		const suppressedLocalDocumentRefreshes = new Set<number>();
+		const repository = new DiagramDocumentRepository(document);
+		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItems, this.revealModelTreeItem);
+		let dispatchQueue = Promise.resolve();
 		const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.uri.toString() === document.uri.toString()) {
 				dependencyWatcher.refresh();
@@ -80,15 +84,24 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				void updateWebview();
 			}
 		});
+		const addItemsDisposable = this.onDidRequestItemsAdd((event) => {
+			if (event.diagramUri.toString() !== document.uri.toString()) {
+				return;
+			}
+
+			dispatchQueue = dispatchQueue.then(
+				() => dispatcher.addModelTreeItems(event.items),
+				() => dispatcher.addModelTreeItems(event.items),
+			).catch(async (error: unknown) => {
+				await vscode.window.showErrorMessage(`Could not add ontology elements to diagram: ${error instanceof Error ? error.message : String(error)}`);
+			});
+		});
 		const viewStateDisposable = webviewPanel.onDidChangeViewState((event) => {
 			const activeDocument = this.editorRegistry.activate(event.webviewPanel);
 			if (activeDocument !== undefined) {
 				void this.queueDiagramStateUpdate(() => this.onDidActivateDiagram(activeDocument));
 			}
 		});
-		const repository = new DiagramDocumentRepository(document);
-		const dispatcher = new DiagramCommandDispatcher(repository, this.getLastDraggedModelTreeItems, this.revealModelTreeItem);
-		let dispatchQueue = Promise.resolve();
 		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
 			if (command.type === 'updateCanvasViewport') {
 				viewportPersistence.capture(command.viewport);
@@ -118,6 +131,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		webviewPanel.onDidDispose(() => {
 			documentChangeDisposable.dispose();
 			diagramRefreshDisposable.dispose();
+			addItemsDisposable.dispose();
 			viewStateDisposable.dispose();
 			commandDisposable.dispose();
 			dependencyWatcher.dispose();

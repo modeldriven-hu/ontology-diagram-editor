@@ -21,6 +21,8 @@ import {
 import { getOntologyItemIcon } from './ontology-item-icons';
 import { findOntologySourceRange } from './ontology-source-navigation';
 import { isAddableOntologyItem, isOntologyItemMaterialized } from '../../diagram-editor/ontology-item-materialization';
+import { unmaterializedOntologyItemPayloads } from './model-tree-add-to-diagram';
+import type { ModelTreeItemDropPayload } from '../../shared/webview-commands';
 
 export const modelTreeViewId = 'ontology-diagram-editor.modelTree';
 export const filterModelTreeCommand = 'ontology-diagram-editor.modelTree.filter';
@@ -30,6 +32,7 @@ export const addOntologyCommand = 'ontology-diagram-editor.modelTree.addOntology
 export const removeOntologyCommand = 'ontology-diagram-editor.modelTree.removeOntology';
 export const openOntologyFileCommand = 'ontology-diagram-editor.modelTree.openOntologyFile';
 export const openOntologySourceCommand = 'ontology-diagram-editor.modelTree.openOntologySource';
+export const addAllToDiagramCommand = 'ontology-diagram-editor.modelTree.addAllToDiagram';
 
 type ModelTreeNode = DiagramTreeNode | OntologyFileTreeNode | OntologyGroupTreeNode | OntologyItemTreeNode | ErrorTreeNode;
 type NodeKind = 'diagram' | 'ontologyFile' | 'ontologyGroup' | 'ontologyItem' | 'error';
@@ -104,6 +107,11 @@ export interface DiagramRefreshRequestedEvent {
 	readonly diagramUri: vscode.Uri;
 }
 
+export interface ModelTreeItemsAddRequestedEvent {
+	readonly diagramUri: vscode.Uri;
+	readonly items: readonly ModelTreeItemDropPayload[];
+}
+
 export const modelTreeDragMimeType = 'application/vnd.code.tree.ontology-diagram-editor.model-tree';
 
 export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode.TreeDragAndDropController<ModelTreeNode>, vscode.Disposable {
@@ -114,17 +122,20 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 	private readonly onDidChangeSelectionEmitter = new vscode.EventEmitter<ModelTreeSelectionEvent>();
 	private readonly onDidDragItemEmitter = new vscode.EventEmitter<ModelTreeItemDraggedEvent>();
 	private readonly onDidRequestDiagramRefreshEmitter = new vscode.EventEmitter<DiagramRefreshRequestedEvent>();
+	private readonly onDidRequestItemsAddEmitter = new vscode.EventEmitter<ModelTreeItemsAddRequestedEvent>();
 	private readonly disposables: vscode.Disposable[] = [
 		this.onDidChangeTreeDataEmitter,
 		this.onDidChangeSelectionEmitter,
 		this.onDidDragItemEmitter,
 		this.onDidRequestDiagramRefreshEmitter,
+		this.onDidRequestItemsAddEmitter,
 	];
 
 	public readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 	public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 	public readonly onDidDragItem = this.onDidDragItemEmitter.event;
 	public readonly onDidRequestDiagramRefresh = this.onDidRequestDiagramRefreshEmitter.event;
+	public readonly onDidRequestItemsAdd = this.onDidRequestItemsAddEmitter.event;
 
 	private treeView?: vscode.TreeView<ModelTreeNode>;
 	private diagramDocument?: vscode.TextDocument;
@@ -171,6 +182,9 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		const openOntologySourceDisposable = vscode.commands.registerCommand(openOntologySourceCommand, async (node?: ModelTreeNode) => {
 			await this.openOntologySource(node);
 		});
+		const addAllToDiagramDisposable = vscode.commands.registerCommand(addAllToDiagramCommand, async (node?: ModelTreeNode) => {
+			await this.addAllToDiagram(node);
+		});
 		const selectionDisposable = this.treeView.onDidChangeSelection((event) => {
 			this.selectedNode = event.selection[0];
 			this.updateSelectionContext();
@@ -191,6 +205,7 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 			removeDisposable,
 			openOntologyFileDisposable,
 			openOntologySourceDisposable,
+			addAllToDiagramDisposable,
 			selectionDisposable,
 			documentChangeDisposable,
 		);
@@ -472,6 +487,26 @@ export class ModelTree implements vscode.TreeDataProvider<ModelTreeNode>, vscode
 		if (document !== undefined) {
 			await vscode.window.showTextDocument(document, { preview: false });
 		}
+	}
+
+	private async addAllToDiagram(node?: ModelTreeNode): Promise<void> {
+		const diagram = this.parsedDiagram;
+		const target = node ?? this.selectedNode;
+		if (diagram === undefined || this.diagramDocument === undefined || (target?.kind !== 'ontologyFile' && target?.kind !== 'ontologyGroup')) {
+			return;
+		}
+
+		const items = target.kind === 'ontologyFile' ? target.ontology.items : target.items;
+		const payloads = unmaterializedOntologyItemPayloads(items, diagram);
+		if (payloads.length === 0) {
+			await vscode.window.showInformationMessage(`All addable elements in "${target.label}" are already displayed in this diagram.`);
+			return;
+		}
+
+		this.onDidRequestItemsAddEmitter.fire({
+			diagramUri: this.diagramDocument.uri,
+			items: payloads,
+		});
 	}
 
 	private async openOntologySource(node?: ModelTreeNode): Promise<void> {

@@ -79,6 +79,11 @@
         "command": "ontology-diagram-editor.modelTree.openOntologySource",
         "title": "Open Ontology Source",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "ontology-diagram-editor.modelTree.addAllToDiagram",
+        "title": "Add All to Diagram",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -143,6 +148,16 @@
           "command": "ontology-diagram-editor.modelTree.removeOntology",
           "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyFile",
           "group": "inline"
+        },
+        {
+          "command": "ontology-diagram-editor.modelTree.addAllToDiagram",
+          "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ontology-diagram-editor.modelTree.addAllToDiagram",
+          "when": "view == ontology-diagram-editor.modelTree && viewItem == ontologyGroup",
+          "group": "navigation@1"
         }
       ]
     },
