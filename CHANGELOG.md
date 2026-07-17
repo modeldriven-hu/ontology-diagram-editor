@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-17
+
+- Added model-tree multi-selection drag and drop to the diagram canvas.
+- Added legend coloring by ontology item type.
+- Added Select All keyboard support for canvas elements.
+- Added model-tree actions to add all ontology elements to a diagram.
+- Made the canvas toolbar dockable.
+
 ## [1.1.0] - 2026-07-14
 
 - Added ontology legends with a configurable 20-color palette.
