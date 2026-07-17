@@ -2,20 +2,29 @@ import type { CanvasPoint } from '../../../shared/canvas-geometry';
 
 const toolbarInset = 12;
 const toolbarMargin = 8;
+const dockSnapDistance = 32;
+
+export type FixedToolbarDock = 'top' | 'bottom';
+
+export interface FixedToolbarPosition {
+	readonly offset: CanvasPoint;
+	readonly dock?: FixedToolbarDock;
+}
 
 interface FixedToolbarControllerOptions {
 	readonly toolbar: HTMLElement;
 	readonly dragHandle: HTMLButtonElement;
+	readonly pinButton: HTMLButtonElement;
 	readonly container: HTMLElement;
-	readonly initialOffset: CanvasPoint;
-	readonly persistOffset: (offset: CanvasPoint) => void;
+	readonly initialPosition: FixedToolbarPosition;
+	readonly persistPosition: (position: FixedToolbarPosition) => void;
 }
 
 interface FixedToolbarDragState {
 	readonly pointerId: number;
 	readonly startClientX: number;
 	readonly startClientY: number;
-	readonly startOffset: CanvasPoint;
+	readonly startPosition: FixedToolbarPosition;
 }
 
 export interface FixedToolbarSize {
@@ -24,16 +33,16 @@ export interface FixedToolbarSize {
 }
 
 export class FixedToolbarController {
-	private offset: CanvasPoint;
+	private position: FixedToolbarPosition;
 	private drag: FixedToolbarDragState | undefined;
 
 	public constructor(private readonly options: FixedToolbarControllerOptions) {
-		this.offset = options.initialOffset;
+		this.position = options.initialPosition;
 	}
 
 	public register(): void {
 		const { dragHandle, toolbar } = this.options;
-		this.setOffset(this.offset, { persist: false });
+		this.setPosition(this.position, { persist: false });
 		dragHandle.addEventListener('pointerdown', (event) => {
 			if (event.button !== 0) {
 				return;
@@ -45,7 +54,7 @@ export class FixedToolbarController {
 				pointerId: event.pointerId,
 				startClientX: event.clientX,
 				startClientY: event.clientY,
-				startOffset: this.offset,
+				startPosition: this.positionForCurrentContainer(),
 			};
 			dragHandle.setPointerCapture(event.pointerId);
 			toolbar.classList.add('dragging');
@@ -57,9 +66,11 @@ export class FixedToolbarController {
 
 			event.preventDefault();
 			event.stopPropagation();
-			this.setOffset({
-				x: this.drag.startOffset.x + event.clientX - this.drag.startClientX,
-				y: this.drag.startOffset.y + event.clientY - this.drag.startClientY,
+			this.setPosition({
+				offset: {
+					x: this.drag.startPosition.offset.x + event.clientX - this.drag.startClientX,
+					y: this.drag.startPosition.offset.y + event.clientY - this.drag.startClientY,
+				},
 			}, { persist: false });
 		});
 		dragHandle.addEventListener('pointerup', (event) => {
@@ -72,7 +83,7 @@ export class FixedToolbarController {
 			if (event.key === 'Home') {
 				event.preventDefault();
 				event.stopPropagation();
-				this.setOffset({ x: 0, y: 0 });
+				this.setPosition({ offset: { x: 0, y: 0 }, dock: 'top' });
 				return;
 			}
 
@@ -83,18 +94,34 @@ export class FixedToolbarController {
 
 			event.preventDefault();
 			event.stopPropagation();
-			this.setOffset({
-				x: this.offset.x + delta.x,
-				y: this.offset.y + delta.y,
+			const position = this.positionForCurrentContainer();
+			this.setPosition({
+				offset: {
+					x: position.offset.x + delta.x,
+					y: position.offset.y + delta.y,
+				},
 			});
 		});
+		this.options.pinButton.addEventListener('click', () => {
+			this.toggleDock();
+		});
 		window.addEventListener('resize', () => {
-			this.setOffset(this.offset, { persist: false });
+			this.setPosition(this.position, { persist: false });
 		});
 	}
 
 	public update(): void {
-		this.setOffset(this.offset, { persist: false });
+		this.setPosition(this.position, { persist: false });
+	}
+
+	private toggleDock(): void {
+		const position = this.positionForCurrentContainer();
+		if (position.dock !== undefined) {
+			this.setPosition({ offset: position.offset });
+			return;
+		}
+
+		this.setPosition(dockFixedToolbarPosition(position, this.toolbarSize(), this.containerSize()));
 	}
 
 	private completeDrag(event: PointerEvent): void {
@@ -110,23 +137,52 @@ export class FixedToolbarController {
 			dragHandle.releasePointerCapture(event.pointerId);
 		}
 		toolbar.classList.remove('dragging');
-		this.options.persistOffset(this.offset);
+		this.setPosition(this.position, { persist: true, snap: true });
 	}
 
-	private setOffset(offset: CanvasPoint, options: { readonly persist?: boolean } = {}): void {
-		this.offset = constrainFixedToolbarOffset(
-			offset,
-			this.toolbarSize(),
-			{
-				width: this.options.container.clientWidth,
-				height: this.options.container.clientHeight,
-			},
-		);
-		this.options.toolbar.style.left = `${toolbarInset + this.offset.x}px`;
-		this.options.toolbar.style.top = `${toolbarInset + this.offset.y}px`;
+	private setPosition(position: FixedToolbarPosition, options: { readonly persist?: boolean; readonly snap?: boolean } = {}): void {
+		const toolbarSize = this.toolbarSize();
+		const containerSize = this.containerSize();
+		this.position = options.snap === true
+			? snapFixedToolbarPosition(position, toolbarSize, containerSize)
+			: constrainFixedToolbarPosition(position, toolbarSize, containerSize);
+		this.options.toolbar.style.left = `${toolbarInset + this.position.offset.x}px`;
+		this.options.toolbar.style.top = `${toolbarInset + this.position.offset.y}px`;
+		this.options.toolbar.classList.toggle('docked-top', this.position.dock === 'top');
+		this.options.toolbar.classList.toggle('docked-bottom', this.position.dock === 'bottom');
+		this.updateCanvasDocking(toolbarSize);
+		const dragLabel = this.position.dock === undefined ? 'Move toolbar' : 'Detach toolbar';
+		this.options.dragHandle.title = dragLabel;
+		this.options.dragHandle.setAttribute('aria-label', dragLabel);
+		const pinned = this.position.dock !== undefined;
+		this.options.pinButton.classList.toggle('is-pinned', pinned);
+		this.options.pinButton.setAttribute('aria-pressed', String(pinned));
+		const pinLabel = pinned ? 'Unpin toolbar' : 'Pin toolbar to top or bottom';
+		this.options.pinButton.title = pinLabel;
+		this.options.pinButton.setAttribute('aria-label', pinLabel);
 		if (options.persist !== false) {
-			this.options.persistOffset(this.offset);
+			this.options.persistPosition(this.position);
 		}
+	}
+
+	private updateCanvasDocking(toolbarSize: FixedToolbarSize): void {
+		const dockedTop = this.position.dock === 'top';
+		const dockedBottom = this.position.dock === 'bottom';
+		this.options.container.classList.toggle('toolbar-docked-top', dockedTop);
+		this.options.container.classList.toggle('toolbar-docked-bottom', dockedBottom);
+		const insets = dockedCanvasInsets(this.position, toolbarSize);
+		this.options.container.style.setProperty('--canvas-toolbar-dock-size', `${insets.top + insets.bottom}px`);
+	}
+
+	private positionForCurrentContainer(): FixedToolbarPosition {
+		return constrainFixedToolbarPosition(this.position, this.toolbarSize(), this.containerSize());
+	}
+
+	private containerSize(): FixedToolbarSize {
+		return {
+			width: this.options.container.clientWidth,
+			height: this.options.container.clientHeight,
+		};
 	}
 
 	private toolbarSize(): FixedToolbarSize {
@@ -150,6 +206,74 @@ export function constrainFixedToolbarOffset(
 		x: clamp(toolbarInset + offset.x, toolbarMargin, maximumX) - toolbarInset,
 		y: clamp(toolbarInset + offset.y, toolbarMargin, maximumY) - toolbarInset,
 	};
+}
+
+export function constrainFixedToolbarPosition(
+	position: FixedToolbarPosition,
+	toolbarSize: FixedToolbarSize,
+	containerSize: FixedToolbarSize,
+): FixedToolbarPosition {
+	const offset = constrainFixedToolbarOffset(position.offset, toolbarSize, containerSize);
+	if (position.dock === undefined) {
+		return { offset };
+	}
+
+	return {
+		offset: {
+			x: offset.x,
+			y: dockedToolbarOffsetY(position.dock, toolbarSize, containerSize),
+		},
+		dock: position.dock,
+	};
+}
+
+export function snapFixedToolbarPosition(
+	position: FixedToolbarPosition,
+	toolbarSize: FixedToolbarSize,
+	containerSize: FixedToolbarSize,
+): FixedToolbarPosition {
+	const constrained: FixedToolbarPosition = {
+		offset: constrainFixedToolbarOffset(position.offset, toolbarSize, containerSize),
+	};
+	const top = toolbarInset + constrained.offset.y;
+	const bottom = top + toolbarSize.height;
+	if (top <= toolbarMargin + dockSnapDistance) {
+		return constrainFixedToolbarPosition({ ...constrained, dock: 'top' }, toolbarSize, containerSize);
+	}
+	if (bottom >= containerSize.height - toolbarMargin - dockSnapDistance) {
+		return constrainFixedToolbarPosition({ ...constrained, dock: 'bottom' }, toolbarSize, containerSize);
+	}
+
+	return { offset: constrained.offset };
+}
+
+export function dockFixedToolbarPosition(
+	position: FixedToolbarPosition,
+	toolbarSize: FixedToolbarSize,
+	containerSize: FixedToolbarSize,
+): FixedToolbarPosition {
+	const offset = constrainFixedToolbarOffset(position.offset, toolbarSize, containerSize);
+	const topDistance = Math.abs((toolbarInset + offset.y) - toolbarMargin);
+	const bottomDistance = Math.abs((toolbarInset + offset.y + toolbarSize.height) - (containerSize.height - toolbarMargin));
+	return constrainFixedToolbarPosition({
+		offset,
+		dock: topDistance <= bottomDistance ? 'top' : 'bottom',
+	}, toolbarSize, containerSize);
+}
+
+export function dockedCanvasInsets(position: FixedToolbarPosition, toolbarSize: FixedToolbarSize): { readonly top: number; readonly bottom: number } {
+	const size = toolbarSize.height;
+	return {
+		top: position.dock === 'top' ? size : 0,
+		bottom: position.dock === 'bottom' ? size : 0,
+	};
+}
+
+function dockedToolbarOffsetY(dock: FixedToolbarDock, toolbarSize: FixedToolbarSize, containerSize: FixedToolbarSize): number {
+	const top = dock === 'top'
+		? toolbarMargin
+		: containerSize.height - toolbarSize.height - toolbarMargin;
+	return clamp(top, toolbarMargin, Math.max(toolbarMargin, containerSize.height - toolbarSize.height - toolbarMargin)) - toolbarInset;
 }
 
 function toolbarKeyboardDelta(event: KeyboardEvent): CanvasPoint | undefined {

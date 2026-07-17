@@ -200,6 +200,9 @@ export class DiagramCommandDispatcher {
 			case 'showRelatedElements':
 				await this.showRelatedElements(command.nodeId);
 				return;
+			case 'showEdgesBetweenNodes':
+				await this.showEdgesBetweenNodes(command.nodeIds);
+				return;
 			case 'updateEdgeRouteLayout':
 				await this.handleResult(this.useCases.updateEdgeRouteLayout.execute(
 					this.repository.load(),
@@ -415,6 +418,16 @@ export class DiagramCommandDispatcher {
 			diagram,
 			nodeId,
 			depth,
+			relationshipPayloads(loadedOntologies),
+		));
+	}
+
+	private async showEdgesBetweenNodes(nodeIds: readonly string[]): Promise<void> {
+		const diagram = this.repository.load();
+		const loadedOntologies = await loadReferencedOntologies(this.repository.uri.fsPath, diagram);
+		await this.handleResult(this.useCases.showRelatedElements.showEdgesBetweenNodes(
+			diagram,
+			nodeIds,
 			relationshipPayloads(loadedOntologies),
 		));
 	}

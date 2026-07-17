@@ -91,6 +91,7 @@ export type WebviewCommand =
 	| StraightenEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
 	| ShowRelatedElementsCommand
+	| ShowEdgesBetweenNodesCommand
 	| UpdateNoteBoundsCommand
 	| UpdateImageBoundsCommand
 	| UpdateLabelBoundsCommand
@@ -286,6 +287,15 @@ export class ShowRelatedElementsCommand {
 
 	public constructor(nodeId: string) {
 		this.nodeId = nodeId;
+	}
+}
+
+export class ShowEdgesBetweenNodesCommand {
+	public readonly type = 'showEdgesBetweenNodes';
+	public readonly nodeIds: readonly string[];
+
+	public constructor(nodeIds: readonly string[]) {
+		this.nodeIds = nodeIds;
 	}
 }
 

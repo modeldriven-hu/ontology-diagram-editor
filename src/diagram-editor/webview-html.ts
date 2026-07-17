@@ -86,6 +86,7 @@ function webviewBody(
 					<button class="canvas-action" id="revealModelTreeItemButton" type="button" title="Select corresponding model-tree item" aria-label="Select corresponding model-tree item"></button>
 					<span class="canvas-action-separator" aria-hidden="true"></span>
 					<button class="canvas-action" id="themeModeButton" type="button" title="Switch theme mode" aria-label="Switch theme mode" aria-pressed="false"></button>
+					<button class="canvas-action canvas-toolbar-pin" id="canvasToolbarPinButton" type="button" title="Pin toolbar to top or bottom" aria-label="Pin toolbar to top or bottom" aria-pressed="false"></button>
 				</div>
 				<span class="canvas-layout-spacing" id="elkLayeredSpacingControls" hidden>
 					<label class="canvas-layout-spacing-field">Direction<select class="canvas-layout-spacing-input canvas-layout-direction-select" id="elkLayeredDirectionSelect" aria-label="ELK Layered direction">${elkLayeredDirectionOptions()}</select></label>
@@ -106,6 +107,7 @@ function webviewBody(
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
 					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
 					<button class="local-element-action" id="showRelatedElementsLocalButton" type="button" title="Show related elements" aria-label="Show related elements"></button>
+					<button class="local-element-action" id="showEdgesBetweenNodesLocalButton" type="button" title="Show edges between selected nodes" aria-label="Show edges between selected nodes"></button>
 					<button class="local-element-action" id="alignLeftLocalButton" type="button" title="Align selected nodes left" aria-label="Align selected nodes left"></button>
 					<button class="local-element-action" id="alignHorizontalCenterLocalButton" type="button" title="Align selected node horizontal centers" aria-label="Align selected node horizontal centers"></button>
 					<button class="local-element-action" id="alignRightLocalButton" type="button" title="Align selected nodes right" aria-label="Align selected nodes right"></button>
@@ -251,6 +253,15 @@ function webviewStyles(): string {
 		min-width: 0;
 		min-height: 0;
 		overflow: hidden;
+		--canvas-toolbar-dock-size: 0px;
+	}
+
+	.canvas-shell.toolbar-docked-top .canvas-scroll {
+		top: var(--canvas-toolbar-dock-size);
+	}
+
+	.canvas-shell.toolbar-docked-bottom .canvas-scroll {
+		bottom: var(--canvas-toolbar-dock-size);
 	}
 
 	.canvas-scroll {
@@ -284,10 +295,51 @@ function webviewStyles(): string {
 		box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
 	}
 
+	.canvas-actions.docked-top,
+	.canvas-actions.docked-bottom {
+		left: 0 !important;
+		width: 100%;
+		border: 0;
+		border-radius: 0;
+		background: color-mix(in srgb, var(--vscode-sideBar-background) 96%, var(--vscode-editor-background));
+		box-shadow: 0 5px 16px rgb(0 0 0 / 14%);
+		backdrop-filter: blur(10px) saturate(120%);
+	}
+
+	.canvas-actions.docked-top {
+		top: 0 !important;
+		border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 88%, transparent);
+	}
+
+	.canvas-actions.docked-bottom {
+		top: auto !important;
+		bottom: 0;
+		border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 88%, transparent);
+		box-shadow: 0 -5px 16px rgb(0 0 0 / 14%);
+	}
+
 	.canvas-action-row {
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
+	}
+
+	.canvas-actions.docked-top .canvas-action-row,
+	.canvas-actions.docked-bottom .canvas-action-row {
+		width: 100%;
+		gap: 4px;
+	}
+
+	.canvas-actions.docked-top .canvas-toolbar-drag-handle,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle {
+		margin-right: 3px;
+		border-right-color: color-mix(in srgb, var(--vscode-panel-border) 78%, transparent);
+		border-radius: 0;
+	}
+
+	.canvas-actions.docked-top .canvas-toolbar-pin,
+	.canvas-actions.docked-bottom .canvas-toolbar-pin {
+		margin-left: auto;
 	}
 
 	.canvas-toolbar-drag-handle {
@@ -315,6 +367,12 @@ function webviewStyles(): string {
 
 	.canvas-actions.dragging .canvas-toolbar-drag-handle {
 		cursor: grabbing;
+	}
+
+	.canvas-toolbar-pin.is-pinned {
+		color: var(--vscode-button-foreground);
+		background: var(--vscode-button-background);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-button-foreground) 18%, transparent);
 	}
 
 	.canvas-action {
@@ -349,6 +407,13 @@ function webviewStyles(): string {
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
+	}
+
+	.canvas-actions.docked-top .canvas-layout-spacing,
+	.canvas-actions.docked-bottom .canvas-layout-spacing {
+		width: 100%;
+		padding: 3px 4px 0;
+		border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 62%, transparent);
 	}
 
 	.canvas-layout-spacing[hidden] {

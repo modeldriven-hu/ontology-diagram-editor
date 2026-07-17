@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitFork, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Pin, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import type { WebviewThemeMode } from '../webview-theme';
 import { setActionTooltip } from './canvas-dom';
@@ -8,6 +8,7 @@ export interface LocalElementToolbarIconElements {
 	readonly minimizeLocalButton: HTMLButtonElement;
 	readonly createCommentNoteLocalButton: HTMLButtonElement;
 	readonly showRelatedElementsLocalButton: HTMLButtonElement;
+	readonly showEdgesBetweenNodesLocalButton: HTMLButtonElement;
 	readonly alignLeftLocalButton: HTMLButtonElement;
 	readonly alignHorizontalCenterLocalButton: HTMLButtonElement;
 	readonly alignRightLocalButton: HTMLButtonElement;
@@ -46,6 +47,14 @@ export function renderCanvasToolbarDragHandle(canvasToolbarDragHandle: HTMLButto
 	setActionTooltip(canvasToolbarDragHandle, 'Move toolbar');
 }
 
+export function renderCanvasToolbarPinIcon(canvasToolbarPinButton: HTMLButtonElement): void {
+	canvasToolbarPinButton.replaceChildren(createIconElement(Pin, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setActionTooltip(canvasToolbarPinButton, 'Pin toolbar to top or bottom');
+}
+
 export function renderLocalElementToolbarIcons(elements: LocalElementToolbarIconElements): void {
 	elements.localElementDragHandle.replaceChildren(createIconElement(GripVertical, {
 		'aria-hidden': 'true',
@@ -70,6 +79,12 @@ export function renderLocalElementToolbarIcons(elements: LocalElementToolbarIcon
 		class: 'canvas-action-icon',
 	}));
 	setActionTooltip(elements.showRelatedElementsLocalButton, 'Show related elements');
+
+	elements.showEdgesBetweenNodesLocalButton.replaceChildren(createIconElement(GitFork, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setActionTooltip(elements.showEdgesBetweenNodesLocalButton, 'Show edges between selected nodes');
 
 	elements.alignLeftLocalButton.replaceChildren(createIconElement(AlignStartVertical, {
 		'aria-hidden': 'true',

@@ -25,7 +25,7 @@ import { isSelectAllShortcut } from './canvas-keyboard-shortcuts';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
 import { FixedToolbarController } from './fixed-toolbar-controller';
-import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
+import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderCanvasToolbarPinIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand): void;
@@ -57,6 +57,7 @@ interface WebviewState {
 	readonly localToolbarOffsetY?: number;
 	readonly canvasToolbarOffsetX?: number;
 	readonly canvasToolbarOffsetY?: number;
+	readonly canvasToolbarDock?: 'top' | 'bottom';
 	readonly themeMode?: WebviewThemeMode;
 	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
 	readonly elkLayeredNodeSpacing?: number;
@@ -82,6 +83,7 @@ const canvasContent = requiredElement('canvasContent');
 const canvasShell = requiredElement('canvasShell');
 const canvasActions = requiredElement('canvasActions');
 const canvasToolbarDragHandle = requiredElement('canvasToolbarDragHandle') as HTMLButtonElement;
+const canvasToolbarPinButton = requiredElement('canvasToolbarPinButton') as HTMLButtonElement;
 const status = requiredElement('status');
 const addOntologyItemButton = requiredElement('addOntologyItemButton') as HTMLButtonElement;
 const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
@@ -112,6 +114,7 @@ const localElementDragHandle = requiredElement('localElementDragHandle') as HTML
 const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
 const createCommentNoteLocalButton = requiredElement('createCommentNoteLocalButton') as HTMLButtonElement;
 const showRelatedElementsLocalButton = requiredElement('showRelatedElementsLocalButton') as HTMLButtonElement;
+const showEdgesBetweenNodesLocalButton = requiredElement('showEdgesBetweenNodesLocalButton') as HTMLButtonElement;
 const alignLeftLocalButton = requiredElement('alignLeftLocalButton') as HTMLButtonElement;
 const alignHorizontalCenterLocalButton = requiredElement('alignHorizontalCenterLocalButton') as HTMLButtonElement;
 const alignRightLocalButton = requiredElement('alignRightLocalButton') as HTMLButtonElement;
@@ -214,6 +217,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 		minimizeLocalButton,
 		createCommentNoteLocalButton,
 		showRelatedElementsLocalButton,
+		showEdgesBetweenNodesLocalButton,
 		alignLeftLocalButton,
 		alignHorizontalCenterLocalButton,
 		alignRightLocalButton,
@@ -257,20 +261,26 @@ const localElementToolbarController = new LocalElementToolbarController({
 const fixedToolbarController = new FixedToolbarController({
 	toolbar: canvasActions,
 	dragHandle: canvasToolbarDragHandle,
+	pinButton: canvasToolbarPinButton,
 	container: canvasShell,
-	initialOffset: {
-		x: vscode.getState()?.canvasToolbarOffsetX ?? 0,
-		y: vscode.getState()?.canvasToolbarOffsetY ?? 0,
+	initialPosition: {
+		offset: {
+			x: vscode.getState()?.canvasToolbarOffsetX ?? 0,
+			y: vscode.getState()?.canvasToolbarOffsetY ?? 0,
+		},
+		dock: vscode.getState()?.canvasToolbarDock,
 	},
-	persistOffset: (offset) => {
+	persistPosition: (position) => {
 		updateWebviewState({
-			canvasToolbarOffsetX: offset.x,
-			canvasToolbarOffsetY: offset.y,
+			canvasToolbarOffsetX: position.offset.x,
+			canvasToolbarOffsetY: position.offset.y,
+			canvasToolbarDock: position.dock,
 		});
 	},
 });
 
 renderCanvasToolbarDragHandle(canvasToolbarDragHandle);
+renderCanvasToolbarPinIcon(canvasToolbarPinButton);
 renderNoteToolbarIcon(addNoteButton);
 renderAddOntologyItemToolbarIcon(addOntologyItemButton);
 renderLabelToolbarIcon(addLabelButton);
@@ -282,6 +292,7 @@ renderLocalElementToolbarIcons({
 	minimizeLocalButton,
 	createCommentNoteLocalButton,
 	showRelatedElementsLocalButton,
+	showEdgesBetweenNodesLocalButton,
 	alignLeftLocalButton,
 	alignHorizontalCenterLocalButton,
 	alignRightLocalButton,

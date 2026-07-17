@@ -38,7 +38,7 @@ suite('Diagram editor use cases', () => {
 				ontologyItemMetadata: item.metadata,
 			})));
 
-		const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_item1', 2, relationships);
+	const result = new ShowRelatedElementsUseCase().execute(diagram, 'node_item1', 2, relationships);
 
 		assert.ok(result.diagram);
 		const expandedDiagram = result.diagram;
@@ -1273,6 +1273,73 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(propertyEdge.source.value, 'node_person');
 		assert.strictEqual(propertyEdge.target.value, organizationNode.id.value);
 		assert.strictEqual(result.diagram.namespaces.get('rdfs'), 'http://www.w3.org/2000/01/rdf-schema#');
+	});
+
+	test('shows only missing ontology edges between selected nodes', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 180, 72)),
+			new DiagramNode('node_organization', 'ex:Organization', new Bounds(300, 0, 180, 72)),
+			new DiagramNode('node_role', 'ex:Role', new Bounds(600, 0, 180, 72)),
+		]);
+
+		const useCase = new ShowRelatedElementsUseCase();
+		const relationships = [{
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:memberOf',
+			displayLabel: 'memberOf',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Person', 'ex:Role'],
+				rangeReferences: ['ex:Organization'],
+			},
+		}];
+
+		const result = useCase.showEdgesBetweenNodes(
+			diagram,
+			['node_person', 'node_organization'],
+			relationships,
+		);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges.map((edge) => ({
+			ontologyRef: edge.ontologyRef.value,
+			source: edge.source.value,
+			target: edge.target.value,
+		})), [{
+			ontologyRef: 'ex:memberOf',
+			source: 'node_person',
+			target: 'node_organization',
+		}]);
+
+		const duplicate = useCase.showEdgesBetweenNodes(
+			result.diagram,
+			['node_person', 'node_organization'],
+			relationships,
+		);
+		assert.strictEqual(duplicate.diagram, undefined);
+		assert.strictEqual(duplicate.notification, 'Ontology relationships between the selected nodes are already shown.');
+	});
+
+	test('reports when selected nodes have no ontology relationship', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 180, 72)),
+			new DiagramNode('node_organization', 'ex:Organization', new Bounds(300, 0, 180, 72)),
+		]);
+
+		const result = new ShowRelatedElementsUseCase().showEdgesBetweenNodes(diagram, [
+			'node_person',
+			'node_organization',
+		], [{
+			ontologyItemType: 'objectProperty',
+			ontologyItemReference: 'ex:hasRole',
+			displayLabel: 'hasRole',
+			ontologyItemMetadata: {
+				domainReferences: ['ex:Person'],
+				rangeReferences: ['ex:Role'],
+			},
+		}]);
+
+		assert.strictEqual(result.diagram, undefined);
+		assert.strictEqual(result.notification, 'No ontology relationships were found between the selected nodes.');
 	});
 
 	test('skips data properties when showing related ontology elements', () => {

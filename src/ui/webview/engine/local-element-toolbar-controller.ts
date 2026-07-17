@@ -1,5 +1,5 @@
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
-import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
+import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowEdgesBetweenNodesCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import type { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
@@ -15,6 +15,7 @@ interface LocalElementToolbarElements {
 	readonly minimizeLocalButton: HTMLButtonElement;
 	readonly createCommentNoteLocalButton: HTMLButtonElement;
 	readonly showRelatedElementsLocalButton: HTMLButtonElement;
+	readonly showEdgesBetweenNodesLocalButton: HTMLButtonElement;
 	readonly alignLeftLocalButton: HTMLButtonElement;
 	readonly alignHorizontalCenterLocalButton: HTMLButtonElement;
 	readonly alignRightLocalButton: HTMLButtonElement;
@@ -104,6 +105,9 @@ export class LocalElementToolbarController {
 		});
 		this.registerButton(elements.showRelatedElementsLocalButton, () => {
 			this.showRelatedElementsForSelectedNode();
+		});
+		this.registerButton(elements.showEdgesBetweenNodesLocalButton, () => {
+			this.showEdgesBetweenSelectedNodes();
 		});
 		this.registerButton(elements.alignLeftLocalButton, () => {
 			this.alignSelectedNodes('left');
@@ -309,6 +313,7 @@ export class LocalElementToolbarController {
 		elements.minimizeLocalButton.hidden = !canResize;
 		elements.createCommentNoteLocalButton.hidden = element.kind !== 'node';
 		elements.showRelatedElementsLocalButton.hidden = element.kind !== 'node';
+		elements.showEdgesBetweenNodesLocalButton.hidden = !isNodeSelection;
 		elements.alignLeftLocalButton.hidden = !isNodeSelection;
 		elements.alignHorizontalCenterLocalButton.hidden = !isNodeSelection;
 		elements.alignRightLocalButton.hidden = !isNodeSelection;
@@ -684,6 +689,16 @@ export class LocalElementToolbarController {
 		}
 
 		this.options.messageBus.publishCommand(new ShowRelatedElementsCommand(selectedElementId));
+	}
+
+	private showEdgesBetweenSelectedNodes(): void {
+		const toolbarContext = this.localElementToolbarContext();
+		if (toolbarContext?.kind !== 'nodeSelection') {
+			this.options.showStatus('Select two or more nodes to show edges between them.');
+			return;
+		}
+
+		this.options.messageBus.publishCommand(new ShowEdgesBetweenNodesCommand(toolbarContext.ids));
 	}
 
 	private alignSelectedNodes(alignment: NodeSelectionAlignment): void {

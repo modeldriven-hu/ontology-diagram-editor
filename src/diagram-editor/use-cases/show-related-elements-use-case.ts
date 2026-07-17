@@ -5,7 +5,7 @@ import { defaultNodeHeight, defaultNodeWidth } from './diagram-editor-defaults';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { nextElementId } from './element-id';
 import { boundaryPoint, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
-import { expandedOntologyReference, namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
+import { edgeEndpointCandidates, expandedOntologyReference, namespacesWithRequiredEdgePrefixes, ontologyReferencesEqual, resolveEdgeEndpoints, type ResolvedEdgeEndpointNodeType, type ResolvedEdgeEndpoints } from './ontology-edge-endpoints';
 
 interface RelatedEdgeCandidate {
 	readonly payload: ModelTreeItemDropPayload;
@@ -112,6 +112,97 @@ export class ShowRelatedElementsUseCase {
 			diagram: cloneDiagram(diagram, {
 				namespaces: nextNamespaces,
 				nodes: nextNodes,
+				edges: nextEdges,
+			}),
+		};
+	}
+
+	public showEdgesBetweenNodes(
+		diagram: OntologyDiagramDocument,
+		nodeIds: readonly string[],
+		relationshipPayloads: readonly ModelTreeItemDropPayload[],
+	): DiagramMutationResult {
+		const selectedIds = new Set(nodeIds);
+		const selectedNodes = diagram.nodes.filter((node) => selectedIds.has(node.id.value));
+		if (selectedNodes.length < 2 || selectedNodes.length !== selectedIds.size) {
+			return { notification: 'Select two or more nodes to show edges between them.' };
+		}
+
+		const selectedByReference = new Map<string, DiagramNode[]>();
+		for (const node of selectedNodes) {
+			const key = referenceKey(node.ontologyRef.value, diagram.namespaces);
+			const nodes = selectedByReference.get(key) ?? [];
+			nodes.push(node);
+			selectedByReference.set(key, nodes);
+		}
+
+		const nextEdges = [...diagram.edges];
+		let nextNamespaces = diagram.namespaces;
+		let relationshipFound = false;
+		let addedEdges = 0;
+		for (const payload of relationshipPayloads) {
+			const endpoints = edgeEndpointCandidates(payload);
+			if (endpoints === undefined) {
+				continue;
+			}
+
+			for (const sourceOntologyRef of endpoints.sourceOntologyRefs) {
+				const sources = selectedByReference.get(referenceKey(sourceOntologyRef, diagram.namespaces));
+				if (sources === undefined) {
+					continue;
+				}
+
+				for (const targetOntologyRef of endpoints.targetOntologyRefs) {
+					const targets = selectedByReference.get(referenceKey(targetOntologyRef, diagram.namespaces));
+					if (targets === undefined) {
+						continue;
+					}
+
+					relationshipFound = true;
+					const resolved: ResolvedEdgeEndpoints = {
+						edgeOntologyRef: endpoints.edgeOntologyRef,
+						sourceOntologyRef,
+						targetOntologyRef,
+						sourceNodeType: endpoints.sourceNodeType,
+						targetNodeType: endpoints.targetNodeType,
+					};
+					for (const source of sources) {
+						for (const target of targets) {
+							const edgeNamespaces = namespacesWithRequiredEdgePrefixes(cloneDiagram(diagram, { namespaces: nextNamespaces }), resolved);
+							if (hasEdge(nextEdges, resolved.edgeOntologyRef, source.id.value, target.id.value, edgeNamespaces)) {
+								continue;
+							}
+
+							const route = edgeRoute(source, target);
+							nextEdges.push(new DiagramEdge(
+								nextElementId(nextEdges.map((edge) => edge.id.value), 'edge'),
+								source.id.value,
+								target.id.value,
+								resolved.edgeOntologyRef,
+								route.label,
+								route.points,
+								undefined,
+								edgeExtraFields(payload),
+							));
+							nextNamespaces = edgeNamespaces;
+							addedEdges += 1;
+						}
+					}
+				}
+			}
+		}
+
+		if (addedEdges === 0) {
+			return {
+				notification: relationshipFound
+					? 'Ontology relationships between the selected nodes are already shown.'
+					: 'No ontology relationships were found between the selected nodes.',
+			};
+		}
+
+		return {
+			diagram: cloneDiagram(diagram, {
+				namespaces: nextNamespaces,
 				edges: nextEdges,
 			}),
 		};
