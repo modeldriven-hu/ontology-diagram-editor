@@ -347,10 +347,10 @@ export class DiagramCommandDispatcher {
 				await this.handleResult(this.useCases.updateLegendBounds.execute(this.repository.load(), command.updates));
 				return;
 			case 'updateLegendColors':
-				await this.handleResult(this.useCases.updateLegendColors.execute(this.repository.load(), command.id, command.colors, command.colorMode, command.colorBy));
+				await this.updateLegendColors(command);
 				return;
 			case 'updateLegendColorBy':
-				await this.handleResult(this.useCases.updateLegendColorBy.execute(this.repository.load(), command.id, command.colorBy));
+				await this.updateLegendColorBy(command);
 				return;
 			case 'updateNoteText':
 				await this.handleResult(this.useCases.updateNoteText.execute(
@@ -727,6 +727,36 @@ export class DiagramCommandDispatcher {
 		));
 	}
 
+	private async updateLegendColors(command: Extract<WebviewCommand, { readonly type: 'updateLegendColors' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const currentLegend = diagram.legendElements.find((element) => element.id.value === command.id);
+		const colorBy = command.colorBy ?? currentLegend?.colorBy ?? 'ontologySource';
+		const ontologySourcePaths = colorBy === 'ontologySource'
+			? ontologySourcePathsFor(await loadReferencedOntologies(this.repository.uri.fsPath, diagram))
+			: undefined;
+		await this.handleResult(this.useCases.updateLegendColors.execute(
+			diagram,
+			command.id,
+			command.colors,
+			command.colorMode,
+			command.colorBy,
+			ontologySourcePaths,
+		));
+	}
+
+	private async updateLegendColorBy(command: Extract<WebviewCommand, { readonly type: 'updateLegendColorBy' }>): Promise<void> {
+		const diagram = this.repository.load();
+		const ontologySourcePaths = command.colorBy === 'ontologySource'
+			? ontologySourcePathsFor(await loadReferencedOntologies(this.repository.uri.fsPath, diagram))
+			: undefined;
+		await this.handleResult(this.useCases.updateLegendColorBy.execute(
+			diagram,
+			command.id,
+			command.colorBy,
+			ontologySourcePaths,
+		));
+	}
+
 	private async saveDiagramExport(command: Extract<WebviewCommand, { readonly type: 'saveDiagramExport' }>): Promise<void> {
 		const result = await this.useCases.saveDiagramExport.execute({
 			format: command.format,
@@ -749,6 +779,18 @@ export class DiagramCommandDispatcher {
 			await this.repository.save(legendResult.diagram ?? result.diagram);
 		}
 	}
+}
+
+function ontologySourcePathsFor(ontologies: readonly LoadedOntology[]): ReadonlyMap<string, string> {
+	const paths = new Map<string, string>();
+	for (const ontology of ontologies) {
+		for (const item of ontology.items) {
+			if (!paths.has(item.reference)) {
+				paths.set(item.reference, ontology.relativePath);
+			}
+		}
+	}
+	return paths;
 }
 
 function batchPosition(position: { readonly x: number; readonly y: number }, index: number): { readonly x: number; readonly y: number } {

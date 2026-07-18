@@ -6,6 +6,9 @@
 - Given an image is created from a local file selection, when it is persisted, then the selected image bytes are embedded in `source` as a `data:image/...` URI.
 - Given an image is created from the built-in icon gallery, when it is persisted, then the selected SVG is embedded in `source` as a `data:image/svg+xml;base64,...` URI.
 - Given the gallery opens without an existing gallery icon, when icon previews are displayed, then the color chooser and previews use the current blue icon color by default.
+- Given a node has an active ontology legend color, when its image gallery opens, then the color chooser, previews, and selected gallery icon use that legend color by default.
+- Given a node has a gallery icon and its applicable legend color changes, when the diagram refreshes, then the embedded gallery icon is recolored to match the legend.
+- Given a node has a gallery icon and the legend grouping changes, when the diagram refreshes, then the embedded gallery icon is recolored for its new legend category.
 - Given the user changes the gallery color, when an icon is selected, then the embedded SVG uses that color without being converted to a raster image.
 - Given the user chooses an image source, when the gallery dialog is shown, then it displays searchable icon previews, a selector for Material Design Icons, Bootstrap Icons, and Carbon, and a separate local image-file action.
 - Given a diagram is opened without opening the gallery, when the canvas loads, then the full icon-set JSON files are not fetched.

@@ -18,6 +18,7 @@ import { metadataBounds, renderMetadataToolbarIcon } from '../components/ontolog
 import { legendBounds, renderLegendToolbarIcon } from '../components/ontology-diagram-legend';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
 import { ontologyCommentsForReference } from '../components/ontology-comments';
+import { ontologyColor } from '../components/ontology-legend';
 import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
@@ -464,13 +465,19 @@ function openTargetImageGallery(targetType: ImageGalleryTargetType, targetId: st
 			? new PickNodeImageCommand(targetId, source, pickFile)
 			: new PickImageSourceCommand(targetId, source, pickFile));
 	};
+	const node = targetType === 'node'
+		? webviewConfig.payload.diagram?.nodes?.find((candidate) => candidate.id === targetId)
+		: undefined;
+	const existingSource = node?.image ?? (targetType === 'image'
+		? webviewConfig.payload.diagram?.images?.find((image) => image.id === targetId)?.source
+		: undefined);
 	iconGalleryDialog.open({
 		title: targetType === 'node' ? 'Set node image' : 'Set standalone image source',
 		onIconSelected: (source) => publishSelection(source, false),
 		onFileSelected: () => publishSelection(undefined, true),
-		initialColor: embeddedGalleryIconColor(targetType === 'node'
-			? webviewConfig.payload.diagram?.nodes?.find((node) => node.id === targetId)?.image
-			: webviewConfig.payload.diagram?.images?.find((image) => image.id === targetId)?.source),
+		initialColor: node === undefined
+			? embeddedGalleryIconColor(existingSource)
+			: ontologyColor(node.ontology_ref, webviewConfig.payload, node.ontology_item_type) ?? embeddedGalleryIconColor(existingSource),
 	});
 }
 

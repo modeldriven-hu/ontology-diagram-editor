@@ -14,7 +14,8 @@ The canvas shall provide a command for adding a standalone image.
 When the user adds an image, the canvas shall show a searchable built-in icon-gallery
 dialog with icon previews and an icon-set selector, plus a separate action for choosing
 an image file. The gallery shall provide an icon-color chooser, initialized to the
-current blue icon color. Its previews and selected SVG shall use the chosen color. The
+current blue icon color unless a node has an applicable ontology legend color; in that
+case it shall use that legend color. Its previews and selected SVG shall use the chosen color. The
 bundled gallery shall include Material Design Icons, Bootstrap Icons,
 and Carbon for additional enterprise, cloud, data, and infrastructure coverage. Icon
 sets shall be loaded on demand so opening a diagram does not load every icon. The
