@@ -42,6 +42,7 @@ export interface CommonStylePatch {
 	readonly border?: BorderStylePatch;
 	readonly corner_radius?: number;
 	readonly shadow?: boolean;
+	readonly image_fit?: 'contain' | 'cover' | 'match_width' | 'match_height';
 }
 
 export interface EdgeStylePatch {

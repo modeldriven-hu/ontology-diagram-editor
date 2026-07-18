@@ -294,6 +294,10 @@ export class CanvasPropertyPanel {
 							this.propertyEdited('node', node.id, ['image']);
 							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
 						}),
+						...(node.image === undefined ? [] : [selectField('Fit', node.style?.image_fit ?? 'contain', nodeImageFitOptions, (value) => {
+							const style = cloneCommonStyle(node.style);
+							this.updateElementStyle('node', node.id, cleanCommonStyle({ ...style, image_fit: value ?? 'contain' }));
+						})]),
 					]),
 				],
 			},
@@ -937,6 +941,13 @@ const shadowOptions = [
 	{ value: 'false', label: 'Off' },
 ] as const;
 
+const nodeImageFitOptions = [
+	{ value: 'contain', label: 'Contain' },
+	{ value: 'cover', label: 'Cover' },
+	{ value: 'match_width', label: 'Match Width' },
+	{ value: 'match_height', label: 'Match Height' },
+] as const;
+
 function fontFamilyOptions(currentValue: string | undefined): readonly { readonly value: string; readonly label: string }[] {
 	const current = currentValue?.trim();
 	if (current === undefined || current.length === 0 || defaultFontFamilyOptions.some((option) => option.value === current)) {
@@ -963,6 +974,7 @@ function cloneCommonStyle(style: DiagramElementStyle | undefined): CommonStylePa
 			},
 		corner_radius: style?.corner_radius,
 		shadow: style?.shadow,
+		image_fit: style?.image_fit,
 	};
 }
 
@@ -1006,6 +1018,7 @@ function cleanCommonStyle(style: CommonStylePatch): CommonStylePatch | undefined
 		border,
 		corner_radius: style.corner_radius,
 		shadow: style.shadow,
+		image_fit: style.image_fit,
 	};
 
 	return hasAnyValue(cleaned) ? cleaned : undefined;

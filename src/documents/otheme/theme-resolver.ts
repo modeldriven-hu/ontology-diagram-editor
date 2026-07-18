@@ -88,6 +88,7 @@ function mergeCommonStyle(base: CommonStyle | undefined, override: CommonStyle |
 		{},
 		override?.cornerRadius ?? base?.cornerRadius,
 		override?.shadow ?? base?.shadow,
+		override?.imageFit ?? base?.imageFit,
 	);
 }
 

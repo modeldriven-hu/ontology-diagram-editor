@@ -2128,6 +2128,7 @@ suite('Diagram editor use cases', () => {
 			},
 			corner_radius: 14,
 			shadow: false,
+			image_fit: 'match_height',
 		});
 
 		assert.ok(result.diagram);
@@ -2146,6 +2147,7 @@ suite('Diagram editor use cases', () => {
 			},
 			corner_radius: 14,
 			shadow: false,
+			image_fit: 'match_height',
 		});
 	});
 

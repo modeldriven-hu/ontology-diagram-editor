@@ -282,12 +282,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
 			cell.attr('label/text', update.text);
 		} else if (update.kind === 'nodeImage' && this.elementRegistry.element(update.id)?.kind === 'node') {
-			const hasAttributeSection = cell.attr('separator/refY') !== undefined;
-			cell.attr('nodeImage/xlink:href', update.image ?? '');
-			cell.attr('nodeImage/opacity', update.image === undefined ? 0 : 1);
-			if (!hasAttributeSection) {
-				cell.attr('label/refY', update.image === undefined ? '50%' : '68%');
-			}
+			this.updateOntologyNodePresentation(update.id);
 		} else if (update.kind === 'nodePropertyValueTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
 		}
@@ -973,7 +968,11 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 
 		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme);
 		cell.setMarkup?.(x6OntologyNodeMarkup(presentation.markup));
-		cell.attr(presentation.attrs);
+		cell.attr({
+			body: x6OntologyNodeBodyAttrs(element.value, payload, this.theme, cornerRadius(element.value.style, this.theme.nodeCornerRadius)),
+			nodeImage: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
+			...presentation.attrs,
+		});
 	}
 
 	private flushEdgeRouteChanges(): void {
@@ -1141,12 +1140,72 @@ function installX6Styles(theme: WebviewTheme): void {
 }
 
 function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
-	const hasImage = node.image !== undefined && node.image.trim() !== '';
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
 	const presentation = x6OntologyNodePresentation(node, payload, theme);
+
+	return {
+		id: node.id,
+		x: node.x,
+		y: node.y,
+		width: node.width,
+		height: node.height,
+		markup: x6OntologyNodeMarkup(presentation.markup),
+		attrs: {
+			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius),
+			nodeImage: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
+			...presentation.attrs,
+		},
+		zIndex: 20,
+	};
+}
+
+function hasNodeImage(node: DiagramNode): boolean {
+	return node.image !== undefined && node.image.trim() !== '';
+}
+
+function x6OntologyNodeBodyAttrs(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, radius: number): Record<string, unknown> {
+	if (hasNodeImage(node)) {
+		return {
+			refWidth: '100%',
+			refHeight: '100%',
+			rx: radius,
+			ry: radius,
+			fill: 'transparent',
+			stroke: 'none',
+			strokeWidth: 0,
+			filter: 'none',
+		};
+	}
+
 	const ontologyColorValue = ontologyColor(node.ontology_ref, payload, node.ontology_item_type);
 	const colorMode = ontologyColorMode(payload);
-	const imageAttrs = presentation.hasAttributes
+	return {
+		refWidth: '100%',
+		refHeight: '100%',
+		rx: radius,
+		ry: radius,
+		fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type),
+		...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? theme.nodeBorder : theme.nodeBorder, 1),
+		filter: shadowFilter(node.style, theme.elementShadow, theme),
+	};
+}
+
+function x6OntologyNodeImageAttrs(node: DiagramNode, hasAttributes: boolean): Record<string, unknown> {
+	const hasImage = hasNodeImage(node);
+	if (hasImage) {
+		return {
+			x: 8,
+			y: 8,
+			width: Math.max(0, node.width - 16),
+			height: Math.max(0, node.height - 56),
+			'xlink:href': node.image,
+			preserveAspectRatio: imagePreserveAspectRatio(node),
+			pointerEvents: 'none',
+			opacity: 1,
+		};
+	}
+
+	return hasAttributes
 		? {
 			width: 18,
 			height: 18,
@@ -1155,7 +1214,7 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 			'xlink:href': node.image ?? '',
 			preserveAspectRatio: 'xMidYMid meet',
 			pointerEvents: 'none',
-			opacity: hasImage ? 1 : 0,
+			opacity: 0,
 		}
 		: {
 			width: 28,
@@ -1166,31 +1225,21 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 			'xlink:href': node.image ?? '',
 			preserveAspectRatio: 'xMidYMid meet',
 			pointerEvents: 'none',
-			opacity: hasImage ? 1 : 0,
+			opacity: 0,
 		};
+}
 
-	return {
-		id: node.id,
-		x: node.x,
-		y: node.y,
-		width: node.width,
-		height: node.height,
-		markup: x6OntologyNodeMarkup(presentation.markup),
-		attrs: {
-			body: {
-				refWidth: '100%',
-				refHeight: '100%',
-				rx: radius,
-				ry: radius,
-				fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type),
-				...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? theme.nodeBorder : theme.nodeBorder, 1),
-				filter: shadowFilter(node.style, theme.elementShadow, theme),
-			},
-			nodeImage: imageAttrs,
-			...presentation.attrs,
-		},
-		zIndex: 20,
-	};
+function imagePreserveAspectRatio(node: DiagramNode): 'xMidYMid meet' | 'xMidYMid slice' | 'xMidYMin slice' | 'xMinYMid slice' {
+	switch (node.style?.image_fit) {
+		case 'cover':
+			return 'xMidYMid slice';
+		case 'match_width':
+			return 'xMidYMin slice';
+		case 'match_height':
+			return 'xMinYMid slice';
+		default:
+			return 'xMidYMid meet';
+	}
 }
 
 function x6MetadataElement(element: DiagramMetadataElement, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
@@ -1273,14 +1322,34 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	readonly markup: readonly Record<string, string>[];
 	readonly attrs: Record<string, unknown>;
 } {
-	const hasImage = node.image !== undefined && node.image.trim() !== '';
-	const attributes = nodeCompartmentAttributes(node, payload);
-	const hasAttributes = attributes.length > 0;
+	const hasImage = hasNodeImage(node);
 	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
+	if (hasImage) {
+		return {
+			hasAttributes: false,
+			markup: [],
+			attrs: {
+				label: {
+					text: truncateText({ text: nodeTitleText(node, payload), width: Math.max(0, node.width - 20), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+					fill: textColor,
+					fontFamily,
+					fontSize,
+					fontWeight: fontBold === true ? 700 : 400,
+					fontStyle: fontItalic === true ? 'italic' : 'normal',
+					textAnchor: 'middle',
+					textVerticalAnchor: 'middle',
+					refX: '50%',
+					refY: Math.max(0, node.height - 24),
+				},
+			},
+		};
+	}
+	const attributes = nodeCompartmentAttributes(node, payload);
+	const hasAttributes = attributes.length > 0;
 	const ontologyLabel = nodeOntologyLabel(node.ontology_ref, payload);
 	const showsOntologyLabel = ontologyLabel !== undefined;
 	const layout = nodeDataPropertyLayout({

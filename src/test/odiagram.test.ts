@@ -253,7 +253,7 @@ edges: []
 		assert.strictEqual(metadata.theme_mode, 'dark');
 	});
 
-	test('parses common style corner radius and shadow overrides', () => {
+	test('parses common style corner radius, shadow, and image fit overrides', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
   schema_version: "1.0"
@@ -273,15 +273,51 @@ nodes:
     style:
       corner_radius: 12
       shadow: false
+      image_fit: match_width
 edges: []
 `);
 
 		assert.strictEqual(document.nodes[0].style?.cornerRadius, 12);
 		assert.strictEqual(document.nodes[0].style?.shadow, false);
+		assert.strictEqual(document.nodes[0].style?.imageFit, 'match_width');
 		assert.deepStrictEqual(document.nodes[0].style?.toPersistenceObject(), {
 			corner_radius: 12,
 			shadow: false,
+			image_fit: 'match_width',
 		});
+	});
+
+	test('defaults missing and obsolete image fit values to contain', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Legacy image fit"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - id: "node_missing"
+    ontology_ref: "ex:Missing"
+    x: 10
+    y: 20
+    width: 160
+    height: 80
+    style: {}
+  - id: "node_stretch"
+    ontology_ref: "ex:Stretch"
+    x: 200
+    y: 20
+    width: 160
+    height: 80
+    style:
+      image_fit: stretch
+edges: []
+`);
+
+		assert.strictEqual(document.nodes[0].style?.imageFit, undefined);
+		assert.strictEqual(document.nodes[1].style?.imageFit, 'contain');
 	});
 
 	test('parses and serializes image border and shadow style overrides', () => {

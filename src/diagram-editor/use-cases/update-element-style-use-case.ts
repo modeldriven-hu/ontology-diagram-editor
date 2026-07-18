@@ -223,6 +223,7 @@ function commonStyle(style: ElementStylePatch): CommonStyle {
 		};
 		readonly corner_radius?: number;
 		readonly shadow?: boolean;
+		readonly image_fit?: 'contain' | 'cover' | 'match_width' | 'match_height';
 	};
 
 	return new CommonStyle(
@@ -235,6 +236,7 @@ function commonStyle(style: ElementStylePatch): CommonStyle {
 		{},
 		common.corner_radius,
 		common.shadow,
+		common.image_fit,
 	);
 }
 

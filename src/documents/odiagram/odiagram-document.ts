@@ -175,6 +175,7 @@ export class CommonStyle {
 		public readonly extra: JsonObject = {},
 		public readonly cornerRadius?: number,
 		public readonly shadow?: boolean,
+		public readonly imageFit?: 'contain' | 'cover' | 'match_width' | 'match_height',
 	) {
 		if (cornerRadius !== undefined) {
 			assertNonNegativeNumber(cornerRadius, 'Corner radius');
@@ -190,6 +191,7 @@ export class CommonStyle {
 			border: this.border?.toPersistenceObject(),
 			corner_radius: this.cornerRadius,
 			shadow: this.shadow,
+			image_fit: this.imageFit,
 		});
 	}
 }
@@ -614,6 +616,7 @@ const commonStyleSchema = z.object({
 	border: borderStyleSchema.optional(),
 	corner_radius: z.number().optional(),
 	shadow: z.boolean().optional(),
+	image_fit: z.string().optional(),
 }).passthrough();
 
 const labelStyleSchema = z.object({
@@ -872,10 +875,26 @@ function parseCommonStyle(value: z.infer<typeof commonStyleSchema>): CommonStyle
 		value.text_color,
 		value.font ? parseFontStyle(value.font) : undefined,
 		value.border ? parseBorderStyle(value.border) : undefined,
-		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border', 'corner_radius', 'shadow']),
+		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border', 'corner_radius', 'shadow', 'image_fit']),
 		value.corner_radius,
 		value.shadow,
+		normalizeImageFit(value.image_fit),
 	);
+}
+
+function normalizeImageFit(value: string | undefined): CommonStyle['imageFit'] {
+	switch (value) {
+		case 'cover':
+		case 'match_width':
+		case 'match_height':
+			return value;
+		case 'stretch':
+			return 'contain';
+		case 'contain':
+			return value;
+		default:
+			return undefined;
+	}
 }
 
 function parseLabelStyle(value: z.infer<typeof labelStyleSchema>): LabelStyle {

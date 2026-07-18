@@ -196,6 +196,7 @@ export interface DiagramElementStyle {
 	};
 	readonly corner_radius?: number;
 	readonly shadow?: boolean;
+	readonly image_fit?: 'contain' | 'cover' | 'match_width' | 'match_height';
 }
 
 export interface DiagramLabelStyle {

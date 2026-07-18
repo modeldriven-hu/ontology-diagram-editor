@@ -267,6 +267,25 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const bounds = elementBounds(node);
+	if (hasNodeImage(node)) {
+		const imageBounds = nodeImageBounds(bounds);
+		return [
+			`<image href="${escapeAttribute(node.image)}" x="${numberValue(imageBounds.x)}" y="${numberValue(imageBounds.y)}" width="${numberValue(imageBounds.width)}" height="${numberValue(imageBounds.height)}" preserveAspectRatio="${imagePreserveAspectRatio(node)}"/>`,
+			renderTextBlock({
+				id: node.id,
+				text: nodeTitleText(node, payload),
+				bounds: { x: bounds.x, y: bounds.y + Math.max(0, bounds.height - 40), width: bounds.width, height: Math.min(32, bounds.height) },
+				color: textColor,
+				fontFamily,
+				fontSize,
+				bold: fontBold,
+				italic: fontItalic,
+				align: 'center',
+				verticalAlign: 'middle',
+				padding: 10,
+			}),
+		].join('\n');
+	}
 	const attributes = nodeCompartmentAttributes(node, payload);
 	const hasAttributes = attributes.length > 0;
 	const layout = nodeDataPropertyLayout({
@@ -349,6 +368,32 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	}
 
 	return parts.join('\n');
+}
+
+function hasNodeImage(node: DiagramNode): node is DiagramNode & { readonly image: string } {
+	return node.image !== undefined && node.image.trim() !== '';
+}
+
+function nodeImageBounds(bounds: ExportBounds): ExportBounds {
+	return {
+		x: bounds.x + 8,
+		y: bounds.y + 8,
+		width: Math.max(0, bounds.width - 16),
+		height: Math.max(0, bounds.height - 56),
+	};
+}
+
+function imagePreserveAspectRatio(node: DiagramNode): 'xMidYMid meet' | 'xMidYMid slice' | 'xMidYMin slice' | 'xMinYMid slice' {
+	switch (node.style?.image_fit) {
+		case 'cover':
+			return 'xMidYMid slice';
+		case 'match_width':
+			return 'xMidYMin slice';
+		case 'match_height':
+			return 'xMinYMid slice';
+		default:
+			return 'xMidYMid meet';
+	}
 }
 
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {

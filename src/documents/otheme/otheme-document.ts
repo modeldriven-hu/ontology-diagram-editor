@@ -110,6 +110,7 @@ const commonStyleSchema = z.object({
 	border: borderStyleSchema.optional(),
 	corner_radius: z.number().optional(),
 	shadow: z.boolean().optional(),
+	image_fit: z.string().optional(),
 }).passthrough();
 
 const canvasStyleSchema = z.object({
@@ -197,10 +198,26 @@ function parseCommonStyle(value: z.infer<typeof commonStyleSchema>): CommonStyle
 		value.text_color,
 		value.font ? parseFontStyle(value.font) : undefined,
 		value.border ? parseBorderStyle(value.border) : undefined,
-		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border', 'corner_radius', 'shadow']),
+		getExtraFields(value, ['bg_color', 'text_color', 'font', 'border', 'corner_radius', 'shadow', 'image_fit']),
 		value.corner_radius,
 		value.shadow,
+		normalizeImageFit(value.image_fit),
 	);
+}
+
+function normalizeImageFit(value: string | undefined): CommonStyle['imageFit'] {
+	switch (value) {
+		case 'cover':
+		case 'match_width':
+		case 'match_height':
+			return value;
+		case 'stretch':
+			return 'contain';
+		case 'contain':
+			return value;
+		default:
+			return undefined;
+	}
 }
 
 function parseEdgeStyle(value: z.infer<typeof edgeStyleSchema>): EdgeStyle {
