@@ -10,6 +10,8 @@ import { buildDiagramWebviewHtml } from './webview-html';
 import { CanvasViewportPersistence } from './canvas-viewport-persistence';
 import { ActiveDiagramEditorRegistry } from './active-diagram-editor-registry';
 import { DiagramDependencyWatcher, type DiagramDependencyChangedEvent } from './diagram-dependency-watcher';
+import type { PropertiesImageGalleryRequest } from '../ui/properties/properties-view-provider';
+import type { OpenImageGalleryMessage } from '../shared/icon-gallery';
 
 export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
 
@@ -22,6 +24,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidChangeDiagramDependency: (document: vscode.TextDocument, event: DiagramDependencyChangedEvent) => void | Promise<void>,
 		private readonly onDidChangeCanvasSelection: (document: vscode.TextDocument, event: CanvasSelectionChangedEvent) => void | Promise<void>,
+		private readonly onDidRequestImageGallery: vscode.Event<PropertiesImageGalleryRequest>,
 		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
@@ -86,6 +89,17 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				void updateWebview();
 			}
 		});
+		const imageGalleryRequestDisposable = this.onDidRequestImageGallery((event) => {
+			if (event.diagramUri.toString() !== document.uri.toString()) {
+				return;
+			}
+			const message: OpenImageGalleryMessage = {
+				type: 'openImageGallery',
+				targetType: event.targetType,
+				targetId: event.targetId,
+			};
+			void webviewPanel.webview.postMessage(message);
+		});
 		const addItemsDisposable = this.onDidRequestItemsAdd((event) => {
 			if (event.diagramUri.toString() !== document.uri.toString()) {
 				return;
@@ -139,6 +153,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			diagramRefreshDisposable.dispose();
 			addItemsDisposable.dispose();
 			viewStateDisposable.dispose();
+			imageGalleryRequestDisposable.dispose();
 			commandDisposable.dispose();
 			dependencyWatcher.dispose();
 			void viewportPersistence.save();

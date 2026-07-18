@@ -4,6 +4,18 @@
 
 - Given the add-image command runs, when the user selects a valid local image file, then an `image_` element is added to the `.odiagram` `images` section.
 - Given an image is created from a local file selection, when it is persisted, then the selected image bytes are embedded in `source` as a `data:image/...` URI.
+- Given an image is created from the built-in icon gallery, when it is persisted, then the selected SVG is embedded in `source` as a `data:image/svg+xml;base64,...` URI.
+- Given the gallery opens without an existing gallery icon, when icon previews are displayed, then the color chooser and previews use the current blue icon color by default.
+- Given the user changes the gallery color, when an icon is selected, then the embedded SVG uses that color without being converted to a raster image.
+- Given the user chooses an image source, when the gallery dialog is shown, then it displays searchable icon previews, a selector for Material Design Icons, Bootstrap Icons, and Carbon, and a separate local image-file action.
+- Given a diagram is opened without opening the gallery, when the canvas loads, then the full icon-set JSON files are not fetched.
+- Given the user changes the selected icon set, when the gallery loads it, then icons from that set become searchable without loading every other set.
+- Given the user activates Select for a node or standalone image in the Properties view, when the gallery opens, then it is displayed over the matching diagram canvas and not inside the Properties view.
+- Given a node has no image, when its Image property is displayed, then Select is available and Clear is not displayed.
+- Given a node has an embedded image, when its Image property is displayed, then Select and Clear are available without a non-interactive image field.
+- Given a node has an embedded image, when the user activates Clear in its properties, then the node image is cleared.
+- Given a node or standalone image uses a gallery icon, when its properties are displayed, then Icon Color shows the icon's current color and changing it recolors the embedded SVG.
+- Given a node or standalone image uses an uploaded image or unrelated SVG, when its properties are displayed, then Icon Color is not displayed.
 - Given an image is created from a local file selection, when the `.odiagram` file is moved without the original image file, then the embedded image source remains renderable.
 - Given a relative path, absolute path, or remote URL image source is supplied, when validation runs, then the value is rejected.
 

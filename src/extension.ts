@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}, async (document, event) => {
 			await propertiesView.updateCanvasSelection(document, event);
-		}, () => modelTree.getLastDraggedItems(), async (diagramElementId) => {
+		}, propertiesView.onDidRequestImageGallery, () => modelTree.getLastDraggedItems(), async (diagramElementId) => {
 			return modelTree.revealDiagramElement(diagramElementId);
 		}, modelTree.onDidRequestDiagramRefresh, modelTree.onDidRequestItemsAdd, context.workspaceState),
 		{

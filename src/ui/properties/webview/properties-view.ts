@@ -3,7 +3,8 @@ import { CanvasElementRegistry } from '../../webview/components/canvas-element-r
 import { CanvasPropertyPanel } from '../../webview/components/canvas-property-panel';
 import { CanvasMessageBus } from '../../webview/engine/canvas-message-bus';
 import { readTheme } from '../../webview/webview-theme';
-import type { PropertiesViewCommandMessage, PropertiesViewStateMessage } from '../properties-view-messages';
+import type { PropertiesViewCommandMessage, PropertiesViewOpenImageGalleryMessage, PropertiesViewStateMessage } from '../properties-view-messages';
+import type { ImageGalleryTargetType } from '../../../shared/icon-gallery';
 
 interface VsCodeApi {
 	postMessage(message: unknown): void;
@@ -69,6 +70,8 @@ function render(state: PropertiesViewStateMessage): void {
 		body,
 		getTheme: () => readTheme(payload.diagram?.metadata?.theme_mode, payload.theme),
 		focusAfterEscape: () => vscode.postMessage({ type: 'propertiesViewFocusCanvas' }),
+		chooseNodeImage: (id) => requestImageGallery('node', id),
+		chooseStandaloneImage: (id) => requestImageGallery('image', id),
 		selectedTabByContext,
 	}).register();
 
@@ -78,6 +81,15 @@ function render(state: PropertiesViewStateMessage): void {
 		selectedElementType: state.selectedElementType,
 		selectedElementIdentifiers: state.selectedElementIdentifiers,
 	}));
+}
+
+function requestImageGallery(targetType: ImageGalleryTargetType, targetId: string): void {
+	const message: PropertiesViewOpenImageGalleryMessage = {
+		type: 'propertiesViewOpenImageGallery',
+		targetType,
+		targetId,
+	};
+	vscode.postMessage(message);
 }
 
 function placeholder(message: string): HTMLElement {

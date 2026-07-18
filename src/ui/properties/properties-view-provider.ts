@@ -11,11 +11,20 @@ import { getDiagramPayload } from '../../diagram-editor/webview-html';
 import type { DiagramPayload } from '../webview/ontology-diagram-types';
 import { buildPropertiesViewHtml } from './properties-view-html';
 import type { PropertiesViewStateMessage, PropertiesViewToExtensionMessage } from './properties-view-messages';
+import type { ImageGalleryTargetType } from '../../shared/icon-gallery';
 
 export const propertiesViewId = 'ontology-diagram-editor.properties';
 
+export interface PropertiesImageGalleryRequest {
+	readonly diagramUri: vscode.Uri;
+	readonly targetType: ImageGalleryTargetType;
+	readonly targetId: string;
+}
+
 export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
+	private readonly imageGalleryRequestEmitter = new vscode.EventEmitter<PropertiesImageGalleryRequest>();
+	public readonly onDidRequestImageGallery = this.imageGalleryRequestEmitter.event;
 	private view?: vscode.WebviewView;
 	private activeDocument?: vscode.TextDocument;
 	private selectedElementIdentifier?: string;
@@ -63,6 +72,17 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 				}
 				if (message.type === 'propertiesViewFocusCanvas') {
 					void vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+					return;
+				}
+				if (message.type === 'propertiesViewOpenImageGallery') {
+					if (this.activeDocument !== undefined) {
+						this.imageGalleryRequestEmitter.fire({
+							diagramUri: this.activeDocument.uri,
+							targetType: message.targetType,
+							targetId: message.targetId,
+						});
+						void vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+					}
 					return;
 				}
 				this.dispatch(message.command);
@@ -114,6 +134,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 	}
 
 	public dispose(): void {
+		this.imageGalleryRequestEmitter.dispose();
 		for (const disposable of this.disposables.splice(0)) {
 			disposable.dispose();
 		}

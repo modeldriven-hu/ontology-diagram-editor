@@ -7,6 +7,7 @@ import { modelTreeDragMimeType } from '../ui/model-tree/model-tree';
 import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
 import { diagramLayoutAlgorithms, elkLayeredDirections } from '../shared/diagram-layout';
+import { iconGallerySetDefinitions, type IconGallerySet } from '../shared/icon-gallery';
 import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
 import type { DiagramPayload } from '../ui/webview/ontology-diagram-types';
 import type { CanvasViewport } from '../shared/canvas-viewport';
@@ -24,18 +25,27 @@ export async function buildDiagramWebviewHtml(
 	const x6ScriptUri = webview.asWebviewUri(
 		vscode.Uri.joinPath(vscode.Uri.file(__dirname), 'webview', 'x6.min.js'),
 	);
+	const iconGallerySets = iconGallerySetDefinitions.map((set): IconGallerySet => ({
+		...set,
+		uri: webview.asWebviewUri(vscode.Uri.joinPath(
+			vscode.Uri.file(__dirname),
+			'webview',
+			'icon-sets',
+			`${set.id}.json`,
+		)).toString(),
+	}));
 
 	return `<!DOCTYPE html>
 <html lang="en">
 ${webviewHead(document, nonce, webview.cspSource)}
-${webviewBody(document, nonce, x6ScriptUri, scriptUri, payload, initialViewport)}
+${webviewBody(document, nonce, x6ScriptUri, scriptUri, payload, iconGallerySets, initialViewport)}
 </html>`;
 }
 
 function webviewHead(document: vscode.TextDocument, nonce: string, cspSource: string): string {
 	return `<head>
 	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src ${cspSource}; img-src ${cspSource} data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>${escapeHtml(path.basename(document.uri.fsPath))}</title>
 	<style>${webviewStyles()}</style>
@@ -48,6 +58,7 @@ function webviewBody(
 	x6ScriptUri: vscode.Uri,
 	scriptUri: vscode.Uri,
 	payload: DiagramPayload,
+	iconGallerySets: readonly IconGallerySet[],
 	initialViewport?: CanvasViewport,
 ): string {
 	return `<body>
@@ -149,6 +160,7 @@ function webviewBody(
 	<script nonce="${nonce}">
 		window.ontologyDiagramEditorConfig = {
 			payload: ${jsonForScript(payload)},
+			iconGallerySets: ${jsonForScript(iconGallerySets)},
 			initialViewport: ${jsonForScript(initialViewport)},
 			modelTreeDragMimeType: '${modelTreeDragMimeType.toLowerCase()}'
 		};
@@ -1107,6 +1119,10 @@ function webviewStyles(): string {
 
 	.property-inline .property-input {
 		flex: 1 1 auto;
+	}
+
+	.property-image-actions {
+		flex-wrap: wrap;
 	}
 
 	.property-combo-field {

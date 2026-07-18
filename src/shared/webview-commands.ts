@@ -336,9 +336,13 @@ export class CreateNoteConnectionCommand {
 export class CreateImageCommand {
 	public readonly type = 'createImage';
 	public readonly position: CanvasPoint;
+	public readonly source: string | undefined;
+	public readonly pickFile: boolean;
 
-	public constructor(position: CanvasPoint) {
+	public constructor(position: CanvasPoint, source?: string, pickFile = false) {
 		this.position = position;
+		this.source = source;
+		this.pickFile = pickFile;
 	}
 }
 
@@ -571,18 +575,26 @@ export class UpdateNoteExportVisibilityCommand {
 export class PickNodeImageCommand {
 	public readonly type = 'pickNodeImage';
 	public readonly id: string;
+	public readonly source: string | undefined;
+	public readonly pickFile: boolean;
 
-	public constructor(id: string) {
+	public constructor(id: string, source?: string, pickFile = false) {
 		this.id = id;
+		this.source = source;
+		this.pickFile = pickFile;
 	}
 }
 
 export class PickImageSourceCommand {
 	public readonly type = 'pickImageSource';
 	public readonly id: string;
+	public readonly source: string | undefined;
+	public readonly pickFile: boolean;
 
-	public constructor(id: string) {
+	public constructor(id: string, source?: string, pickFile = false) {
 		this.id = id;
+		this.source = source;
+		this.pickFile = pickFile;
 	}
 }
 

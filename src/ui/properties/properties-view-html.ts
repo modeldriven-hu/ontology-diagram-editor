@@ -47,12 +47,6 @@ function propertiesViewStyles(): string {
 		border-bottom: 1px solid var(--vscode-panel-border);
 		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 	}
-	.properties-context-icon {
-		flex: 0 0 auto;
-		width: 20px;
-		height: 20px;
-		color: var(--vscode-symbolIcon-classForeground, var(--vscode-icon-foreground));
-	}
 	.properties-context-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 	.properties-context-kind { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 	.properties-context-id {
@@ -149,6 +143,7 @@ function propertiesViewStyles(): string {
 	.property-checkbox { justify-self: start; width: 16px; height: 16px; margin: 0; accent-color: var(--vscode-focusBorder); }
 	.property-inline { display: flex; align-items: center; gap: 4px; min-width: 0; width: 100%; }
 	.property-inline .property-input { flex: 1 1 auto; }
+	.property-image-actions { flex-wrap: wrap; }
 	.property-combo-field { display: block; min-width: 0; width: 100%; }
 	.property-color-field { align-items: stretch; }
 	.property-color-input {

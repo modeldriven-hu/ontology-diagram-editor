@@ -11,9 +11,15 @@ images, persisting image sources, and editing image borders and shadows.
 
 The canvas shall provide a command for adding a standalone image.
 
-When the user adds an image, the canvas shall ask for an image file using a file picker.
-The selected image file shall be embedded into the `.odiagram` file as a data URI image
-source so diagrams remain portable without copying external image files.
+When the user adds an image, the canvas shall show a searchable built-in icon-gallery
+dialog with icon previews and an icon-set selector, plus a separate action for choosing
+an image file. The gallery shall provide an icon-color chooser, initialized to the
+current blue icon color. Its previews and selected SVG shall use the chosen color. The
+bundled gallery shall include Material Design Icons, Bootstrap Icons,
+and Carbon for additional enterprise, cloud, data, and infrastructure coverage. Icon
+sets shall be loaded on demand so opening a diagram does not load every icon. The
+selected image file or icon shall be embedded into the `.odiagram` file as a data URI
+image source so diagrams remain portable without copying external image files.
 
 The new image shall:
 
@@ -26,6 +32,16 @@ The new image shall:
 
 Relative file paths, absolute file paths, and remote URLs are not supported image
 sources in version 1.
+
+The Image property shall provide a Select action. When a node has an assigned image, it
+shall additionally provide a Clear action; the Clear action shall not be displayed for
+a node without an image. Clearing it shall remove the persisted node `image` value.
+An assigned gallery icon shall additionally provide an Icon Color property that
+recolors its embedded SVG without rasterizing it. Uploaded images and unrelated SVGs
+shall not display the gallery-icon color property.
+
+When image selection is requested from the Properties view, the icon-gallery dialog
+shall be displayed over the diagram canvas rather than inside the Properties view.
 
 # Move Images
 

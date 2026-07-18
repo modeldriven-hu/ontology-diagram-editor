@@ -4,6 +4,7 @@ const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+const iconSetIds = ['mdi', 'carbon', 'bi'];
 
 /**
  * @type {import('esbuild').Plugin}
@@ -27,6 +28,15 @@ const esbuildProblemMatcherPlugin = {
 
 async function main() {
 	fs.mkdirSync(path.join(__dirname, 'dist', 'webview'), { recursive: true });
+	const iconSetsDirectory = path.join(__dirname, 'dist', 'webview', 'icon-sets');
+	fs.rmSync(iconSetsDirectory, { recursive: true, force: true });
+	fs.mkdirSync(iconSetsDirectory, { recursive: true });
+	for (const iconSetId of iconSetIds) {
+		fs.copyFileSync(
+			require.resolve(`@iconify-json/${iconSetId}/icons.json`),
+			path.join(iconSetsDirectory, `${iconSetId}.json`),
+		);
+	}
 	fs.copyFileSync(
 		require.resolve('@antv/x6/dist/x6.min.js'),
 		path.join(__dirname, 'dist', 'webview', 'x6.min.js'),

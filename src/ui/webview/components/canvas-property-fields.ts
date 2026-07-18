@@ -148,25 +148,22 @@ export function selectField<TValue extends string>(
 	return editableField(label, input);
 }
 
-export function imageField(label: string, hasImage: boolean, pick: () => void, clear?: () => void): HTMLElement {
+export function imageField(label: string, pick: () => void, clear?: () => void): HTMLElement {
 	const wrapper = document.createElement('span');
-	wrapper.className = 'property-inline';
-	const input = document.createElement('input');
-	input.className = 'property-input';
-	input.type = 'text';
-	input.value = hasImage ? 'Embedded image' : 'No image selected';
-	input.readOnly = true;
+	wrapper.className = 'property-inline property-image-actions';
 	const button = document.createElement('button');
 	button.className = 'property-button';
 	button.type = 'button';
-	button.textContent = 'Pick';
+	button.textContent = 'Select';
+	button.setAttribute('aria-label', `Select ${label.toLocaleLowerCase()}`);
 	button.addEventListener('click', pick);
-	wrapper.append(input, button);
+	wrapper.appendChild(button);
 	if (clear !== undefined) {
 		const clearButton = document.createElement('button');
 		clearButton.className = 'property-button';
 		clearButton.type = 'button';
 		clearButton.textContent = 'Clear';
+		clearButton.setAttribute('aria-label', `Clear ${label.toLocaleLowerCase()}`);
 		clearButton.addEventListener('click', clear);
 		wrapper.appendChild(clearButton);
 	}

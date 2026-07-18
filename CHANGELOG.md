@@ -6,6 +6,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+- Added a searchable offline gallery containing Material Design Icons, Bootstrap Icons,
+  and IBM Carbon, including extensive IT and cloud coverage and recolorable SVG icons.
+
 ## [1.2.0] - 2026-07-17
 
 - Added model-tree multi-selection drag and drop to the diagram canvas.

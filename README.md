@@ -27,6 +27,9 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
   source or target references, choose the intended endpoints before materializing it.
 - Render ontology-backed nodes and edges with UML-style conventions.
 - Add, edit, move, resize, and delete notes, standalone labels, and standalone images.
+- Choose embedded SVG images from three searchable offline icon sets with extensive IT
+  and cloud coverage, choose their color in the gallery or Properties, or select a local
+  image file.
 - Connect notes to nodes, images, or other notes with persisted annotation edges.
 - Select canvas elements with modifiers or a marquee, move them with the keyboard, and
   move multiple selected elements together by keyboard or drag.
@@ -53,8 +56,9 @@ namespace shortcuts, positioned nodes and edges, plus optional notes, images, la
 and element-level style overrides. Relative ontology and theme paths are resolved from
 the `.odiagram` file.
 
-Images added through the canvas are embedded as data URI sources so diagrams remain
-portable. Relative image paths and remote image URLs are not supported in version 1.
+Images added through the canvas, including gallery icons, are embedded as data URI
+sources so diagrams remain portable. Relative image paths and remote image URLs are not
+supported in version 1.
 
 Detailed feature specifications are available in `docs/features/`.
 

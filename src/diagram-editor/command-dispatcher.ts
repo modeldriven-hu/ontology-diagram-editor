@@ -329,10 +329,10 @@ export class DiagramCommandDispatcher {
 				));
 				return;
 			case 'pickNodeImage':
-				await this.pickNodeImage(command.id);
+				await this.pickNodeImage(command);
 				return;
 			case 'pickImageSource':
-				await this.pickImageSource(command.id);
+				await this.pickImageSource(command);
 				return;
 			case 'updateLabelBounds':
 				await this.handleResult(this.useCases.updateLabelBounds.execute(
@@ -689,41 +689,41 @@ export class DiagramCommandDispatcher {
 	}
 
 	private async createImage(command: Extract<WebviewCommand, { readonly type: 'createImage' }>): Promise<void> {
-		const imageUri = await pickImageFile('Add Image', 'Add image to ontology diagram');
-		if (imageUri === undefined) {
+		const source = await resolveEmbeddedImageSource(command.source, command.pickFile, 'Add Image', 'Add image to ontology diagram');
+		if (source === undefined) {
 			return;
 		}
 
 		await this.handleResult(this.useCases.createImage.execute(
 			this.repository.load(),
-			await embeddedImageSourceFromFile(imageUri.fsPath),
+			source,
 			command.position,
 		));
 	}
 
-	private async pickNodeImage(id: string): Promise<void> {
-		const imageUri = await pickImageFile('Set Image', 'Set node image');
-		if (imageUri === undefined) {
+	private async pickNodeImage(command: Extract<WebviewCommand, { readonly type: 'pickNodeImage' }>): Promise<void> {
+		const source = await resolveEmbeddedImageSource(command.source, command.pickFile, 'Set Image', 'Set node image');
+		if (source === undefined) {
 			return;
 		}
 
 		await this.handleResult(this.useCases.updateNodeImage.execute(
 			this.repository.load(),
-			id,
-			await embeddedImageSourceFromFile(imageUri.fsPath),
+			command.id,
+			source,
 		));
 	}
 
-	private async pickImageSource(id: string): Promise<void> {
-		const imageUri = await pickImageFile('Set Image', 'Set standalone image source');
-		if (imageUri === undefined) {
+	private async pickImageSource(command: Extract<WebviewCommand, { readonly type: 'pickImageSource' }>): Promise<void> {
+		const source = await resolveEmbeddedImageSource(command.source, command.pickFile, 'Set Image', 'Set standalone image source');
+		if (source === undefined) {
 			return;
 		}
 
 		await this.handleResult(this.useCases.updateImageSource.execute(
 			this.repository.load(),
-			id,
-			await embeddedImageSourceFromFile(imageUri.fsPath),
+			command.id,
+			source,
 		));
 	}
 
@@ -860,6 +860,23 @@ async function pickImageFile(openLabel: string, title: string): Promise<vscode.U
 	});
 
 	return selectedImage?.[0];
+}
+
+async function resolveEmbeddedImageSource(
+	source: string | undefined,
+	pickFile: boolean,
+	openLabel: string,
+	title: string,
+): Promise<string | undefined> {
+	if (source !== undefined) {
+		return source;
+	}
+	if (!pickFile) {
+		return undefined;
+	}
+
+	const imageUri = await pickImageFile(openLabel, title);
+	return imageUri === undefined ? undefined : embeddedImageSourceFromFile(imageUri.fsPath);
 }
 
 async function embeddedImageSourceFromFile(filePath: string): Promise<string> {

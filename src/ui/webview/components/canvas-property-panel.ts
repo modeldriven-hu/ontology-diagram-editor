@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { ontologyLegendEntries } from './ontology-legend';
@@ -13,6 +13,7 @@ import { availableNodeDataPropertyAttributes, availableNodePropertyValueAttribut
 import { ontologyCommentsForReference } from './ontology-comments';
 import { ontologyAnnotationFieldsForReference } from './ontology-annotations';
 import type { WebviewTheme } from '../webview-theme';
+import { embeddedGalleryIconColor, recolorEmbeddedGalleryIcon } from '../../../shared/embedded-gallery-icon';
 
 interface CanvasPropertyPanelOptions {
 	readonly canvas: Pick<DiagramCanvasEngine, 'restoreBounds' | 'updateElementContent'>;
@@ -23,6 +24,8 @@ interface CanvasPropertyPanelOptions {
 	readonly body: HTMLElement;
 	readonly getTheme: () => WebviewTheme;
 	readonly focusAfterEscape: () => void;
+	readonly chooseNodeImage: (id: string) => void;
+	readonly chooseStandaloneImage: (id: string) => void;
 	readonly selectedTabByContext?: Map<string, string>;
 }
 
@@ -92,7 +95,7 @@ export class CanvasPropertyPanel {
 	}
 
 	private renderMultipleSelectionContext(): void {
-		this.renderContextHeader('multiple', 'Multiple selection', `${this.selectedElementCount} elements selected`);
+		this.renderContextHeader('Multiple selection', `${this.selectedElementCount} elements selected`);
 		const message = document.createElement('p');
 		message.className = 'property-empty-message';
 		message.textContent = 'Select a single element to inspect and edit its properties.';
@@ -103,7 +106,7 @@ export class CanvasPropertyPanel {
 		const file = this.options.payload.file;
 		const diagram = this.options.payload.diagram;
 		const metadata = diagram?.metadata;
-		this.renderContextHeader('diagram', 'Diagram', fileName(file?.fsPath));
+		this.renderContextHeader('Diagram', fileName(file?.fsPath));
 		this.renderTabs('diagram', [
 			{
 				id: 'summary',
@@ -135,7 +138,7 @@ export class CanvasPropertyPanel {
 	}
 
 	private renderElement(element: CanvasPropertyElement): void {
-		this.renderContextHeader(element.kind, capitalize(element.kind), element.value.id);
+		this.renderContextHeader(capitalize(element.kind), element.value.id);
 
 		if (element.kind === 'node') {
 			this.renderTabs(element.value.id, this.nodeTabs(element.value));
@@ -154,9 +157,8 @@ export class CanvasPropertyPanel {
 		}
 	}
 
-	private renderContextHeader(kind: CanvasElementType | 'multiple', label: string, identifier?: string): void {
+	private renderContextHeader(label: string, identifier?: string): void {
 		this.options.title.textContent = '';
-		const icon = propertyContextIcon(kind);
 		const text = document.createElement('span');
 		text.className = 'properties-context-text';
 		const labelElement = document.createElement('strong');
@@ -170,7 +172,7 @@ export class CanvasPropertyPanel {
 			identifierElement.title = identifier;
 			text.appendChild(identifierElement);
 		}
-		this.options.title.append(icon, text);
+		this.options.title.appendChild(text);
 	}
 
 	private legendTabs(element: DiagramLegendElement): readonly PropertyTab[] {
@@ -224,6 +226,7 @@ export class CanvasPropertyPanel {
 	}
 
 	private nodeTabs(node: DiagramNode): readonly PropertyTab[] {
+		const iconColor = embeddedGalleryIconColor(node.image);
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
 		const propertyValueAttributes = availableNodePropertyValueAttributes(node, this.options.payload);
 		const annotationFields = ontologyAnnotationFieldsForReference(node.ontology_ref, this.options.payload);
@@ -287,13 +290,22 @@ export class CanvasPropertyPanel {
 				label: 'Details',
 				sections: [
 					sectionElement('Image', [
-						imageField('Image', node.image !== undefined, () => {
-							this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
+						imageField('Image', () => {
+							this.options.chooseNodeImage(node.id);
 						}, node.image === undefined ? undefined : () => {
 							this.updateElementContent({ kind: 'nodeImage', id: node.id, image: undefined });
 							this.propertyEdited('node', node.id, ['image']);
 							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
 						}),
+						...(iconColor === undefined || node.image === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
+							const image = recolorEmbeddedGalleryIcon(node.image ?? '', color);
+							if (image === undefined) {
+								return;
+							}
+							this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
+							this.propertyEdited('node', node.id, ['image']);
+							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
+						})]),
 						...(node.image === undefined ? [] : [selectField('Fit', node.style?.image_fit ?? 'contain', nodeImageFitOptions, (value) => {
 							const style = cloneCommonStyle(node.style);
 							this.updateElementStyle('node', node.id, cleanCommonStyle({ ...style, image_fit: value ?? 'contain' }));
@@ -427,15 +439,24 @@ export class CanvasPropertyPanel {
 	}
 
 	private imageTabs(image: DiagramImage): readonly PropertyTab[] {
+		const iconColor = embeddedGalleryIconColor(image.source);
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
 					sectionElement('Image', [
-						imageField('Source', true, () => {
-							this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
+						imageField('Source', () => {
+							this.options.chooseStandaloneImage(image.id);
 						}),
+						...(iconColor === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
+							const source = recolorEmbeddedGalleryIcon(image.source, color);
+							if (source === undefined) {
+								return;
+							}
+							this.propertyEdited('image', image.id, ['source']);
+							this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id, source, false));
+						})]),
 					]),
 				],
 			},
@@ -814,63 +835,6 @@ export class CanvasPropertyPanel {
 		this.options.messageBus.publishCommand(new UpdateNodeBoundsCommand([update]));
 	}
 
-}
-
-function propertyContextIcon(kind: CanvasElementType | 'multiple'): SVGSVGElement {
-	const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	icon.classList.add('properties-context-icon');
-	icon.setAttribute('viewBox', '0 0 20 20');
-	icon.setAttribute('aria-hidden', 'true');
-	icon.setAttribute('fill', 'none');
-	icon.setAttribute('stroke', 'currentColor');
-	icon.setAttribute('stroke-width', '1.5');
-	icon.setAttribute('stroke-linecap', 'round');
-	icon.setAttribute('stroke-linejoin', 'round');
-
-	if (kind === 'node') {
-		appendSvgElement(icon, 'rect', { x: '3.5', y: '3.5', width: '13', height: '13', rx: '2' });
-	} else if (kind === 'edge') {
-		appendSvgElement(icon, 'path', { d: 'M5 14.5 15 5.5M12 5.5h3v3' });
-		appendSvgElement(icon, 'circle', { cx: '4', cy: '16', r: '1.5' });
-	} else if (kind === 'note') {
-		appendSvgElement(icon, 'path', { d: 'M5 2.75h7l3.5 3.5v11H5zM12 2.75v4h3.5M7.5 10h5M7.5 13h4' });
-	} else if (kind === 'label') {
-		appendSvgElement(icon, 'path', { d: 'M4 5h12M10 5v10.5M7 15.5h6' });
-	} else if (kind === 'image') {
-		appendSvgElement(icon, 'rect', { x: '3', y: '4', width: '14', height: '12', rx: '1.5' });
-		appendSvgElement(icon, 'circle', { cx: '7', cy: '8', r: '1.25' });
-		appendSvgElement(icon, 'path', { d: 'm4.5 14 3.75-3.75 2.5 2.5 1.75-1.75 3 3' });
-	} else if (kind === 'metadata') {
-		appendSvgElement(icon, 'circle', { cx: '10', cy: '10', r: '7' });
-		appendSvgElement(icon, 'path', { d: 'M10 9v5' });
-		appendSvgElement(icon, 'circle', { cx: '10', cy: '6.25', r: '.5', fill: 'currentColor', stroke: 'none' });
-	} else if (kind === 'legend') {
-		appendSvgElement(icon, 'rect', { x: '3', y: '3.5', width: '14', height: '13', rx: '1.5' });
-		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '7', r: '1' });
-		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '10', r: '1' });
-		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '13', r: '1' });
-		appendSvgElement(icon, 'path', { d: 'M9.5 7H14M9.5 10H14M9.5 13H14' });
-	} else if (kind === 'multiple') {
-		appendSvgElement(icon, 'rect', { x: '3', y: '3', width: '10', height: '10', rx: '1.5' });
-		appendSvgElement(icon, 'path', { d: 'M7 16.5h8a1.5 1.5 0 0 0 1.5-1.5V7' });
-	} else {
-		appendSvgElement(icon, 'rect', { x: '3', y: '3', width: '14', height: '14', rx: '1.5' });
-		appendSvgElement(icon, 'path', { d: 'M3 8h14M8 3v14' });
-	}
-
-	return icon;
-}
-
-function appendSvgElement<TName extends keyof SVGElementTagNameMap>(
-	parent: SVGSVGElement,
-	name: TName,
-	attributes: Readonly<Record<string, string>>,
-): void {
-	const element = document.createElementNS('http://www.w3.org/2000/svg', name);
-	for (const [attribute, value] of Object.entries(attributes)) {
-		element.setAttribute(attribute, value);
-	}
-	parent.appendChild(element);
 }
 
 function capitalize(value: string): string {

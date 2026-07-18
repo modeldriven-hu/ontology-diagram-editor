@@ -3,9 +3,11 @@ import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabel
 import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateLegendElementCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteLegendElementCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateLegendElementCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteLegendElementCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, PickImageSourceCommand, PickNodeImageCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import type { IconGallerySet, ImageGalleryTargetType, OpenImageGalleryMessage } from '../../../shared/icon-gallery';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
+import { IconGalleryDialog } from '../components/icon-gallery-dialog';
 import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
@@ -25,6 +27,7 @@ import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
 import { FixedToolbarController } from './fixed-toolbar-controller';
 import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderCanvasToolbarPinIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
+import { embeddedGalleryIconColor } from '../../../shared/embedded-gallery-icon';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand | CanvasSelectionChangedEvent): void;
@@ -40,6 +43,7 @@ declare global {
 
 interface WebviewConfig {
 	readonly payload: DiagramPayload;
+	readonly iconGallerySets: readonly IconGallerySet[];
 	readonly modelTreeDragMimeType: string;
 	readonly initialViewport?: CanvasViewport;
 }
@@ -74,6 +78,7 @@ if (config === undefined) {
 }
 
 const webviewConfig = config;
+const iconGalleryDialog = new IconGalleryDialog(webviewConfig.iconGallerySets);
 const vscode = acquireVsCodeApi();
 const canvasScroll = requiredElement('canvasScroll');
 const canvasContent = requiredElement('canvasContent');
@@ -318,6 +323,7 @@ renderViewportToolbarIcons({
 updateToolbarActionStates();
 applyCanvasTheme(theme);
 registerExtensionMessageForwarding();
+registerHostMessageHandlers();
 registerCanvasStateSubscriptions();
 render();
 registerSelectionEventPublishing();
@@ -334,7 +340,12 @@ addOntologyItemButton.addEventListener('click', () => {
 });
 addImageButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
-	messageBus.publishCommand(new CreateImageCommand(insertionPosition()));
+	const position = insertionPosition();
+	iconGalleryDialog.open({
+		title: 'Add image',
+		onIconSelected: (source) => messageBus.publishCommand(new CreateImageCommand(position, source)),
+		onFileSelected: () => messageBus.publishCommand(new CreateImageCommand(position, undefined, true)),
+	});
 });
 addMetadataButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
@@ -436,6 +447,30 @@ function registerExtensionMessageForwarding(): void {
 		if (message.payload.type === 'canvasSelectionChanged') {
 			vscode.postMessage(message.payload);
 		}
+	});
+}
+
+function registerHostMessageHandlers(): void {
+	window.addEventListener('message', (event: MessageEvent<OpenImageGalleryMessage>) => {
+		if (event.data.type === 'openImageGallery') {
+			openTargetImageGallery(event.data.targetType, event.data.targetId);
+		}
+	});
+}
+
+function openTargetImageGallery(targetType: ImageGalleryTargetType, targetId: string): void {
+	const publishSelection = (source: string | undefined, pickFile: boolean): void => {
+		messageBus.publishCommand(targetType === 'node'
+			? new PickNodeImageCommand(targetId, source, pickFile)
+			: new PickImageSourceCommand(targetId, source, pickFile));
+	};
+	iconGalleryDialog.open({
+		title: targetType === 'node' ? 'Set node image' : 'Set standalone image source',
+		onIconSelected: (source) => publishSelection(source, false),
+		onFileSelected: () => publishSelection(undefined, true),
+		initialColor: embeddedGalleryIconColor(targetType === 'node'
+			? webviewConfig.payload.diagram?.nodes?.find((node) => node.id === targetId)?.image
+			: webviewConfig.payload.diagram?.images?.find((image) => image.id === targetId)?.source),
 	});
 }
 
