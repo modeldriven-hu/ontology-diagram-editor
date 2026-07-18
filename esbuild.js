@@ -67,19 +67,39 @@ async function main() {
 			esbuildProblemMatcherPlugin,
 		],
 	});
+	const propertiesWebviewContext = await esbuild.context({
+		entryPoints: [
+			'src/ui/properties/webview/properties-view.ts'
+		],
+		bundle: true,
+		format: 'iife',
+		globalName: 'OntologyDiagramProperties',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/webview/properties-view.js',
+		logLevel: 'silent',
+		plugins: [
+			esbuildProblemMatcherPlugin,
+		],
+	});
 	if (watch) {
 		await Promise.all([
 			extensionContext.watch(),
 			webviewContext.watch(),
+			propertiesWebviewContext.watch(),
 		]);
 	} else {
 		await Promise.all([
 			extensionContext.rebuild(),
 			webviewContext.rebuild(),
+			propertiesWebviewContext.rebuild(),
 		]);
 		await Promise.all([
 			extensionContext.dispose(),
 			webviewContext.dispose(),
+			propertiesWebviewContext.dispose(),
 		]);
 	}
 }

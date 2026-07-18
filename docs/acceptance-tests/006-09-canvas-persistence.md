@@ -16,4 +16,4 @@
 
 ## Editor-Only State
 
-- Given selection, hover, active drag, property panel width, pan, or zoom changes, when persistence runs, then none of those values are written to the `.odiagram` file.
+- Given selection, hover, active drag, Properties view layout, pan, or zoom changes, when persistence runs, then none of those values are written to the `.odiagram` file.

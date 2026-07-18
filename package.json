@@ -100,6 +100,11 @@
         {
           "id": "ontology-diagram-editor.modelTree",
           "name": "Model Tree"
+        },
+        {
+          "id": "ontology-diagram-editor.properties",
+          "name": "Properties",
+          "type": "webview"
         }
       ]
     },

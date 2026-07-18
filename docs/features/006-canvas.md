@@ -28,7 +28,7 @@ Canvas behavior is split into these feature specifications:
 | `006-07-canvas-toolbar.md` | Canvas toolbar and local selected-element toolbar behavior. |
 | `006-08-canvas-events.md` | Canvas event architecture and event payloads. |
 | `006-09-canvas-persistence.md` | Saving canvas edits to `.odiagram`, batching gesture changes, preserving unknown fields, and persistence failures. |
-| `006-10-canvas-property-panel.md` | Side property panel behavior for inspecting and editing selected element properties. |
+| `006-10-canvas-property-panel.md` | Properties view behavior for inspecting and editing selected element properties. |
 | `006-11-canvas-export.md` | SVG and PNG export behavior from the canvas toolbar. |
 
 # Concepts
@@ -148,7 +148,6 @@ Version 1 shall define actions for:
 - Fit diagram to view.
 - Reset viewport.
 - Select corresponding model-tree item.
-- Toggle property panel.
 - Toggle light/dark mode.
 
 The create new diagram command shall ask the user for a file name and create a valid

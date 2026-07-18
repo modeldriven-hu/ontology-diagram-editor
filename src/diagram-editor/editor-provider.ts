@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import type { DiagramRefreshRequestedEvent, ModelTreeItemDraggedEvent, ModelTreeItemsAddRequestedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
+import type { CanvasSelectionChangedEvent } from '../shared/canvas-editor-events';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
 import { buildDiagramWebviewHtml } from './webview-html';
@@ -20,6 +21,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidActivateDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidCloseDiagram: (document: vscode.TextDocument) => void | Promise<void>,
 		private readonly onDidChangeDiagramDependency: (document: vscode.TextDocument, event: DiagramDependencyChangedEvent) => void | Promise<void>,
+		private readonly onDidChangeCanvasSelection: (document: vscode.TextDocument, event: CanvasSelectionChangedEvent) => void | Promise<void>,
 		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
@@ -102,7 +104,11 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 				void this.queueDiagramStateUpdate(() => this.onDidActivateDiagram(activeDocument));
 			}
 		});
-		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: WebviewCommand) => {
+		const commandDisposable = webviewPanel.webview.onDidReceiveMessage(async (command: DiagramWebviewMessage) => {
+			if (command.type === 'canvasSelectionChanged') {
+				await this.onDidChangeCanvasSelection(document, command);
+				return;
+			}
 			if (command.type === 'updateCanvasViewport') {
 				viewportPersistence.capture(command.viewport);
 				return;
@@ -155,6 +161,8 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		return this.diagramStateQueue;
 	}
 }
+
+type DiagramWebviewMessage = WebviewCommand | CanvasSelectionChangedEvent;
 
 function isInPlaceBoundsUpdate(command: WebviewCommand): boolean {
 	return command.type === 'updateElementBounds'

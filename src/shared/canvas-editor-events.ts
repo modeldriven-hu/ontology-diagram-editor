@@ -9,8 +9,7 @@ export type CanvasEditorEvent =
 	| CanvasDragCompletedEvent
 	| CanvasUndoRequestedEvent
 	| CanvasRedoRequestedEvent
-	| CanvasPropertyEditedEvent
-	| CanvasPropertyPanelVisibilityChangedEvent;
+	| CanvasPropertyEditedEvent;
 
 export class CanvasRenderedEvent {
 	public readonly type = 'canvasRendered';
@@ -134,25 +133,5 @@ export class CanvasPropertyEditedEvent {
 		this.elementIdentifier = options.elementIdentifier;
 		this.elementType = options.elementType;
 		this.changedFields = options.changedFields;
-	}
-}
-
-export class CanvasPropertyPanelVisibilityChangedEvent {
-	public readonly type = 'canvasPropertyPanelVisibilityChanged';
-	public readonly diagramFilePath?: string;
-	public readonly visible: boolean;
-	public readonly collapsed: boolean;
-	public readonly panelHeight: number;
-
-	public constructor(options: {
-		readonly diagramFilePath?: string;
-		readonly visible: boolean;
-		readonly collapsed: boolean;
-		readonly panelHeight: number;
-	}) {
-		this.diagramFilePath = options.diagramFilePath;
-		this.visible = options.visible;
-		this.collapsed = options.collapsed;
-		this.panelHeight = options.panelHeight;
 	}
 }

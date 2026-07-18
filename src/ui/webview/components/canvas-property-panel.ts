@@ -1,5 +1,5 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
-import { CanvasPropertyEditedEvent, CanvasPropertyPanelVisibilityChangedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
+import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
 import { PickImageSourceCommand, PickNodeImageCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -19,19 +19,11 @@ interface CanvasPropertyPanelOptions {
 	readonly payload: DiagramPayload;
 	readonly registry: CanvasElementRegistry;
 	readonly messageBus: CanvasMessageBus;
-	readonly panel: HTMLElement;
-	readonly resizeHandle: HTMLElement;
 	readonly title: HTMLElement;
-	readonly toggleButton: HTMLButtonElement;
 	readonly body: HTMLElement;
 	readonly getTheme: () => WebviewTheme;
-	readonly showStatus: (message: string) => void;
-	readonly resetEdgeLabel: (edgeId: string) => void;
 	readonly focusAfterEscape: () => void;
-	readonly initialCollapsed?: boolean;
-	readonly initialWidth?: number;
-	readonly onCollapsedChange?: (collapsed: boolean) => void;
-	readonly onWidthChange?: (width: number) => void;
+	readonly selectedTabByContext?: Map<string, string>;
 }
 
 interface PropertyTab {
@@ -41,23 +33,15 @@ interface PropertyTab {
 }
 
 export class CanvasPropertyPanel {
-	private collapsed = true;
-	private panelWidth?: number;
 	private selectedElement: CanvasPropertyElement | undefined;
 	private selectedElementCount = 0;
-	private readonly selectedTabByContext = new Map<string, string>();
+	private readonly selectedTabByContext: Map<string, string>;
 
-	public constructor(private readonly options: CanvasPropertyPanelOptions) {}
+	public constructor(private readonly options: CanvasPropertyPanelOptions) {
+		this.selectedTabByContext = options.selectedTabByContext ?? new Map<string, string>();
+	}
 
 	public register(): void {
-		if (this.options.initialWidth !== undefined) {
-			this.applyWidth(this.options.initialWidth, false);
-		}
-		this.setCollapsed(resolvedPropertyPanelCollapsed(this.options.initialCollapsed), false);
-		this.registerResizeHandle();
-		this.options.toggleButton.addEventListener('click', () => {
-			this.setCollapsed(!this.collapsed);
-		});
 		this.options.body.addEventListener('keydown', (event) => {
 			event.stopPropagation();
 			if (event.key === 'Escape') {
@@ -92,108 +76,6 @@ export class CanvasPropertyPanel {
 		this.renderSelection();
 	}
 
-	private setCollapsed(collapsed: boolean, notify = true): void {
-		this.collapsed = collapsed;
-		this.options.panel.classList.toggle('collapsed', collapsed);
-		this.options.panel.closest('.editor')?.classList.toggle('property-panel-collapsed', collapsed);
-		this.options.toggleButton.setAttribute('aria-expanded', String(!collapsed));
-		this.options.messageBus.publishEvent(new CanvasPropertyPanelVisibilityChangedEvent({
-			diagramFilePath: this.options.payload.file?.fsPath,
-			visible: true,
-			collapsed,
-			panelHeight: this.options.panel.getBoundingClientRect().height,
-		}));
-		if (notify) {
-			this.options.onCollapsedChange?.(collapsed);
-		}
-	}
-
-	private registerResizeHandle(): void {
-		let startX = 0;
-		let startWidth = 0;
-		let activePointerId: number | undefined;
-		const editor = this.editorElement();
-
-		this.options.resizeHandle.addEventListener('pointerdown', (event) => {
-			if (this.collapsed || editor === undefined) {
-				return;
-			}
-
-			activePointerId = event.pointerId;
-			startX = event.clientX;
-			startWidth = this.currentPanelWidth();
-			this.options.resizeHandle.setPointerCapture(event.pointerId);
-			editor.classList.add('property-panel-resizing');
-			event.preventDefault();
-		});
-
-		this.options.resizeHandle.addEventListener('pointermove', (event) => {
-			if (activePointerId !== event.pointerId) {
-				return;
-			}
-
-			this.applyWidth(startWidth + startX - event.clientX);
-		});
-
-		const finishResize = (event: PointerEvent): void => {
-			if (activePointerId !== event.pointerId) {
-				return;
-			}
-
-			activePointerId = undefined;
-			editor?.classList.remove('property-panel-resizing');
-			if (this.options.resizeHandle.hasPointerCapture(event.pointerId)) {
-				this.options.resizeHandle.releasePointerCapture(event.pointerId);
-			}
-		};
-
-		this.options.resizeHandle.addEventListener('pointerup', finishResize);
-		this.options.resizeHandle.addEventListener('pointercancel', finishResize);
-		this.options.resizeHandle.addEventListener('keydown', (event) => {
-			if (this.collapsed || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) {
-				return;
-			}
-
-			const step = event.shiftKey ? 80 : 24;
-			this.applyWidth(this.currentPanelWidth() + (event.key === 'ArrowLeft' ? step : -step));
-			event.preventDefault();
-		});
-	}
-
-	private currentPanelWidth(): number {
-		return this.panelWidth ?? this.options.panel.getBoundingClientRect().width;
-	}
-
-	private applyWidth(width: number, notify = true): void {
-		const editor = this.editorElement();
-		if (editor === undefined) {
-			return;
-		}
-
-		const clampedWidth = this.clampWidth(width);
-		this.panelWidth = clampedWidth;
-		editor.style.setProperty('--property-panel-width', `${clampedWidth}px`);
-		if (notify) {
-			this.options.onWidthChange?.(clampedWidth);
-		}
-	}
-
-	private clampWidth(width: number): number {
-		const editorWidth = this.editorElement()?.getBoundingClientRect().width ?? 0;
-		const minimumWidth = 200;
-		const maximumWidth = editorWidth > 0
-			? Math.max(minimumWidth, Math.min(640, editorWidth - 360))
-			: 640;
-
-		return Math.round(Math.min(Math.max(width, minimumWidth), maximumWidth));
-	}
-
-	private editorElement(): HTMLElement | undefined {
-		const editor = this.options.panel.closest('.editor');
-
-		return editor instanceof HTMLElement ? editor : undefined;
-	}
-
 	private renderSelection(): void {
 		this.options.body.textContent = '';
 		if (this.selectedElement === undefined) {
@@ -202,26 +84,26 @@ export class CanvasPropertyPanel {
 				return;
 			}
 
-			this.options.title.textContent = 'Diagram Properties';
 			this.renderDiagramContext();
 			return;
 		}
 
-		this.options.title.textContent = `${capitalize(this.selectedElement.kind)} Properties`;
 		this.renderElement(this.selectedElement);
 	}
 
 	private renderMultipleSelectionContext(): void {
-		this.options.title.textContent = 'Multiple Selection';
-		this.options.body.append(sectionElement('Selection', [
-			readonlyField('Selected', String(this.selectedElementCount)),
-		]));
+		this.renderContextHeader('multiple', 'Multiple selection', `${this.selectedElementCount} elements selected`);
+		const message = document.createElement('p');
+		message.className = 'property-empty-message';
+		message.textContent = 'Select a single element to inspect and edit its properties.';
+		this.options.body.appendChild(message);
 	}
 
 	private renderDiagramContext(): void {
 		const file = this.options.payload.file;
 		const diagram = this.options.payload.diagram;
 		const metadata = diagram?.metadata;
+		this.renderContextHeader('diagram', 'Diagram', fileName(file?.fsPath));
 		this.renderTabs('diagram', [
 			{
 				id: 'summary',
@@ -253,32 +135,48 @@ export class CanvasPropertyPanel {
 	}
 
 	private renderElement(element: CanvasPropertyElement): void {
-		const identitySection = sectionElement('Identity', [
-			readonlyField('Type', capitalize(element.kind)),
-			readonlyField('ID', element.value.id),
-		]);
+		this.renderContextHeader(element.kind, capitalize(element.kind), element.value.id);
 
 		if (element.kind === 'node') {
-			this.renderTabs(element.value.id, this.nodeTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.nodeTabs(element.value));
 		} else if (element.kind === 'edge') {
-			this.renderTabs(element.value.id, this.edgeTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.edgeTabs(element.value));
 		} else if (element.kind === 'note') {
-			this.renderTabs(element.value.id, this.noteTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.noteTabs(element.value));
 		} else if (element.kind === 'label') {
-			this.renderTabs(element.value.id, this.labelTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.labelTabs(element.value));
 		} else if (element.kind === 'metadata') {
-			this.renderTabs(element.value.id, this.metadataTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.metadataTabs(element.value));
 		} else if (element.kind === 'legend') {
-			this.renderTabs(element.value.id, this.legendTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.legendTabs(element.value));
 		} else {
-			this.renderTabs(element.value.id, this.imageTabs(element.value, identitySection));
+			this.renderTabs(element.value.id, this.imageTabs(element.value));
 		}
 	}
 
-	private legendTabs(element: DiagramLegendElement, identitySection: HTMLElement): readonly PropertyTab[] {
+	private renderContextHeader(kind: CanvasElementType | 'multiple', label: string, identifier?: string): void {
+		this.options.title.textContent = '';
+		const icon = propertyContextIcon(kind);
+		const text = document.createElement('span');
+		text.className = 'properties-context-text';
+		const labelElement = document.createElement('strong');
+		labelElement.className = 'properties-context-kind';
+		labelElement.textContent = label;
+		text.appendChild(labelElement);
+		if (identifier !== undefined && identifier.length > 0) {
+			const identifierElement = document.createElement('span');
+			identifierElement.className = 'properties-context-id';
+			identifierElement.textContent = identifier;
+			identifierElement.title = identifier;
+			text.appendChild(identifierElement);
+		}
+		this.options.title.append(icon, text);
+	}
+
+	private legendTabs(element: DiagramLegendElement): readonly PropertyTab[] {
 		const entries = ontologyLegendEntries(this.options.payload);
 		return [
-			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Color Viewpoint', [
+			{ id: 'details', label: 'Details', sections: [sectionElement('Color Viewpoint', [
 				selectField('Color Elements By', element.color_by ?? 'ontologySource', [
 					{ value: 'ontologySource', label: 'Source Ontology' },
 					{ value: 'elementType', label: 'Element Type' },
@@ -309,10 +207,10 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private metadataTabs(element: DiagramMetadataElement, identitySection: HTMLElement): readonly PropertyTab[] {
+	private metadataTabs(element: DiagramMetadataElement): readonly PropertyTab[] {
 		const metadata = this.options.payload.diagram?.metadata;
 		return [
-			{ id: 'details', label: 'Details', sections: [identitySection, sectionElement('Diagram Information', [
+			{ id: 'details', label: 'Details', sections: [sectionElement('Diagram Information', [
 				readonlyField('Title', metadata?.title ?? ''),
 				readonlyField('Author', authorsText(metadata?.authors ?? [])),
 				readonlyField('Version', metadata?.diagram_version ?? ''),
@@ -325,7 +223,7 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private nodeTabs(node: DiagramNode, identitySection: HTMLElement): readonly PropertyTab[] {
+	private nodeTabs(node: DiagramNode): readonly PropertyTab[] {
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
 		const propertyValueAttributes = availableNodePropertyValueAttributes(node, this.options.payload);
 		const annotationFields = ontologyAnnotationFieldsForReference(node.ontology_ref, this.options.payload);
@@ -388,7 +286,6 @@ export class CanvasPropertyPanel {
 				id: 'details',
 				label: 'Details',
 				sections: [
-					identitySection,
 					sectionElement('Image', [
 						imageField('Image', node.image !== undefined, () => {
 							this.options.messageBus.publishCommand(new PickNodeImageCommand(node.id));
@@ -421,13 +318,12 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private edgeTabs(edge: DiagramEdge, identitySection: HTMLElement): readonly PropertyTab[] {
+	private edgeTabs(edge: DiagramEdge): readonly PropertyTab[] {
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
-					identitySection,
 					sectionElement('Ontology', [
 						readonlyField('Ref', edge.ontology_ref),
 						readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
@@ -449,13 +345,12 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private noteTabs(note: DiagramNote, identitySection: HTMLElement): readonly PropertyTab[] {
+	private noteTabs(note: DiagramNote): readonly PropertyTab[] {
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
-					identitySection,
 					sectionElement('Text', [
 						textAreaField('Text', note.text, (value) => {
 							this.updateElementContent({ kind: 'noteText', id: note.id, text: value });
@@ -492,13 +387,12 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private labelTabs(label: DiagramLabel, identitySection: HTMLElement): readonly PropertyTab[] {
+	private labelTabs(label: DiagramLabel): readonly PropertyTab[] {
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
-					identitySection,
 					sectionElement('Text', [
 						textAreaField('Text', label.text, (value) => {
 							this.updateElementContent({ kind: 'labelText', id: label.id, text: value });
@@ -528,13 +422,12 @@ export class CanvasPropertyPanel {
 		];
 	}
 
-	private imageTabs(image: DiagramImage, identitySection: HTMLElement): readonly PropertyTab[] {
+	private imageTabs(image: DiagramImage): readonly PropertyTab[] {
 		return [
 			{
 				id: 'details',
 				label: 'Details',
 				sections: [
-					identitySection,
 					sectionElement('Image', [
 						imageField('Source', true, () => {
 							this.options.messageBus.publishCommand(new PickImageSourceCommand(image.id));
@@ -919,12 +812,69 @@ export class CanvasPropertyPanel {
 
 }
 
-export function resolvedPropertyPanelCollapsed(initialCollapsed?: boolean): boolean {
-	return initialCollapsed ?? true;
+function propertyContextIcon(kind: CanvasElementType | 'multiple'): SVGSVGElement {
+	const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	icon.classList.add('properties-context-icon');
+	icon.setAttribute('viewBox', '0 0 20 20');
+	icon.setAttribute('aria-hidden', 'true');
+	icon.setAttribute('fill', 'none');
+	icon.setAttribute('stroke', 'currentColor');
+	icon.setAttribute('stroke-width', '1.5');
+	icon.setAttribute('stroke-linecap', 'round');
+	icon.setAttribute('stroke-linejoin', 'round');
+
+	if (kind === 'node') {
+		appendSvgElement(icon, 'rect', { x: '3.5', y: '3.5', width: '13', height: '13', rx: '2' });
+	} else if (kind === 'edge') {
+		appendSvgElement(icon, 'path', { d: 'M5 14.5 15 5.5M12 5.5h3v3' });
+		appendSvgElement(icon, 'circle', { cx: '4', cy: '16', r: '1.5' });
+	} else if (kind === 'note') {
+		appendSvgElement(icon, 'path', { d: 'M5 2.75h7l3.5 3.5v11H5zM12 2.75v4h3.5M7.5 10h5M7.5 13h4' });
+	} else if (kind === 'label') {
+		appendSvgElement(icon, 'path', { d: 'M4 5h12M10 5v10.5M7 15.5h6' });
+	} else if (kind === 'image') {
+		appendSvgElement(icon, 'rect', { x: '3', y: '4', width: '14', height: '12', rx: '1.5' });
+		appendSvgElement(icon, 'circle', { cx: '7', cy: '8', r: '1.25' });
+		appendSvgElement(icon, 'path', { d: 'm4.5 14 3.75-3.75 2.5 2.5 1.75-1.75 3 3' });
+	} else if (kind === 'metadata') {
+		appendSvgElement(icon, 'circle', { cx: '10', cy: '10', r: '7' });
+		appendSvgElement(icon, 'path', { d: 'M10 9v5' });
+		appendSvgElement(icon, 'circle', { cx: '10', cy: '6.25', r: '.5', fill: 'currentColor', stroke: 'none' });
+	} else if (kind === 'legend') {
+		appendSvgElement(icon, 'rect', { x: '3', y: '3.5', width: '14', height: '13', rx: '1.5' });
+		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '7', r: '1' });
+		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '10', r: '1' });
+		appendSvgElement(icon, 'circle', { cx: '6.5', cy: '13', r: '1' });
+		appendSvgElement(icon, 'path', { d: 'M9.5 7H14M9.5 10H14M9.5 13H14' });
+	} else if (kind === 'multiple') {
+		appendSvgElement(icon, 'rect', { x: '3', y: '3', width: '10', height: '10', rx: '1.5' });
+		appendSvgElement(icon, 'path', { d: 'M7 16.5h8a1.5 1.5 0 0 0 1.5-1.5V7' });
+	} else {
+		appendSvgElement(icon, 'rect', { x: '3', y: '3', width: '14', height: '14', rx: '1.5' });
+		appendSvgElement(icon, 'path', { d: 'M3 8h14M8 3v14' });
+	}
+
+	return icon;
+}
+
+function appendSvgElement<TName extends keyof SVGElementTagNameMap>(
+	parent: SVGSVGElement,
+	name: TName,
+	attributes: Readonly<Record<string, string>>,
+): void {
+	const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+	for (const [attribute, value] of Object.entries(attributes)) {
+		element.setAttribute(attribute, value);
+	}
+	parent.appendChild(element);
 }
 
 function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function fileName(filePath: string | undefined): string | undefined {
+	return filePath?.split(/[/\\]/u).filter((part) => part.length > 0).at(-1);
 }
 
 function authorsText(authors: readonly string[]): string {

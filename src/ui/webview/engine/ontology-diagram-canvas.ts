@@ -9,7 +9,6 @@ import { CanvasElementRegistry, type CanvasPropertyElement } from '../components
 import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
-import { CanvasPropertyPanel } from '../components/canvas-property-panel';
 import { measuredTextWidth, nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
@@ -28,7 +27,7 @@ import { FixedToolbarController } from './fixed-toolbar-controller';
 import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderCanvasToolbarPinIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 
 declare const acquireVsCodeApi: () => {
-	postMessage(message: WebviewCommand): void;
+	postMessage(message: WebviewCommand | CanvasSelectionChangedEvent): void;
 	getState(): WebviewState | undefined;
 	setState(state: WebviewState): void;
 };
@@ -48,8 +47,6 @@ interface WebviewConfig {
 interface WebviewState {
 	readonly selectedElementId?: string;
 	readonly selectedElementIds?: readonly string[];
-	readonly propertyPanelCollapsed?: boolean;
-	readonly propertyPanelWidth?: number;
 	readonly viewportPanX?: number;
 	readonly viewportPanY?: number;
 	readonly viewportZoom?: number;
@@ -138,11 +135,6 @@ const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') a
 const edgeRouteLayoutLocalSelect = requiredElement('edgeRouteLayoutLocalSelect') as HTMLSelectElement;
 const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
-const propertyPanel = requiredElement('propertyPanel');
-const propertyPanelResizeHandle = requiredElement('propertyPanelResizeHandle');
-const propertyPanelTitle = requiredElement('propertyPanelTitle');
-const propertyPanelToggle = requiredElement('propertyPanelToggle') as HTMLButtonElement;
-const propertyPanelBody = requiredElement('propertyPanelBody');
 const savedLayoutAlgorithmId = vscode.getState()?.layoutAlgorithmId;
 diagramLayoutAlgorithmSelect.value = savedLayoutAlgorithmId !== undefined && isDiagramLayoutAlgorithmId(savedLayoutAlgorithmId)
 	? savedLayoutAlgorithmId
@@ -333,7 +325,6 @@ registerViewportEventPublishing();
 localElementToolbarController.register();
 fixedToolbarController.register();
 updateElkLayeredSpacingControls();
-registerPropertyPanel();
 restoreSelection();
 restoreViewport();
 noteEditorController.register();
@@ -436,36 +427,13 @@ registerSelectAllHandler();
 registerKeyboardNudgeHandlers();
 registerDeleteHandlers();
 
-function registerPropertyPanel(): void {
-	new CanvasPropertyPanel({
-		canvas,
-		payload: webviewConfig.payload,
-		registry: elementRegistry,
-		messageBus,
-		panel: propertyPanel,
-		resizeHandle: propertyPanelResizeHandle,
-		title: propertyPanelTitle,
-		toggleButton: propertyPanelToggle,
-		body: propertyPanelBody,
-		getTheme: () => theme,
-		showStatus,
-		resetEdgeLabel: (edgeId) => {
-			canvas.resetEdgeLabel(edgeId);
-		},
-		focusAfterEscape: () => {
-			canvasScroll.focus();
-		},
-		initialCollapsed: vscode.getState()?.propertyPanelCollapsed,
-		initialWidth: vscode.getState()?.propertyPanelWidth,
-		onWidthChange: (width) => {
-			updateWebviewState({ propertyPanelWidth: width });
-		},
-	}).register();
-}
-
 function registerExtensionMessageForwarding(): void {
 	messageBus.subscribe((message) => {
 		if (message.kind === 'command') {
+			vscode.postMessage(message.payload);
+			return;
+		}
+		if (message.payload.type === 'canvasSelectionChanged') {
 			vscode.postMessage(message.payload);
 		}
 	});
@@ -527,9 +495,6 @@ function registerCanvasStateSubscriptions(): void {
 				selectedElementId: event.selectedElementIdentifier,
 				selectedElementIds: event.selectedElementIdentifiers,
 			});
-		}
-		if (event.type === 'canvasPropertyPanelVisibilityChanged') {
-			updateWebviewState({ propertyPanelCollapsed: event.collapsed });
 		}
 		if (event.type === 'canvasViewportChanged') {
 			const viewport = {

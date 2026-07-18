@@ -1,30 +1,25 @@
-# Canvas Property Panel
+# Properties View
 
-This specification defines the property panel used to inspect and edit the selected
-canvas element.
+This specification defines the Visual Studio Code Properties view used to inspect and
+edit the selected canvas element.
 
 # Scope
 
-This specification covers property panel visibility, selection behavior, supported
+This specification covers Properties view visibility, selection behavior, supported
 fields, element-level style overrides, validation, and persistence. It does not define
 theme file editing, ontology source editing, or canvas toolbar behavior.
 
-# Property Panel
+# Properties View
 
-The canvas shall provide a property panel docked to the side of the canvas view.
+The extension shall contribute a `Properties` webview below the Model Tree in the
+Ontology Diagram view container. Keeping properties outside the diagram editor shall
+leave the full editor area available to the canvas.
 
-When a diagram editor is opened without previous webview state, the property panel shall
-start collapsed so the canvas receives the maximum available space. The user can expand
-the panel with its visible toggle. An explicit collapsed or expanded state shall be
-preserved across rerenders of the same open editor.
+The Properties view shall follow Visual Studio Code's native view-container behavior.
+The user can collapse, expand, resize, or reorder it using the standard view controls,
+and Visual Studio Code owns persistence of that workbench layout.
 
-The panel shall be collapsible. When expanded, it shall use a stable docked layout and
-shall not cover the selected element without allowing the user to pan or scroll the
-canvas to keep working.
-
-The user shall be able to resize the panel width within minimum and maximum limits set
-by the implementation. The panel collapsed or expanded state and width are
-editor-only state and shall not be persisted to the `.odiagram` file.
+Properties view layout state shall not be persisted to the `.odiagram` file.
 
 # Selection Behavior
 
@@ -34,9 +29,9 @@ When no element is selected, the panel shall show diagram-level read-only contex
 as the diagram title, file path, referenced ontologies, and active theme file. Version 1
 does not require editing diagram metadata from the property panel.
 
-When one element is selected, the panel shall show the element type, identifier, and
-supported properties for that element type. The identifier shall be read-only in
-version 1.
+When one element is selected, the panel shall show a compact context header containing
+the element type and read-only identifier, followed by the supported property tabs for
+that element type.
 
 Version 1 shall support single-selection properties.
 
@@ -113,9 +108,9 @@ The property panel shall provide a way to clear all style overrides for the sele
 element. If a style field is cleared, the renderer shall fall back to the active theme or
 internal defaults for that field.
 
-The panel shall group fields into sections for identity, ontology, geometry, text,
-image, and style. Section grouping is presentation behavior and shall not affect
-persistence.
+The panel shall group fields into sections for ontology, geometry, text, image, and
+style. Element identity belongs in the context header instead of being repeated inside
+a property tab. Section grouping is presentation behavior and shall not affect persistence.
 
 # Validation
 
@@ -150,8 +145,7 @@ Keyboard input focused inside the property panel shall edit panel fields and sha
 trigger canvas deletion, movement, edge creation, or other canvas shortcuts.
 
 Pressing `Escape` while a property field is being edited shall cancel the in-progress
-field edit and restore the last committed value. Pressing `Escape` outside an active
-field edit shall return focus to the canvas.
+field edit, restore the last committed value, and return focus to the active editor.
 
 # Error Handling
 

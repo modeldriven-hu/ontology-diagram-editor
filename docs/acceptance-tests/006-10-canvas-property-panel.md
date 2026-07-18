@@ -2,9 +2,9 @@
 
 ## Visibility And Selection
 
-- Given a diagram editor is opened without previous webview state, when the canvas initializes, then the property panel starts collapsed and its toggle remains visible.
-- Given the user explicitly expands or collapses the property panel, when the same open editor rerenders, then that panel state is restored.
-- Given the canvas view is open, when the property panel is expanded, then it is docked to the side and does not permanently block work on the selected element.
+- Given the extension is active, when the Ontology Diagram view container is opened, then a Properties view is available below the Model Tree.
+- Given the user expands, collapses, resizes, or reorders the Properties view, when the diagram editor rerenders, then the view remains managed by Visual Studio Code's workbench layout.
+- Given the canvas view is open, when the Properties view is expanded, then it remains outside the editor area and does not cover the canvas.
 - Given the user resizes or collapses the panel, when the `.odiagram` file is saved, then panel width and collapsed state are not persisted.
 - Given no element is selected, when the panel is shown, then it displays read-only diagram context.
 - Given one element is selected, when the panel updates, then it shows the element type, read-only identifier, and supported fields for that element type.

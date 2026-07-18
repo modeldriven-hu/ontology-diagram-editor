@@ -8,6 +8,7 @@ import { loadReferencedOntologies } from '../ui/model-tree/ontology-model';
 import { escapeHtml } from '../shared/html';
 import { diagramLayoutAlgorithms, elkLayeredDirections } from '../shared/diagram-layout';
 import type { WebviewThemeMode, WebviewThemeOverrideMap, WebviewThemeOverrides } from '../ui/webview/webview-theme';
+import type { DiagramPayload } from '../ui/webview/ontology-diagram-types';
 import type { CanvasViewport } from '../shared/canvas-viewport';
 
 export async function buildDiagramWebviewHtml(
@@ -46,11 +47,11 @@ function webviewBody(
 	nonce: string,
 	x6ScriptUri: vscode.Uri,
 	scriptUri: vscode.Uri,
-	payload: JsonPayload,
+	payload: DiagramPayload,
 	initialViewport?: CanvasViewport,
 ): string {
 	return `<body>
-	<div class="editor property-panel-collapsed">
+	<div class="editor">
 		<header class="header">
 			<div class="title-group">
 				<span class="title-mark" aria-hidden="true"></span>
@@ -144,14 +145,6 @@ function webviewBody(
 				<p class="status" id="status"></p>
 			</div>
 		</div>
-		<section class="property-panel collapsed" id="propertyPanel">
-			<div class="property-panel-resize-handle" id="propertyPanelResizeHandle" role="separator" aria-orientation="vertical" tabindex="0" title="Resize properties panel"></div>
-			<header class="property-panel-header">
-				<strong id="propertyPanelTitle">Properties</strong>
-				<button class="property-panel-toggle" id="propertyPanelToggle" type="button" aria-expanded="false" title="Toggle properties">Properties</button>
-			</header>
-			<div class="property-panel-body" id="propertyPanelBody"></div>
-		</section>
 	</div>
 	<script nonce="${nonce}">
 		window.ontologyDiagramEditorConfig = {
@@ -194,13 +187,9 @@ function webviewStyles(): string {
 
 	.editor {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) var(--property-panel-width, 340px);
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto minmax(0, 1fr);
 		height: 100vh;
-	}
-
-	.editor.property-panel-collapsed {
-		grid-template-columns: minmax(0, 1fr) 42px;
 	}
 
 	.header {
@@ -1165,7 +1154,7 @@ function webviewStyles(): string {
 	}`;
 }
 
-async function getDiagramPayload(document: vscode.TextDocument): Promise<JsonPayload> {
+export async function getDiagramPayload(document: vscode.TextDocument): Promise<DiagramPayload> {
 	try {
 		const diagram = parseOntologyDiagramTextDocument(document);
 		const persistenceObject = diagram.toPersistenceObject();
@@ -1283,18 +1272,6 @@ function nodeThemeOverrides(theme: Awaited<ReturnType<typeof readOntologyDiagram
 		nodeFontItalic: nodeStyle.font?.italic,
 		nodeFontSize: nodeStyle.font?.size,
 	};
-}
-
-interface JsonPayload {
-	readonly file: {
-		readonly fsPath: string;
-		readonly uri: string;
-		readonly directory: string;
-	};
-	readonly diagram?: unknown;
-	readonly ontology?: unknown;
-	readonly theme?: unknown;
-	readonly error?: string;
 }
 
 export function jsonForScript(value: unknown): string {

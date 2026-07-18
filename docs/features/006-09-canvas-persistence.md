@@ -62,7 +62,7 @@ edit shall also request a save for the resulting `.odiagram` document state.
 
 The canvas shall not maintain an independent persisted undo stack that can diverge from
 the text document undo history. Editor-only state such as selection, hover, active drag,
-property panel width, pan, and zoom shall not be written to the `.odiagram` file. The
+Properties view layout, pan, and zoom shall not be written to the `.odiagram` file. The
 selected light/dark render mode is persisted separately as `metadata.theme_mode`.
 
 Undo and redo of canvas edits shall emit `Canvas undo requested` or
