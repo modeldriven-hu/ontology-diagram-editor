@@ -90,6 +90,7 @@ function webviewBody(
 					</select>
 					<button class="canvas-action" id="arrangeDiagramButton" type="button" title="Arrange diagram" aria-label="Arrange diagram"></button>
 					<span class="canvas-action-separator" aria-hidden="true"></span>
+					<button class="canvas-action" id="panCanvasButton" type="button" title="Pan canvas" aria-label="Pan canvas" aria-pressed="false"></button>
 					<button class="canvas-action" id="zoomOutButton" type="button" title="Zoom out" aria-label="Zoom out"></button>
 					<button class="canvas-action" id="zoomInButton" type="button" title="Zoom in" aria-label="Zoom in"></button>
 					<button class="canvas-action" id="fitDiagramButton" type="button" title="Fit diagram to view" aria-label="Fit diagram to view"></button>
@@ -279,6 +280,17 @@ function webviewStyles(): string {
 		background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
 	}
 
+	.canvas-scroll.pan-mode,
+	.canvas-scroll.pan-mode .canvas-content {
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.canvas-scroll.panning,
+	.canvas-scroll.panning .canvas-content {
+		cursor: grabbing;
+	}
+
 	.canvas-actions {
 		position: absolute;
 		top: 12px;
@@ -459,10 +471,17 @@ function webviewStyles(): string {
 	}
 
 	.canvas-action:hover,
-	.canvas-action:focus-visible,
-	.canvas-action[aria-pressed="true"] {
+	.canvas-action:focus-visible {
 		border-color: var(--vscode-focusBorder);
 		background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+		outline: none;
+	}
+
+	.canvas-action.is-active,
+	.canvas-action[aria-pressed="true"] {
+		border-color: var(--vscode-focusBorder);
+		background: var(--vscode-button-background);
+		color: var(--vscode-button-foreground);
 		outline: none;
 	}
 

@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitFork, GitMerge, GripVertical, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Pin, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitFork, GitMerge, GripVertical, Hand, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Pin, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import type { WebviewThemeMode } from '../webview-theme';
 import { setActionTooltip } from './canvas-dom';
@@ -31,6 +31,7 @@ export interface LocalElementToolbarIconElements {
 }
 
 export interface ViewportToolbarIconElements {
+	readonly panCanvasButton: HTMLButtonElement;
 	readonly zoomOutButton: HTMLButtonElement;
 	readonly zoomInButton: HTMLButtonElement;
 	readonly fitDiagramButton: HTMLButtonElement;
@@ -194,6 +195,11 @@ export function renderLocalElementToolbarIcons(elements: LocalElementToolbarIcon
 }
 
 export function renderViewportToolbarIcons(elements: ViewportToolbarIconElements, themeMode: WebviewThemeMode): void {
+	elements.panCanvasButton.replaceChildren(createIconElement(Hand, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setActionTooltip(elements.panCanvasButton, 'Pan canvas');
 	elements.zoomOutButton.replaceChildren(createIconElement(ZoomOut, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',

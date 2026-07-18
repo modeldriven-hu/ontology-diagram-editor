@@ -60,11 +60,20 @@ interface WebviewState {
 	readonly canvasToolbarOffsetX?: number;
 	readonly canvasToolbarOffsetY?: number;
 	readonly canvasToolbarDock?: 'top' | 'bottom';
+	readonly canvasPanMode?: boolean;
 	readonly themeMode?: WebviewThemeMode;
 	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
 	readonly elkLayeredNodeSpacing?: number;
 	readonly elkLayeredLayerSpacing?: number;
 	readonly elkLayeredDirection?: string;
+}
+
+interface CanvasPanDrag {
+	readonly pointerId: number;
+	readonly clientX: number;
+	readonly clientY: number;
+	readonly scrollLeft: number;
+	readonly scrollTop: number;
 }
 
 const config = window.ontologyDiagramEditorConfig;
@@ -102,6 +111,7 @@ const elkLayeredDirectionSelect = requiredElement('elkLayeredDirectionSelect') a
 const elkLayeredNodeSpacingInput = requiredElement('elkLayeredNodeSpacingInput') as HTMLInputElement;
 const elkLayeredLayerSpacingInput = requiredElement('elkLayeredLayerSpacingInput') as HTMLInputElement;
 const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
+const panCanvasButton = requiredElement('panCanvasButton') as HTMLButtonElement;
 const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
 const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
 const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
@@ -161,6 +171,8 @@ elkLayeredNodeSpacingInput.value = String(savedElkLayeredNodeSpacing);
 elkLayeredLayerSpacingInput.value = String(savedElkLayeredLayerSpacing);
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
 let theme = readTheme(themeMode, webviewConfig.payload.theme);
+let panMode = vscode.getState()?.canvasPanMode === true;
+let canvasPanDrag: CanvasPanDrag | undefined;
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
@@ -314,6 +326,7 @@ renderLocalElementToolbarIcons({
 renderDiagramExportToolbarIcons(exportSvgButton, exportPngButton);
 renderArrangeDiagramToolbarIcon(arrangeDiagramButton);
 renderViewportToolbarIcons({
+	panCanvasButton,
 	zoomOutButton,
 	zoomInButton,
 	fitDiagramButton,
@@ -321,6 +334,7 @@ renderViewportToolbarIcons({
 	revealModelTreeItemButton,
 	themeModeButton,
 }, themeMode);
+setPanMode(panMode, false);
 updateToolbarActionStates();
 applyCanvasTheme(theme);
 registerExtensionMessageForwarding();
@@ -329,6 +343,7 @@ registerCanvasStateSubscriptions();
 render();
 registerSelectionEventPublishing();
 registerViewportEventPublishing();
+registerCanvasPanHandlers();
 localElementToolbarController.register();
 fixedToolbarController.register();
 updateElkLayeredSpacingControls();
@@ -387,6 +402,12 @@ arrangeDiagramButton.addEventListener('click', () => {
 		algorithmId === 'elk-layered' ? elkLayeredLayoutOptions() : undefined,
 		selectedDiagramNodeIds(),
 	));
+});
+panCanvasButton.addEventListener('click', (event) => {
+	event.preventDefault();
+	event.stopPropagation();
+	setPanMode(panCanvasButton.getAttribute('aria-pressed') !== 'true');
+	canvasScroll.focus();
 });
 diagramLayoutAlgorithmSelect.addEventListener('change', () => {
 	const algorithmId = diagramLayoutAlgorithmSelect.value;
@@ -589,6 +610,77 @@ function registerViewportEventPublishing(): void {
 			y: event.clientY,
 		});
 	}, { passive: false });
+}
+
+function registerCanvasPanHandlers(): void {
+	canvasScroll.addEventListener('pointerdown', (event) => {
+		if (!panMode || !event.isPrimary || event.button !== 0 || isKeyboardInputTarget(event.target)) {
+			return;
+		}
+
+		canvasPanDrag = {
+			pointerId: event.pointerId,
+			clientX: event.clientX,
+			clientY: event.clientY,
+			scrollLeft: canvasScroll.scrollLeft,
+			scrollTop: canvasScroll.scrollTop,
+		};
+		canvasScroll.setPointerCapture(event.pointerId);
+		canvasScroll.classList.add('panning');
+		event.preventDefault();
+		event.stopPropagation();
+	}, true);
+	canvasScroll.addEventListener('pointermove', (event) => {
+		const drag = canvasPanDrag;
+		if (drag === undefined || drag.pointerId !== event.pointerId) {
+			return;
+		}
+
+		canvasScroll.scrollTo({
+			left: drag.scrollLeft - (event.clientX - drag.clientX),
+			top: drag.scrollTop - (event.clientY - drag.clientY),
+		});
+		event.preventDefault();
+		event.stopPropagation();
+	}, true);
+	canvasScroll.addEventListener('pointerup', completeCanvasPan, true);
+	canvasScroll.addEventListener('pointercancel', completeCanvasPan, true);
+}
+
+function completeCanvasPan(event: PointerEvent): void {
+	if (canvasPanDrag?.pointerId !== event.pointerId) {
+		return;
+	}
+
+	cancelCanvasPan();
+	event.preventDefault();
+	event.stopPropagation();
+}
+
+function cancelCanvasPan(): void {
+	const drag = canvasPanDrag;
+	if (drag !== undefined && canvasScroll.hasPointerCapture(drag.pointerId)) {
+		canvasScroll.releasePointerCapture(drag.pointerId);
+	}
+	canvasPanDrag = undefined;
+	canvasScroll.classList.remove('panning');
+}
+
+function setPanMode(enabled: boolean, persist = true): void {
+	panMode = enabled;
+	panCanvasButton.classList.toggle('is-active', enabled);
+	panCanvasButton.setAttribute('aria-pressed', String(enabled));
+	const label = enabled ? 'Disable pan canvas' : 'Pan canvas';
+	panCanvasButton.title = label;
+	panCanvasButton.setAttribute('aria-label', label);
+	panCanvasButton.dataset.tooltip = label;
+	canvasScroll.classList.toggle('pan-mode', enabled);
+	if (!enabled && canvasPanDrag !== undefined) {
+		cancelCanvasPan();
+	}
+	if (persist) {
+		updateWebviewState({ canvasPanMode: enabled });
+	}
 }
 
 function updateToolbarActionStates(): void {
