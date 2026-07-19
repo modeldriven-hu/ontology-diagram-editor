@@ -103,38 +103,28 @@ export class CanvasPropertyPanel {
 	}
 
 	private renderDiagramContext(): void {
-		const file = this.options.payload.file;
 		const diagram = this.options.payload.diagram;
 		const metadata = diagram?.metadata;
-		this.renderContextHeader('Diagram', fileName(file?.fsPath));
-		this.renderTabs('diagram', [
-			{
-				id: 'summary',
-				label: 'Summary',
-				sections: [
-					sectionElement('Diagram', [
-						readonlyField('File', file?.fsPath ?? ''),
-						readonlyField('Schema', metadata?.schema_version ?? ''),
-						textField('Title', metadata?.title ?? '', (value) => {
-							this.updateDiagramMetadata({ title: value }, ['title']);
-						}),
-						textField('Authors', authorsText(metadata?.authors ?? []), (value) => {
-							this.updateDiagramMetadata({ authors: parseAuthorsText(value) }, ['authors']);
-						}),
-						textField('Version', metadata?.diagram_version ?? '', (value) => {
-							this.updateDiagramMetadata({ diagram_version: value }, ['diagram_version']);
-						}),
-						textField('Theme', metadata?.theme_file ?? '', (value) => {
-							this.updateDiagramMetadata({ theme_file: blankToUndefined(value) }, ['theme_file']);
-						}),
-						checkboxField('Show ontology labels', metadata?.show_ontology_information === true, (value) => {
-							this.updateDiagramMetadata({ show_ontology_information: value }, ['show_ontology_information']);
-						}),
-						readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
-					]),
-				],
-			},
-		]);
+		this.renderContextHeader('Diagram');
+		this.options.body.append(
+			textField('Title', metadata?.title ?? '', (value) => {
+				this.updateDiagramMetadata({ title: value }, ['title']);
+			}),
+			textField('Authors', authorsText(metadata?.authors ?? []), (value) => {
+				this.updateDiagramMetadata({ authors: parseAuthorsText(value) }, ['authors']);
+			}),
+			textField('Version', metadata?.diagram_version ?? '', (value) => {
+				this.updateDiagramMetadata({ diagram_version: value }, ['diagram_version']);
+			}),
+			textField('Theme', metadata?.theme_file ?? '', (value) => {
+				this.updateDiagramMetadata({ theme_file: blankToUndefined(value) }, ['theme_file']);
+			}),
+			checkboxField('Show ontology labels', metadata?.show_ontology_information === true, (value) => {
+				this.updateDiagramMetadata({ show_ontology_information: value }, ['show_ontology_information']);
+			}),
+			readonlyField('Schema', metadata?.schema_version ?? ''),
+			readonlyField('Ontologies', String(diagram?.ontologies?.length ?? 0)),
+		);
 	}
 
 	private renderElement(element: CanvasPropertyElement): void {
@@ -839,10 +829,6 @@ export class CanvasPropertyPanel {
 
 function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function fileName(filePath: string | undefined): string | undefined {
-	return filePath?.split(/[/\\]/u).filter((part) => part.length > 0).at(-1);
 }
 
 function authorsText(authors: readonly string[]): string {
