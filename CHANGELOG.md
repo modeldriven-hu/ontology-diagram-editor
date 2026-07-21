@@ -6,8 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-21
+
 - Added a searchable offline gallery containing Material Design Icons, Bootstrap Icons,
   and IBM Carbon, including extensive IT and cloud coverage and recolorable SVG icons.
+- Added a dedicated Properties view in the left sidebar and simplified its controls.
+- Added a pan mode to the canvas toolbar.
+- Added image fit options and improved image rendering in the canvas and exported files.
+- Updated gallery icon colors when the legend's coloring mode changes.
 
 ## [1.2.0] - 2026-07-17
 

@@ -88,10 +88,7 @@ Current version 1 scope intentionally excludes:
 
 ## Release Notes
 
-### 0.0.1
-
-Initial development release with `.odiagram` custom editor support, ontology model tree,
-canvas editing, property panel editing, theming, persistence, and SVG/PNG export.
+See the [changelog](CHANGELOG.md) for release information.
 
 ---
 
