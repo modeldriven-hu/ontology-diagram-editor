@@ -1,4 +1,4 @@
-import type { EdgeRouteLayout, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -91,6 +91,7 @@ export type WebviewCommand =
 	| OptimizeEdgeRouteCommand
 	| StraightenEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
+	| UpdateEdgePresentationCommand
 	| ShowRelatedElementsCommand
 	| ShowEdgesBetweenNodesCommand
 	| UpdateNoteBoundsCommand
@@ -280,6 +281,16 @@ export class UpdateEdgeRouteLayoutCommand {
 		this.id = id;
 		this.routeLayout = routeLayout;
 	}
+}
+
+export class UpdateEdgePresentationCommand {
+	public readonly type = 'updateEdgePresentation';
+
+	public constructor(
+		public readonly id: string,
+		public readonly renderAs?: EdgeRenderAs,
+		public readonly containmentDirection?: ContainmentDirection,
+	) {}
 }
 
 export class ShowRelatedElementsCommand {

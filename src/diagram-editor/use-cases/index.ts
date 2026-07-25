@@ -36,6 +36,7 @@ export { ApplyLegendColoringUseCase } from './apply-legend-coloring-use-case';
 export { UpdateLabelTextUseCase } from './update-label-text-use-case';
 export { UpdateEdgeRouteUseCase } from './update-edge-route-use-case';
 export { UpdateEdgeRouteLayoutUseCase } from './update-edge-route-layout-use-case';
+export { UpdateEdgePresentationUseCase } from './update-edge-presentation-use-case';
 export { UpdateDiagramMetadataUseCase } from './update-diagram-metadata-use-case';
 export { UpdateElementBoundsUseCase } from './update-element-bounds-use-case';
 export { UpdateElementStyleUseCase } from './update-element-style-use-case';

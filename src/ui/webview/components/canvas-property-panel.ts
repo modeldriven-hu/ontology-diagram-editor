@@ -1,7 +1,8 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
+import { serializedContainmentEndpoints } from '../../../shared/diagram-containment';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { ontologyLegendEntries } from './ontology-legend';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
@@ -220,6 +221,10 @@ export class CanvasPropertyPanel {
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
 		const propertyValueAttributes = availableNodePropertyValueAttributes(node, this.options.payload);
 		const annotationFields = ontologyAnnotationFieldsForReference(node.ontology_ref, this.options.payload);
+		const containmentEdges = (this.options.payload.diagram?.edges ?? []).filter((edge) =>
+			edge.render_as === 'containment'
+			&& edge.containment_direction !== undefined
+			&& (edge.source === node.id || edge.target === node.id));
 		const ontologySections = [
 			sectionElement('Ontology', [
 				readonlyField('Ref', node.ontology_ref),
@@ -227,6 +232,19 @@ export class CanvasPropertyPanel {
 			...(annotationFields.length === 0 ? [] : [sectionElement('Annotations', annotationFields.map((annotation) =>
 				readonlyField(annotation.label, annotation.value),
 			))]),
+			...(containmentEdges.length === 0 ? [] : [sectionElement('Containment', containmentEdges.flatMap((edge) => {
+				const endpoints = serializedContainmentEndpoints(edge);
+				const role = endpoints.parentNodeId === node.id
+					? `Contains ${endpoints.childNodeId}`
+					: `Inside ${endpoints.parentNodeId}`;
+				return [
+					readonlyField(edgeDisplayName(edge.ontology_ref), role),
+					actionButton(`Show ${edgeDisplayName(edge.ontology_ref)} as connection`, 'secondary', () => {
+						this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
+						this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(edge.id));
+					}),
+				];
+			}))]),
 			...(node.ontology_item_type === 'individual' ? [] : [
 				sectionElement('Data Properties', [
 					readonlyField('Data Properties', String(dataPropertyAttributes.length)),
@@ -325,6 +343,9 @@ export class CanvasPropertyPanel {
 	}
 
 	private edgeTabs(edge: DiagramEdge): readonly PropertyTab[] {
+		const containmentDirection = edge.containment_direction ?? 'target_contains_source';
+		const nodeIds = new Set((this.options.payload.diagram?.nodes ?? []).map((node) => node.id));
+		const canRenderAsContainment = nodeIds.has(edge.source) && nodeIds.has(edge.target);
 		return [
 			{
 				id: 'details',
@@ -338,6 +359,28 @@ export class CanvasPropertyPanel {
 					sectionElement('Connection', [
 						readonlyField('Source', edge.source),
 						readonlyField('Target', edge.target),
+						...(canRenderAsContainment ? [selectField('Display as', edge.render_as ?? '', [
+							{ value: '', label: 'Connection' },
+							{ value: 'containment', label: 'Containment' },
+						], (value) => {
+							this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
+							this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
+								edge.id,
+								value,
+								value === 'containment' ? containmentDirection : undefined,
+							));
+						})] : []),
+						...(edge.render_as === 'containment' ? [selectField('Container', containmentDirection, [
+							{ value: 'target_contains_source', label: 'Target contains source' },
+							{ value: 'source_contains_target', label: 'Source contains target' },
+						], (value) => {
+							this.propertyEdited('edge', edge.id, ['containment_direction']);
+							this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
+								edge.id,
+								'containment',
+								value ?? 'target_contains_source',
+							));
+						})] : []),
 					]),
 				],
 			},

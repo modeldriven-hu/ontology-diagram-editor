@@ -287,6 +287,8 @@ Each edge shall contain:
 | `points` | list of points | Yes | Edge route coordinates. |
 | `style` | map | No | Edge style override. |
 | `route_layout` | string | No | Preferred route layout. |
+| `render_as` | string | No | Alternative edge presentation; version 1 supports `containment`. |
+| `containment_direction` | string | Conditional | Which endpoint is the container when `render_as` is `containment`. |
 
 `source` and `target` shall reference existing nodes, notes, or images.
 
@@ -312,6 +314,12 @@ Version 1 supports these `route_layout` values:
 
 If `route_layout` is omitted, the renderer shall use its default route behavior for the
 edge.
+
+When `render_as` is `containment`, `containment_direction` is required and shall be
+either `source_contains_target` or `target_contains_source`. Both endpoints shall be
+ontology nodes. A contained node shall have at most one distinct container, a node shall
+not contain itself, and containment relationships shall not form cycles. When
+`render_as` is omitted, `containment_direction` shall also be omitted.
 
 Subclass relationship edges shall use `rdfs:subClassOf` as `ontology_ref`; the concrete
 subclass and superclass are identified by the edge `source` and `target` nodes. When the

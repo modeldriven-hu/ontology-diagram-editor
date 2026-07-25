@@ -136,6 +136,8 @@ function updateEdgeStyle(
 			nextStyle,
 			edge.extra,
 			edge.routeLayout,
+			edge.renderAs,
+			edge.containmentDirection,
 		);
 	});
 

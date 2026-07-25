@@ -11,6 +11,8 @@ export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metada
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
+export type EdgeRenderAs = 'containment';
+export type ContainmentDirection = 'source_contains_target' | 'target_contains_source';
 export type PropertyValueTextOverflow = 'truncate' | 'wrap';
 export type OntologyColorMode = 'border' | 'background';
 export type OntologyColorBy = 'ontologySource' | 'elementType' | 'none';
@@ -347,6 +349,8 @@ export class DiagramEdge {
 		public readonly style?: EdgeStyle,
 		public readonly extra: JsonObject = {},
 		public readonly routeLayout?: EdgeRouteLayout,
+		public readonly renderAs?: EdgeRenderAs,
+		public readonly containmentDirection?: ContainmentDirection,
 	) {
 		if (points.length < 2) {
 			throw new OntologyDiagramValidationError(`Edge "${id}" must contain at least two route points.`);
@@ -369,6 +373,8 @@ export class DiagramEdge {
 			points: this.points.map((point) => point.toPersistenceObject()),
 			style: this.style?.toPersistenceObject(),
 			route_layout: this.routeLayout,
+			render_as: this.renderAs,
+			containment_direction: this.containmentDirection,
 		});
 	}
 
@@ -394,6 +400,8 @@ export class DiagramEdge {
 			this.style,
 			extra,
 			this.routeLayout,
+			this.renderAs,
+			this.containmentDirection,
 		);
 	}
 }
@@ -669,6 +677,8 @@ const edgeSchema = z.object({
 	points: z.array(pointSchema),
 	style: edgeStyleSchema.optional(),
 	route_layout: z.enum(['orthogonal', 'direct', 'one_side', 'manhattan', 'metro', 'entity_relation']).optional(),
+	render_as: z.literal('containment').optional(),
+	containment_direction: z.enum(['source_contains_target', 'target_contains_source']).optional(),
 }).passthrough();
 
 const noteSchema = boundsFieldsSchema.extend({
@@ -781,8 +791,10 @@ function parseEdge(value: z.infer<typeof edgeSchema>): DiagramEdge {
 		parsePoint(value.label),
 		value.points.map(parsePoint),
 		value.style ? parseEdgeStyle(value.style) : undefined,
-		getExtraFields(value, ['id', 'source', 'target', 'ontology_ref', 'label', 'points', 'style', 'route_layout']),
+		getExtraFields(value, ['id', 'source', 'target', 'ontology_ref', 'label', 'points', 'style', 'route_layout', 'render_as', 'containment_direction']),
 		value.route_layout,
+		value.render_as,
+		value.containment_direction,
 	);
 }
 
@@ -920,6 +932,7 @@ function validateDocument(document: OntologyDiagramDocument): void {
 	const issues = [
 		...validateUniqueElementIds(document),
 		...validateEdgeReferences(document),
+		...validateContainmentRelationships(document),
 		...validateOntologyReferencePrefixes(document),
 		...validateUniqueOntologyPaths(document),
 	];
@@ -927,6 +940,66 @@ function validateDocument(document: OntologyDiagramDocument): void {
 	if (issues.length > 0) {
 		throw new OntologyDiagramValidationError('Invalid .odiagram document.', issues);
 	}
+}
+
+function validateContainmentRelationships(document: OntologyDiagramDocument): string[] {
+	const issues: string[] = [];
+	const nodeIds = new Set(document.nodes.map((node) => node.id.value));
+	const parentByChild = new Map<string, string>();
+
+	for (const edge of document.edges) {
+		if (edge.renderAs !== 'containment') {
+			if (edge.containmentDirection !== undefined) {
+				issues.push(`Edge "${edge.id.value}" has a containment direction but is not rendered as containment.`);
+			}
+			continue;
+		}
+		if (edge.containmentDirection === undefined) {
+			issues.push(`Containment edge "${edge.id.value}" must specify containment_direction.`);
+			continue;
+		}
+		if (!nodeIds.has(edge.source.value) || !nodeIds.has(edge.target.value)) {
+			issues.push(`Containment edge "${edge.id.value}" must connect two ontology nodes.`);
+			continue;
+		}
+
+		const endpoints = containmentEndpoints(edge);
+		if (endpoints.parentNodeId === endpoints.childNodeId) {
+			issues.push(`Containment edge "${edge.id.value}" cannot contain a node inside itself.`);
+			continue;
+		}
+
+		const existingParent = parentByChild.get(endpoints.childNodeId);
+		if (existingParent !== undefined && existingParent !== endpoints.parentNodeId) {
+			issues.push(`Node "${endpoints.childNodeId}" cannot be contained by both "${existingParent}" and "${endpoints.parentNodeId}".`);
+			continue;
+		}
+		parentByChild.set(endpoints.childNodeId, endpoints.parentNodeId);
+	}
+
+	for (const nodeId of nodeIds) {
+		const visited = new Set<string>();
+		let current: string | undefined = nodeId;
+		while (current !== undefined) {
+			if (visited.has(current)) {
+				issues.push(`Containment relationships contain a cycle involving node "${current}".`);
+				break;
+			}
+			visited.add(current);
+			current = parentByChild.get(current);
+		}
+	}
+
+	return [...new Set(issues)];
+}
+
+export function containmentEndpoints(edge: DiagramEdge): {
+	readonly parentNodeId: string;
+	readonly childNodeId: string;
+} {
+	return edge.containmentDirection === 'source_contains_target'
+		? { parentNodeId: edge.source.value, childNodeId: edge.target.value }
+		: { parentNodeId: edge.target.value, childNodeId: edge.source.value };
 }
 
 function validateUniqueElementIds(document: OntologyDiagramDocument): string[] {

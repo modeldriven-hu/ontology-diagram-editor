@@ -17,7 +17,7 @@ import {
 	readOntologyDiagramFile,
 	stringifyOntologyDiagramYaml,
 } from '../documents/odiagram';
-import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgePresentationUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
 import { isConnectionCapableOntologyItem } from '../diagram-editor/use-cases/ontology-edge-endpoints';
@@ -2366,6 +2366,56 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.notification, 'There are no ontology nodes to arrange.');
 	});
 
+	test('renders selected part-of edges as recursively laid out containment', () => {
+		const diagram = containmentTestDiagram();
+		const useCase = new UpdateEdgePresentationUseCase();
+		const first = useCase.execute(diagram, 'edge_childA', 'containment', 'target_contains_source');
+		assert.ok(first.diagram);
+		const second = useCase.execute(first.diagram, 'edge_childB', 'containment', 'target_contains_source');
+		assert.ok(second.diagram);
+
+		assert.deepStrictEqual(second.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 40, y: 40, width: 248, height: 122 },
+			{ x: 56, y: 96, width: 100, height: 50 },
+			{ x: 172, y: 96, width: 100, height: 50 },
+			{ x: 500, y: 40, width: 120, height: 60 },
+		]);
+		assert.strictEqual(second.diagram.edges[0].renderAs, 'containment');
+		assert.strictEqual(second.diagram.edges[0].containmentDirection, 'target_contains_source');
+	});
+
+	test('rejects a second containment parent and containment cycles', () => {
+		const useCase = new UpdateEdgePresentationUseCase();
+		const diagram = containmentTestDiagram();
+		const firstParent = useCase.execute(diagram, 'edge_childA', 'containment', 'target_contains_source').diagram;
+		assert.ok(firstParent);
+
+		const secondParent = useCase.execute(firstParent, 'edge_otherParent', 'containment', 'target_contains_source');
+		assert.strictEqual(secondParent.diagram, undefined);
+		assert.match(secondParent.notification ?? '', /cannot be contained by both/);
+
+		const cycleDiagram = new OntologyDiagramDocument(
+			firstParent.metadata,
+			firstParent.ontologies,
+			firstParent.namespaces,
+			firstParent.nodes,
+			[
+				...firstParent.edges,
+				new DiagramEdge(
+					'edge_cycle',
+					'node_parent',
+					'node_childA',
+					'ex:partOf',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+				),
+			],
+		);
+		const cycle = useCase.execute(cycleDiagram, 'edge_cycle', 'containment', 'target_contains_source');
+		assert.strictEqual(cycle.diagram, undefined);
+		assert.match(cycle.notification ?? '', /cycle/);
+	});
+
 	test('reroutes stale edges when arranging already placed nodes', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
@@ -2663,6 +2713,25 @@ class RecordingDiagramExportSavePort implements DiagramExportSavePort {
 
 function emptyDiagram(): OntologyDiagramDocument {
 	return diagramWithNodes([]);
+}
+
+function containmentTestDiagram(): OntologyDiagramDocument {
+	return new OntologyDiagramDocument(
+		DiagramMetadata.createEmpty('Containment'),
+		[],
+		new Map([['ex', 'https://example.com/ontology#']]),
+		[
+			new DiagramNode('node_parent', 'ex:Parent', new Bounds(40, 40, 120, 60)),
+			new DiagramNode('node_childA', 'ex:ChildA', new Bounds(240, 40, 100, 50)),
+			new DiagramNode('node_childB', 'ex:ChildB', new Bounds(360, 40, 100, 50)),
+			new DiagramNode('node_otherParent', 'ex:OtherParent', new Bounds(500, 40, 120, 60)),
+		],
+		[
+			new DiagramEdge('edge_childA', 'node_childA', 'node_parent', 'ex:partOf', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+			new DiagramEdge('edge_childB', 'node_childB', 'node_parent', 'ex:partOf', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+			new DiagramEdge('edge_otherParent', 'node_childA', 'node_otherParent', 'ex:partOf', new Point(0, 0), [new Point(0, 0), new Point(1, 1)]),
+		],
+	);
 }
 
 function diagramWithNodes(nodes: readonly DiagramNode[]): OntologyDiagramDocument {

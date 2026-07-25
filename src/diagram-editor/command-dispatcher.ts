@@ -31,6 +31,7 @@ import {
 	StraightenEdgeRouteUseCase,
 	UpdateEdgeRouteUseCase,
 	UpdateEdgeRouteLayoutUseCase,
+	UpdateEdgePresentationUseCase,
 	UpdateDiagramMetadataUseCase,
 	UpdateElementBoundsUseCase,
 	UpdateElementStyleUseCase,
@@ -89,6 +90,7 @@ interface DiagramEditorUseCases {
 	readonly showRelatedElements: ShowRelatedElementsUseCase;
 	readonly updateEdgeRoute: UpdateEdgeRouteUseCase;
 	readonly updateEdgeRouteLayout: UpdateEdgeRouteLayoutUseCase;
+	readonly updateEdgePresentation: UpdateEdgePresentationUseCase;
 	readonly updateDiagramMetadata: UpdateDiagramMetadataUseCase;
 	readonly updateElementBounds: UpdateElementBoundsUseCase;
 	readonly updateElementStyle: UpdateElementStyleUseCase;
@@ -208,6 +210,14 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.id,
 					command.routeLayout,
+				));
+				return;
+			case 'updateEdgePresentation':
+				await this.handleResult(this.useCases.updateEdgePresentation.execute(
+					this.repository.load(),
+					command.id,
+					command.renderAs,
+					command.containmentDirection,
 				));
 				return;
 			case 'updateNodeImage':
@@ -842,6 +852,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		showRelatedElements: new ShowRelatedElementsUseCase(),
 		updateEdgeRoute: new UpdateEdgeRouteUseCase(),
 		updateEdgeRouteLayout: new UpdateEdgeRouteLayoutUseCase(),
+		updateEdgePresentation: new UpdateEdgePresentationUseCase(),
 		updateDiagramMetadata: new UpdateDiagramMetadataUseCase(),
 		updateElementBounds: new UpdateElementBoundsUseCase(),
 		updateElementStyle: new UpdateElementStyleUseCase(),

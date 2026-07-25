@@ -1,4 +1,4 @@
-import { Bounds, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { Bounds, containmentEndpoints, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 import { createDefaultDiagramLayoutAlgorithms, type DiagramLayoutAlgorithm, type DiagramLayoutEdgeRoute } from '../layout';
 import { cloneDiagram } from './diagram-document-copy';
@@ -18,6 +18,9 @@ export class ArrangeDiagramUseCase {
 	): Promise<DiagramMutationResult> {
 		if (diagram.nodes.length === 0) {
 			return { notification: 'There are no ontology nodes to arrange.' };
+		}
+		if (selectionIncludesContainmentNodes(diagram, selectedNodeIds)) {
+			return { notification: 'Nested containment is arranged automatically when its edge presentation changes.' };
 		}
 
 		const algorithm = this.algorithms.find((candidate) => candidate.id === algorithmId);
@@ -79,6 +82,26 @@ export class ArrangeDiagramUseCase {
 	}
 }
 
+function selectionIncludesContainmentNodes(
+	diagram: OntologyDiagramDocument,
+	selectedNodeIds: readonly string[] | undefined,
+): boolean {
+	const containmentNodeIds = new Set(diagram.edges.flatMap((edge) => {
+		if (edge.renderAs !== 'containment' || edge.containmentDirection === undefined) {
+			return [];
+		}
+		const endpoints = containmentEndpoints(edge);
+		return [endpoints.parentNodeId, endpoints.childNodeId];
+	}));
+	if (containmentNodeIds.size === 0) {
+		return false;
+	}
+	if (selectedNodeIds === undefined || selectedNodeIds.length === 0) {
+		return true;
+	}
+	return selectedNodeIds.some((id) => containmentNodeIds.has(id));
+}
+
 function layoutScope(
 	diagram: OntologyDiagramDocument,
 	selectedNodeIds: readonly string[] | undefined,
@@ -133,6 +156,8 @@ function arrangeEdge(
 		edge.style,
 		edge.extra,
 		edge.routeLayout,
+		edge.renderAs,
+		edge.containmentDirection,
 	);
 }
 

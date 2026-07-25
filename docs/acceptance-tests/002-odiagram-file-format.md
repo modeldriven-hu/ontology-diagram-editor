@@ -16,6 +16,11 @@
 - Given an edge has fewer than two route points, when validation runs, then validation reports an error.
 - Given `metadata.theme_mode` is present, when validation runs, then only `light` and `dark` are accepted.
 - Given `route_layout` is present on an edge, when validation runs, then only version 1 route layout values are accepted.
+- Given an edge has `render_as: containment`, when validation runs, then
+  `containment_direction` is required and accepts only `source_contains_target` or
+  `target_contains_source`.
+- Given containment edges create self-containment, a second distinct parent, or a cycle,
+  when validation runs, then validation reports an error.
 - Given `show_data_properties: true` is present on a node, when the file is parsed and serialized, then the field is preserved.
 - Given `property_value_text_overflow: wrap` is present on an individual node, when the file is parsed and serialized, then the field is preserved.
 - Given `export: false` is present on a note, when the file is parsed and serialized, then the field is preserved.

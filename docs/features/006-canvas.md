@@ -30,6 +30,7 @@ Canvas behavior is split into these feature specifications:
 | `006-09-canvas-persistence.md` | Saving canvas edits to `.odiagram`, batching gesture changes, preserving unknown fields, and persistence failures. |
 | `006-10-canvas-property-panel.md` | Properties view behavior for inspecting and editing selected element properties. |
 | `006-11-canvas-export.md` | SVG and PNG export behavior from the canvas toolbar. |
+| `006-13-canvas-containment.md` | Rendering selected ontology relationships as recursively nested boxes. |
 
 # Concepts
 
@@ -96,6 +97,7 @@ The minimum viable product shall support:
   resetting the viewport.
 - Arranging existing ontology-backed nodes and connected edges through an explicit
   toolbar action.
+- Rendering selected node-to-node relationships as nested containment.
 - Showing validation and persistence errors in a user-visible way.
 
 The minimum viable product does not include multi-user editing, grouping, layer

@@ -1,0 +1,80 @@
+metadata:
+  schema_version: "1.0"
+  title: Has-part nested boxes
+  authors: []
+  diagram_version: "0.1.0"
+  theme_mode: dark
+ontologies:
+  - path: has-part.ttl
+namespaces:
+  example: https://example.com/containment/has-part#
+nodes:
+  - id: node_enterprise
+    ontology_ref: example:Enterprise
+    x: 40
+    y: 40
+    width: 576
+    height: 208
+    style:
+      font: { bold: true, size: 16 }
+      border: { color: "#8CB4E8", weight: 2 }
+  - id: node_portfolio
+    ontology_ref: example:ProductPortfolio
+    x: 56
+    y: 96
+    width: 348
+    height: 136
+    style:
+      font: { bold: true }
+      border: { color: "#7196C8" }
+  - id: node_sharedServices
+    ontology_ref: example:SharedServices
+    x: 420
+    y: 96
+    width: 180
+    height: 72
+  - id: node_productAlpha
+    ontology_ref: example:ProductAlpha
+    x: 72
+    y: 152
+    width: 150
+    height: 64
+  - id: node_productBeta
+    ontology_ref: example:ProductBeta
+    x: 238
+    y: 152
+    width: 150
+    height: 64
+edges:
+  - id: edge_hasPortfolio
+    source: node_enterprise
+    target: node_portfolio
+    ontology_ref: example:hasPortfolio
+    label: { x: 40, y: 40 }
+    points: [{ x: 40, y: 40 }, { x: 41, y: 41 }]
+    render_as: containment
+    containment_direction: source_contains_target
+  - id: edge_hasSharedServices
+    source: node_enterprise
+    target: node_sharedServices
+    ontology_ref: example:hasSharedServices
+    label: { x: 40, y: 40 }
+    points: [{ x: 40, y: 40 }, { x: 41, y: 41 }]
+    render_as: containment
+    containment_direction: source_contains_target
+  - id: edge_hasProductAlpha
+    source: node_portfolio
+    target: node_productAlpha
+    ontology_ref: example:hasProductAlpha
+    label: { x: 56, y: 96 }
+    points: [{ x: 56, y: 96 }, { x: 57, y: 97 }]
+    render_as: containment
+    containment_direction: source_contains_target
+  - id: edge_hasProductBeta
+    source: node_portfolio
+    target: node_productBeta
+    ontology_ref: example:hasProductBeta
+    label: { x: 56, y: 96 }
+    points: [{ x: 56, y: 96 }, { x: 57, y: 97 }]
+    render_as: containment
+    containment_direction: source_contains_target

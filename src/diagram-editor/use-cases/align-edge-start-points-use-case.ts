@@ -72,6 +72,8 @@ function alignSelectedEdgeEndpoint(
 			edge.style,
 			edge.extra,
 			edge.routeLayout,
+			edge.renderAs,
+			edge.containmentDirection,
 		);
 	});
 

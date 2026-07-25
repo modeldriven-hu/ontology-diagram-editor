@@ -28,6 +28,8 @@ export class UpdateEdgeRouteLayoutUseCase {
 				edge.style,
 				edge.extra,
 				routeLayout,
+				edge.renderAs,
+				edge.containmentDirection,
 			);
 		});
 

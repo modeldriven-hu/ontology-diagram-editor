@@ -1,4 +1,5 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
+import { containmentHeaderHeight, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, ontologyTextColor } from '../components/ontology-legend';
@@ -44,6 +45,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private edgeRoutePublishTimer: number | undefined;
 	private labelDragHighlight: { readonly edgeId: string; readonly lineAttrs: unknown } | undefined;
 	private currentPayload?: DiagramPayload;
+	private containmentIndex: DiagramContainmentIndex = createDiagramContainmentIndex([], []);
 	private selectionBeforePointerDown: readonly string[] = [];
 
 	public constructor(
@@ -131,11 +133,24 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.programmaticLabelChanges.clear();
 			this.selectedEdgeLineAttrs.clear();
 			this.graph.clearCells();
+			const diagramNodes = payload.diagram?.nodes ?? [];
+			this.containmentIndex = createDiagramContainmentIndex(diagramNodes.map((node) => node.id), payload.diagram?.edges ?? []);
 			for (const image of payload.diagram?.images ?? []) {
 				this.graph.addNode(x6Image(image, theme));
 			}
-			for (const node of payload.diagram?.nodes ?? []) {
-				this.graph.addNode(x6OntologyNode(node, payload, theme));
+			const orderedNodes = diagramNodes
+				.map((node, index) => ({ node, index }))
+				.sort((left, right) =>
+					(this.containmentIndex.depthByNodeId.get(left.node.id) ?? 0)
+					- (this.containmentIndex.depthByNodeId.get(right.node.id) ?? 0)
+					|| left.index - right.index);
+			for (const { node } of orderedNodes) {
+				this.graph.addNode(x6OntologyNode(node, payload, theme, {
+					parentNodeId: this.containmentIndex.parentByNodeId.get(node.id),
+					childNodeIds: this.containmentIndex.childrenByNodeId.get(node.id) ?? [],
+					depth: this.containmentIndex.depthByNodeId.get(node.id) ?? 0,
+					isContainer: this.containmentIndex.containerNodeIds.has(node.id),
+				}));
 			}
 			for (const note of payload.diagram?.notes ?? []) {
 				this.graph.addNode(x6Note(note, theme));
@@ -150,6 +165,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				...(payload.diagram?.images ?? []).map((image) => [image.id, image] as const),
 			]);
 			for (const edge of payload.diagram?.edges ?? []) {
+				if (this.containmentIndex.containmentEdgeIds.has(edge.id)) {
+					continue;
+				}
 				this.edgeLabelPoints.set(edge.id, edge.label);
 				this.edgeCardinalityLabelPoints.set(edge.id, {
 					source: edge.source_cardinality_label,
@@ -607,7 +625,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				return;
 			}
 
-			this.publishNodeBounds(node, 'move');
+			this.publishContainedNodeMovement(node);
 		});
 		this.graph.on('node:resize', () => {
 			this.suppressBlankSelectionClear = true;
@@ -763,6 +781,36 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.publishSelectionChanged();
 		}
 		this.publishElementBounds([update], dragKind);
+	}
+
+	private publishContainedNodeMovement(node: X6Node): void {
+		if (this.suppressBoundsEvents) {
+			return;
+		}
+
+		const descendantIds = containmentDescendantIds(node.id, this.containmentIndex.childrenByNodeId);
+		const cells = [node, ...descendantIds.flatMap((id) => {
+			const cell = this.graph.getCellById(id);
+			return isX6Node(cell) ? [cell] : [];
+		})];
+		const updates = cells
+			.map(boundsUpdate)
+			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
+		if (updates.length === 0) {
+			return;
+		}
+
+		for (const update of updates) {
+			const cell = this.graph.getCellById(update.id);
+			if (isX6Node(cell)) {
+				this.restoreClampedNodePosition(cell, update);
+			}
+			this.elementRegistry.updateBounds(update);
+		}
+		if (updates.some((update) => this.selectedIds.includes(update.id))) {
+			this.publishSelectionChanged();
+		}
+		this.publishElementBounds(updates, 'move');
 	}
 
 	private restoreClampedNodePosition(node: X6Node, update: BoundsUpdate): void {
@@ -966,11 +1014,14 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme);
+		const isContainer = this.containmentIndex.containerNodeIds.has(id);
+		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme, isContainer);
 		cell.setMarkup?.(x6OntologyNodeMarkup(presentation.markup));
 		cell.attr({
 			body: x6OntologyNodeBodyAttrs(element.value, payload, this.theme, cornerRadius(element.value.style, this.theme.nodeCornerRadius)),
-			nodeImage: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
+			nodeImage: isContainer
+				? { opacity: 0, pointerEvents: 'none' }
+				: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
 			...presentation.attrs,
 		});
 	}
@@ -1139,12 +1190,24 @@ function installX6Styles(theme: WebviewTheme): void {
 	}
 }
 
-function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
+function x6OntologyNode(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	containment: {
+		readonly parentNodeId?: string;
+		readonly childNodeIds: readonly string[];
+		readonly depth: number;
+		readonly isContainer: boolean;
+	},
+): Record<string, unknown> {
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
-	const presentation = x6OntologyNodePresentation(node, payload, theme);
+	const presentation = x6OntologyNodePresentation(node, payload, theme, containment.isContainer);
 
 	return {
 		id: node.id,
+		...(containment.parentNodeId === undefined ? {} : { parent: containment.parentNodeId }),
+		...(containment.childNodeIds.length === 0 ? {} : { children: [...containment.childNodeIds] }),
 		x: node.x,
 		y: node.y,
 		width: node.width,
@@ -1152,10 +1215,12 @@ function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: Webvi
 		markup: x6OntologyNodeMarkup(presentation.markup),
 		attrs: {
 			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius),
-			nodeImage: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
+			nodeImage: containment.isContainer
+				? { opacity: 0, pointerEvents: 'none' }
+				: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
 			...presentation.attrs,
 		},
-		zIndex: 20,
+		zIndex: 20 + containment.depth,
 	};
 }
 
@@ -1317,7 +1382,7 @@ function x6LegendElement(element: DiagramLegendElement, payload: DiagramPayload,
 	};
 }
 
-function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): {
+function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, isContainer = false): {
 	readonly hasAttributes: boolean;
 	readonly markup: readonly Record<string, string>[];
 	readonly attrs: Record<string, unknown>;
@@ -1328,6 +1393,34 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
+	if (isContainer) {
+		return {
+			hasAttributes: false,
+			markup: [{ tagName: 'rect', selector: 'containmentSeparator' }],
+			attrs: {
+				label: {
+					text: truncateText({ text: nodeTitleText(node, payload), width: Math.max(0, node.width - 20), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+					fill: textColor,
+					fontFamily,
+					fontSize,
+					fontWeight: fontBold === true ? 700 : 400,
+					fontStyle: fontItalic === true ? 'italic' : 'normal',
+					textAnchor: 'middle',
+					textVerticalAnchor: 'middle',
+					refX: '50%',
+					refY: containmentHeaderHeight / 2,
+					pointerEvents: 'none',
+				},
+				containmentSeparator: {
+					refWidth: '100%',
+					height: 1,
+					refY: containmentHeaderHeight,
+					fill: node.style?.border?.color ?? theme.nodeBorder,
+					pointerEvents: 'none',
+				},
+			},
+		};
+	}
 	if (hasImage) {
 		return {
 			hasAttributes: false,
@@ -1847,6 +1940,21 @@ function edgeTargetMarker(
 
 function isNoteConnection(edge: DiagramEdge): boolean {
 	return edge.ontology_item_type === 'noteConnection';
+}
+
+function containmentDescendantIds(
+	nodeId: string,
+	childrenByNodeId: ReadonlyMap<string, readonly string[]>,
+): readonly string[] {
+	const descendants: string[] = [];
+	const visit = (parentId: string): void => {
+		for (const childId of childrenByNodeId.get(parentId) ?? []) {
+			descendants.push(childId);
+			visit(childId);
+		}
+	};
+	visit(nodeId);
+	return descendants;
 }
 
 function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {
