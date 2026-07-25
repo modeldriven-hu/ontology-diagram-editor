@@ -1,5 +1,7 @@
 export interface WebviewTheme {
 	readonly canvasBackground: string;
+	readonly containmentBackgrounds: readonly string[];
+	readonly containmentBorders: readonly string[];
 	readonly edgeColor: string;
 	readonly edgeTextColor: string;
 	readonly edgeWeight: number;
@@ -47,6 +49,8 @@ export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode(), o
 
 	return {
 		canvasBackground: modeDefaults.canvasBackground,
+		containmentBackgrounds: modeDefaults.containmentBackgrounds,
+		containmentBorders: modeDefaults.containmentBorders,
 		edgeColor: modeDefaults.edgeColor,
 		edgeTextColor: modeDefaults.edgeTextColor,
 		edgeWeight: modeDefaults.edgeWeight,
@@ -69,7 +73,7 @@ export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode(), o
 		noteCornerRadius: modeDefaults.noteCornerRadius,
 		noteFoldBackground: modeDefaults.noteFoldBackground,
 		noteForeground: modeDefaults.noteForeground,
-		shadowColor: 'rgb(0 0 0 / 16%)',
+		shadowColor: modeDefaults.shadowColor,
 	};
 }
 
@@ -79,6 +83,8 @@ export function detectPreferredThemeMode(): WebviewThemeMode {
 
 interface ThemeModeDefaults {
 	readonly canvasBackground: string;
+	readonly containmentBackgrounds: readonly string[];
+	readonly containmentBorders: readonly string[];
 	readonly edgeColor: string;
 	readonly edgeTextColor: string;
 	readonly edgeWeight: number;
@@ -93,10 +99,13 @@ interface ThemeModeDefaults {
 	readonly noteCornerRadius: number;
 	readonly noteFoldBackground: string;
 	readonly noteForeground: string;
+	readonly shadowColor: string;
 }
 
 const lightThemeDefaults: ThemeModeDefaults = {
 	canvasBackground: '#FFFFFF',
+	containmentBackgrounds: ['#E8EEF8', '#F3F6FB', '#FFFFCC', '#EAF5FF'],
+	containmentBorders: ['#375A8C', '#6682A8', '#333333', '#5C789A'],
 	edgeColor: '#4A4A4A',
 	edgeTextColor: '#000000',
 	edgeWeight: 1,
@@ -111,25 +120,36 @@ const lightThemeDefaults: ThemeModeDefaults = {
 	noteCornerRadius: 0,
 	noteFoldBackground: '#B8E6B8',
 	noteForeground: '#000000',
+	shadowColor: 'rgb(0 0 0 / 16%)',
 };
 
 const darkThemeDefaults: ThemeModeDefaults = {
-	canvasBackground: '#111827',
-	edgeColor: '#CBD5E1',
-	edgeTextColor: '#F9FAFB',
-	edgeWeight: 2,
+	canvasBackground: '#0F172A',
+	containmentBackgrounds: ['#252A47', '#18383A', '#172F43', '#2B2540'],
+	containmentBorders: ['#818CF8', '#2DD4BF', '#38BDF8', '#A78BFA'],
+	edgeColor: '#94A3B8',
+	edgeTextColor: '#E2E8F0',
+	edgeWeight: 1.5,
 	elementShadow: true,
-	editorBackground: '#111827',
-	editorForeground: '#F9FAFB',
-	nodeBackground: '#1F2937',
-	nodeBorder: '#4B5563',
+	editorBackground: '#0F172A',
+	editorForeground: '#F1F5F9',
+	nodeBackground: '#1E293B',
+	nodeBorder: '#475569',
 	nodeCornerRadius: 0,
-	noteBackground: '#3F371A',
-	noteBorder: '#A16207',
+	noteBackground: '#292524',
+	noteBorder: '#78716C',
 	noteCornerRadius: 0,
-	noteFoldBackground: '#5A4A1F',
+	noteFoldBackground: '#3F3A38',
 	noteForeground: '#FDE68A',
+	shadowColor: 'rgb(0 0 0 / 38%)',
 };
+
+export function containmentColorAtDepth(palette: readonly string[], depth: number, fallback: string): string {
+	if (palette.length === 0) {
+		return fallback;
+	}
+	return palette[Math.max(0, Math.floor(depth)) % palette.length] ?? fallback;
+}
 
 function cssVariable(styles: CSSStyleDeclaration, name: string, fallback: string): string {
 	const value = styles.getPropertyValue(name).trim();

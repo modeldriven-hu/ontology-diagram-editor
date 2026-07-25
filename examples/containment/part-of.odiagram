@@ -16,9 +16,8 @@ nodes:
     width: 784
     height: 208
     style:
-      bg_color: "#E8EEF8"
       font: { bold: true, size: 16 }
-      border: { color: "#375A8C", weight: 2 }
+      border: { weight: 2 }
   - id: node_platform
     ontology_ref: example:Platform
     x: 56
@@ -26,9 +25,7 @@ nodes:
     width: 368
     height: 136
     style:
-      bg_color: "#F3F6FB"
       font: { bold: true }
-      border: { color: "#6682A8" }
   - id: node_operations
     ontology_ref: example:Operations
     x: 440
@@ -36,9 +33,7 @@ nodes:
     width: 368
     height: 136
     style:
-      bg_color: "#F3F6FB"
       font: { bold: true }
-      border: { color: "#6682A8" }
   - id: node_ui
     ontology_ref: example:UserInterface
     x: 72

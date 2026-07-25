@@ -2,14 +2,14 @@ import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared
 import { containmentHeaderHeight, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
-import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, ontologyTextColor } from '../components/ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from '../components/ontology-legend';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from '../components/edge-cardinality-labels';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
-import type { WebviewTheme } from '../webview-theme';
+import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
 import type { X6Cell, X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node, X6SelectionPlugin } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
@@ -1015,10 +1015,19 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 
 		const isContainer = this.containmentIndex.containerNodeIds.has(id);
-		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme, isContainer);
+		const containmentDepth = isContainer || this.containmentIndex.parentByNodeId.has(id)
+			? this.containmentIndex.depthByNodeId.get(id) ?? 0
+			: undefined;
+		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme, isContainer, containmentDepth);
 		cell.setMarkup?.(x6OntologyNodeMarkup(presentation.markup));
 		cell.attr({
-			body: x6OntologyNodeBodyAttrs(element.value, payload, this.theme, cornerRadius(element.value.style, this.theme.nodeCornerRadius)),
+			body: x6OntologyNodeBodyAttrs(
+				element.value,
+				payload,
+				this.theme,
+				cornerRadius(element.value.style, this.theme.nodeCornerRadius),
+				containmentDepth,
+			),
 			nodeImage: isContainer
 				? { opacity: 0, pointerEvents: 'none' }
 				: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
@@ -1202,7 +1211,8 @@ function x6OntologyNode(
 	},
 ): Record<string, unknown> {
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
-	const presentation = x6OntologyNodePresentation(node, payload, theme, containment.isContainer);
+	const containmentDepth = containment.isContainer || containment.parentNodeId !== undefined ? containment.depth : undefined;
+	const presentation = x6OntologyNodePresentation(node, payload, theme, containment.isContainer, containmentDepth);
 
 	return {
 		id: node.id,
@@ -1214,7 +1224,7 @@ function x6OntologyNode(
 		height: node.height,
 		markup: x6OntologyNodeMarkup(presentation.markup),
 		attrs: {
-			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius),
+			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius, containmentDepth),
 			nodeImage: containment.isContainer
 				? { opacity: 0, pointerEvents: 'none' }
 				: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
@@ -1228,8 +1238,14 @@ function hasNodeImage(node: DiagramNode): boolean {
 	return node.image !== undefined && node.image.trim() !== '';
 }
 
-function x6OntologyNodeBodyAttrs(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, radius: number): Record<string, unknown> {
-	if (hasNodeImage(node)) {
+function x6OntologyNodeBodyAttrs(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	radius: number,
+	containmentDepth?: number,
+): Record<string, unknown> {
+	if (containmentDepth === undefined && hasNodeImage(node)) {
 		return {
 			refWidth: '100%',
 			refHeight: '100%',
@@ -1244,13 +1260,19 @@ function x6OntologyNodeBodyAttrs(node: DiagramNode, payload: DiagramPayload, the
 
 	const ontologyColorValue = ontologyColor(node.ontology_ref, payload, node.ontology_item_type);
 	const colorMode = ontologyColorMode(payload);
+	const backgroundFallback = containmentDepth === undefined
+		? theme.nodeBackground
+		: containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground);
+	const borderFallback = containmentDepth === undefined
+		? theme.nodeBorder
+		: containmentColorAtDepth(theme.containmentBorders, containmentDepth, theme.nodeBorder);
 	return {
 		refWidth: '100%',
 		refHeight: '100%',
 		rx: radius,
 		ry: radius,
-		fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type),
-		...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? theme.nodeBorder : theme.nodeBorder, 1),
+		fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? backgroundFallback, node.ontology_item_type),
+		...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? borderFallback : borderFallback, 1),
 		filter: shadowFilter(node.style, theme.elementShadow, theme),
 	};
 }
@@ -1382,7 +1404,13 @@ function x6LegendElement(element: DiagramLegendElement, payload: DiagramPayload,
 	};
 }
 
-function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, isContainer = false): {
+function x6OntologyNodePresentation(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	isContainer = false,
+	containmentDepth?: number,
+): {
 	readonly hasAttributes: boolean;
 	readonly markup: readonly Record<string, string>[];
 	readonly attrs: Record<string, unknown>;
@@ -1392,7 +1420,15 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
-	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
+	const backgroundColor = ontologyBackgroundColor(
+		node.ontology_ref,
+		payload,
+		node.style?.bg_color ?? (containmentDepth === undefined
+			? theme.nodeBackground
+			: containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground)),
+		node.ontology_item_type,
+	);
+	const textColor = node.style?.text_color ?? readableTextColor(backgroundColor, theme.editorForeground);
 	if (isContainer) {
 		return {
 			hasAttributes: false,

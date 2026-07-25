@@ -4,9 +4,17 @@ import { Bounds, DiagramEdge, DiagramLegendElement, DiagramNode, OntologyDiagram
 import { ApplyLegendColoringUseCase, CreateLegendElementUseCase, DeleteLegendElementUseCase, UpdateLegendColorByUseCase, UpdateLegendColorsUseCase } from '../diagram-editor/use-cases';
 import { defaultOntologyColorPalette } from '../diagram-editor/use-cases/create-legend-element-use-case';
 import { createEmbeddedGalleryIcon, embeddedGalleryIconColor } from '../shared/embedded-gallery-icon';
-import { ontologyColor } from '../ui/webview/components/ontology-legend';
+import { ontologyColor, readableTextColor } from '../ui/webview/components/ontology-legend';
 
 suite('Ontology legend', () => {
+	test('chooses readable automatic text for light and dark backgrounds', () => {
+		assert.strictEqual(readableTextColor('#E8EEF8', '#F9FAFB'), '#111111');
+		assert.strictEqual(readableTextColor('#1E293B', '#111111'), '#FFFFFF');
+		assert.strictEqual(readableTextColor('#1E293B', '#F1F5F9'), '#F1F5F9');
+		assert.strictEqual(readableTextColor('rgb(243, 246, 251)', '#F9FAFB'), '#111111');
+		assert.strictEqual(readableTextColor('var(--custom-color)', '#ABCDEF'), '#ABCDEF');
+	});
+
 	test('persists the diagram ontology-label setting and legend colours', () => {
 		const document = parseOntologyDiagramYaml(`metadata:
   schema_version: "1.0"

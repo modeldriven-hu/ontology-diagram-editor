@@ -15,6 +15,8 @@ suite('Note colors', () => {
 
 const testTheme: WebviewTheme = {
 	canvasBackground: '#FFFFFF',
+	containmentBackgrounds: ['#E8EEF8', '#F3F6FB'],
+	containmentBorders: ['#375A8C', '#6682A8'],
 	edgeColor: '#4A4A4A',
 	edgeTextColor: '#000000',
 	edgeWeight: 1,

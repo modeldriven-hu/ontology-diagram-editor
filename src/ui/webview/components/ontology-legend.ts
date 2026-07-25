@@ -46,11 +46,18 @@ export function ontologyBackgroundColor(reference: string, payload: DiagramPaylo
 
 export function ontologyTextColor(reference: string, payload: DiagramPayload, fallback: string, itemType?: string): string {
 	const color = ontologyColorMode(payload) === 'background' ? ontologyColor(reference, payload, itemType) : undefined;
-	if (color === undefined) {return fallback;}
-	const rgb = hexColor(color);
-	if (rgb === undefined) {return fallback;}
-	const luminance = (0.2126 * linearRgb(rgb[0])) + (0.7152 * linearRgb(rgb[1])) + (0.0722 * linearRgb(rgb[2]));
-	return luminance > 0.179 ? '#111111' : '#FFFFFF';
+	return color === undefined ? fallback : readableTextColor(color, fallback);
+}
+
+export function readableTextColor(background: string, fallback: string): string {
+	const backgroundRgb = parsedColor(background);
+	if (backgroundRgb === undefined) {return fallback;}
+	const backgroundLuminance = relativeLuminance(backgroundRgb);
+	const fallbackRgb = parsedColor(fallback);
+	if (fallbackRgb !== undefined && contrastRatio(backgroundLuminance, relativeLuminance(fallbackRgb)) >= 4.5) {
+		return fallback;
+	}
+	return backgroundLuminance > 0.179 ? '#111111' : '#FFFFFF';
 }
 
 export function ontologySource(reference: string, payload: DiagramPayload): string | undefined {
@@ -104,14 +111,30 @@ function elementTypeLabel(type: string): string {
 	return elementTypeLabels[type] ?? type;
 }
 
-function hexColor(value: string): readonly [number, number, number] | undefined {
+function parsedColor(value: string): readonly [number, number, number] | undefined {
 	const compact = /^#([\da-f])([\da-f])([\da-f])$/iu.exec(value.trim());
 	if (compact !== null) {return [parseInt(compact[1] + compact[1], 16), parseInt(compact[2] + compact[2], 16), parseInt(compact[3] + compact[3], 16)];}
 	const full = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/iu.exec(value.trim());
-	return full === null ? undefined : [parseInt(full[1], 16), parseInt(full[2], 16), parseInt(full[3], 16)];
+	if (full !== null) {return [parseInt(full[1], 16), parseInt(full[2], 16), parseInt(full[3], 16)];}
+	const rgb = /^rgba?\(\s*(\d+(?:\.\d+)?)\s*[, ]\s*(\d+(?:\.\d+)?)\s*[, ]\s*(\d+(?:\.\d+)?)(?:\s*[,/]\s*[\d.]+%?)?\s*\)$/iu.exec(value.trim());
+	if (rgb === null) {return undefined;}
+	const channels = rgb.slice(1, 4).map((channel) => Number.parseFloat(channel));
+	return channels.every((channel) => channel >= 0 && channel <= 255)
+		? channels as unknown as readonly [number, number, number]
+		: undefined;
 }
 
 function linearRgb(value: number): number {
 	const normalized = value / 255;
 	return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(rgb: readonly [number, number, number]): number {
+	return (0.2126 * linearRgb(rgb[0])) + (0.7152 * linearRgb(rgb[1])) + (0.0722 * linearRgb(rgb[2]));
+}
+
+function contrastRatio(firstLuminance: number, secondLuminance: number): number {
+	const lighter = Math.max(firstLuminance, secondLuminance);
+	const darker = Math.min(firstLuminance, secondLuminance);
+	return (lighter + 0.05) / (darker + 0.05);
 }

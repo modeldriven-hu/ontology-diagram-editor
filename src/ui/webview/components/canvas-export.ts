@@ -2,13 +2,13 @@ import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../../shared/diagram-containment';
-import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, ontologyTextColor } from './ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
-import type { WebviewTheme } from '../webview-theme';
+import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
 
 type ExportFormat = 'svg' | 'png';
 
@@ -142,7 +142,15 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme)),
 		...edges.map((edge) => renderEdge(edge, payload, theme)),
-		...orderedNodes.map((node) => renderNode(node, payload, theme, containment.containerNodeIds.has(node.id))),
+		...orderedNodes.map((node) => renderNode(
+			node,
+			payload,
+			theme,
+			containment.containerNodeIds.has(node.id),
+			containment.containerNodeIds.has(node.id) || containment.parentByNodeId.has(node.id)
+				? containment.depthByNodeId.get(node.id) ?? 0
+				: undefined,
+		)),
 		...notes.map((note) => renderNote(note, theme)),
 		...labels.map((label) => renderLabel(label, theme)),
 		...metadataElements.map((element) => renderMetadataElement(element, payload, theme)),
@@ -267,9 +275,27 @@ function isNoteConnection(edge: DiagramEdge): boolean {
 	return edge.ontology_item_type === 'noteConnection';
 }
 
-function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, isContainer = false): string {
-	const border = borderStyle(node.style, ontologyColorMode(payload) === 'border' ? ontologyColor(node.ontology_ref, payload, node.ontology_item_type) ?? theme.nodeBorder : theme.nodeBorder, 1);
-	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
+function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, isContainer = false, containmentDepth?: number): string {
+	const backgroundFallback = containmentDepth !== undefined
+		? containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground)
+		: theme.nodeBackground;
+	const borderFallback = containmentDepth !== undefined
+		? containmentColorAtDepth(theme.containmentBorders, containmentDepth, theme.nodeBorder)
+		: theme.nodeBorder;
+	const border = borderStyle(
+		node.style,
+		ontologyColorMode(payload) === 'border'
+			? ontologyColor(node.ontology_ref, payload, node.ontology_item_type) ?? borderFallback
+			: borderFallback,
+		1,
+	);
+	const backgroundColor = ontologyBackgroundColor(
+		node.ontology_ref,
+		payload,
+		node.style?.bg_color ?? backgroundFallback,
+		node.ontology_item_type,
+	);
+	const textColor = node.style?.text_color ?? readableTextColor(backgroundColor, theme.editorForeground);
 	const ontologyLabel = nodeOntologyLabel(node.ontology_ref, payload);
 	const fontFamily = node.style?.font?.family ?? theme.nodeFontFamily;
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
@@ -278,7 +304,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	const bounds = elementBounds(node);
 	if (isContainer) {
 		return [
-			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 			renderTextBlock({
 				id: node.id,
 				text: nodeTitleText(node, payload),
@@ -298,6 +324,9 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	if (hasNodeImage(node)) {
 		const imageBounds = nodeImageBounds(bounds);
 		return [
+			...(containmentDepth === undefined ? [] : [
+				`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+			]),
 			`<image href="${escapeAttribute(node.image)}" x="${numberValue(imageBounds.x)}" y="${numberValue(imageBounds.y)}" width="${numberValue(imageBounds.width)}" height="${numberValue(imageBounds.height)}" preserveAspectRatio="${imagePreserveAspectRatio(node)}"/>`,
 			renderTextBlock({
 				id: node.id,
@@ -350,7 +379,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 		padding: 4,
 	})];
 	const parts = [
-		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type))}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		...ontologyLabelPart,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,

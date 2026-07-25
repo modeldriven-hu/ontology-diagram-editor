@@ -3,9 +3,17 @@ import * as assert from 'assert';
 import { createDiagramContainmentIndex } from '../shared/diagram-containment';
 import { createSvgExportCommand } from '../ui/webview/components/canvas-export';
 import type { DiagramPayload } from '../ui/webview/ontology-diagram-types';
-import type { WebviewTheme } from '../ui/webview/webview-theme';
+import { containmentColorAtDepth, type WebviewTheme } from '../ui/webview/webview-theme';
 
 suite('Canvas containment', () => {
+	test('assigns a distinct palette color to each containment depth', () => {
+		const palette = ['lavender', 'mint', 'peach', 'blue'];
+		assert.deepStrictEqual(
+			[0, 1, 2, 3, 4].map((depth) => containmentColorAtDepth(palette, depth, 'fallback')),
+			['lavender', 'mint', 'peach', 'blue', 'lavender'],
+		);
+	});
+
 	test('indexes recursive parents, children, and depths', () => {
 		const index = createDiagramContainmentIndex(
 			['node_root', 'node_group', 'node_leaf'],
@@ -47,6 +55,10 @@ suite('Canvas containment', () => {
 		assert.doesNotMatch(svg, /edge_partOf/);
 		assert.match(svg, />Outer<\/tspan>/);
 		assert.match(svg, />Inner<\/tspan>/);
+		assert.match(svg, /fill="#E8EEF8"/);
+		assert.match(svg, /stroke="#375A8C"/);
+		assert.match(svg, /fill="#F3F6FB"/);
+		assert.match(svg, /stroke="#6682A8"/);
 	});
 });
 
@@ -86,6 +98,8 @@ const containmentPayload: DiagramPayload = {
 
 const testTheme: WebviewTheme = {
 	canvasBackground: '#FFFFFF',
+	containmentBackgrounds: ['#E8EEF8', '#F3F6FB'],
+	containmentBorders: ['#375A8C', '#6682A8'],
 	edgeColor: '#4A4A4A',
 	edgeTextColor: '#000000',
 	edgeWeight: 1,
