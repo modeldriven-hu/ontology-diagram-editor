@@ -1,7 +1,8 @@
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
-import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowEdgesBetweenNodesCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
+import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowEdgesBetweenNodesCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import type { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
+import { nodeTitleText } from '../components/node-data-properties';
 import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
 import type { DiagramEdge, DiagramNode, DiagramPayload } from '../ontology-diagram-types';
 import { edgeSelectionBounds, edgeToolbarPoint, nodeSelectionBounds } from './canvas-content-bounds';
@@ -37,6 +38,7 @@ interface LocalElementToolbarElements {
 	readonly optimizeEdgeLocalButton: HTMLButtonElement;
 	readonly straightenEdgeLocalButton: HTMLButtonElement;
 	readonly edgeRouteLayoutLocalSelect: HTMLSelectElement;
+	readonly edgePresentationLocalSelect: HTMLSelectElement;
 	readonly resetEdgeLabelLocalButton: HTMLButtonElement;
 	readonly deleteEdgeLocalButton: HTMLButtonElement;
 }
@@ -162,6 +164,9 @@ export class LocalElementToolbarController {
 		});
 		elements.edgeRouteLayoutLocalSelect.addEventListener('change', () => {
 			this.updateSelectedEdgeRouteLayout();
+		});
+		elements.edgePresentationLocalSelect.addEventListener('change', () => {
+			this.updateSelectedEdgePresentation();
 		});
 		this.registerButton(elements.resetEdgeLabelLocalButton, () => {
 			this.resetSelectedEdgeLabel();
@@ -335,10 +340,16 @@ export class LocalElementToolbarController {
 		elements.optimizeEdgeLocalButton.hidden = element.kind !== 'edge';
 		elements.straightenEdgeLocalButton.hidden = element.kind !== 'edge';
 		elements.edgeRouteLayoutLocalSelect.hidden = element.kind !== 'edge';
+		const canChangeEdgePresentation = element.kind === 'edge'
+			&& this.options.elementRegistry.element(element.value.source)?.kind === 'node'
+			&& this.options.elementRegistry.element(element.value.target)?.kind === 'node';
+		elements.edgePresentationLocalSelect.hidden = !canChangeEdgePresentation;
 		elements.resetEdgeLabelLocalButton.hidden = element.kind !== 'edge';
 		elements.deleteEdgeLocalButton.hidden = element.kind !== 'edge';
 		if (element.kind === 'edge') {
 			elements.edgeRouteLayoutLocalSelect.value = element.value.route_layout ?? '';
+			this.updateEdgePresentationOptionLabels(element.value);
+			elements.edgePresentationLocalSelect.value = edgePresentationSelectValue(element.value);
 		}
 
 		if (element.kind === 'nodeSelection') {
@@ -644,6 +655,50 @@ export class LocalElementToolbarController {
 		this.options.showStatus(`Changed edge routing to ${edgeRouteLayoutLabel(routeLayout)}.`);
 	}
 
+	private updateSelectedEdgePresentation(): void {
+		const selectedElementId = this.options.canvas.selectedElementId();
+		const selectedElement = selectedElementId === undefined
+			? undefined
+			: this.options.elementRegistry.element(selectedElementId);
+		if (selectedElementId === undefined || selectedElement?.kind !== 'edge') {
+			this.options.showStatus('Select an edge to change its presentation.');
+			return;
+		}
+
+		const presentation = edgePresentationFromSelectValue(
+			this.options.elements.edgePresentationLocalSelect.value,
+		);
+		if (presentation === undefined) {
+			this.options.showStatus('The selected edge presentation is not available.');
+			return;
+		}
+
+		this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
+			selectedElementId,
+			presentation.renderAs,
+			presentation.containmentDirection,
+		));
+		const label = this.options.elements.edgePresentationLocalSelect.selectedOptions[0]?.textContent
+			?? 'the selected option';
+		this.options.showStatus(`Changing edge presentation to ${label}.`);
+	}
+
+	private updateEdgePresentationOptionLabels(edge: DiagramEdge): void {
+		const source = this.options.elementRegistry.element(edge.source);
+		const target = this.options.elementRegistry.element(edge.target);
+		if (source?.kind !== 'node' || target?.kind !== 'node') {
+			return;
+		}
+
+		const labelsByValue = new Map(edgePresentationOptions(
+			nodeTitleText(source.value, this.options.payload),
+			nodeTitleText(target.value, this.options.payload),
+		).map((option) => [option.value, option.label]));
+		for (const option of this.options.elements.edgePresentationLocalSelect.options) {
+			option.textContent = labelsByValue.get(option.value) ?? option.textContent;
+		}
+	}
+
 	private resetSelectedEdgeLabel(): void {
 		const selectedElementId = this.options.canvas.selectedElementId();
 		const selectedElement = selectedElementId === undefined
@@ -913,6 +968,54 @@ function edgeRouteLayoutLabel(routeLayout: DiagramEdge['route_layout']): string 
 	}
 }
 
+export interface EdgePresentationSelection {
+	readonly renderAs?: DiagramEdge['render_as'];
+	readonly containmentDirection?: DiagramEdge['containment_direction'];
+}
+
+export function edgePresentationFromSelectValue(value: string): EdgePresentationSelection | undefined {
+	switch (value) {
+		case 'connection':
+			return {};
+		case 'target_contains_source':
+			return {
+				renderAs: 'containment',
+				containmentDirection: 'target_contains_source',
+			};
+		case 'source_contains_target':
+			return {
+				renderAs: 'containment',
+				containmentDirection: 'source_contains_target',
+			};
+		default:
+			return undefined;
+	}
+}
+
+export interface EdgePresentationOption {
+	readonly value: string;
+	readonly label: string;
+}
+
+export function edgePresentationOptions(
+	sourceName: string,
+	targetName: string,
+): readonly EdgePresentationOption[] {
+	return [
+		{ value: 'connection', label: 'Connection' },
+		{ value: 'target_contains_source', label: `${targetName} contains ${sourceName}` },
+		{ value: 'source_contains_target', label: `${sourceName} contains ${targetName}` },
+	];
+}
+
+export function edgePresentationSelectValue(edge: DiagramEdge): string {
+	if (edge.render_as !== 'containment') {
+		return 'connection';
+	}
+
+	return edge.containment_direction ?? 'target_contains_source';
+}
+
 function localToolbarKeyboardDelta(event: KeyboardEvent): CanvasPoint | undefined {
 	const distance = event.shiftKey ? 24 : 8;
 	switch (event.key) {
@@ -937,7 +1040,7 @@ function localElementToolbarFallbackWidth(element: LocalElementToolbarContext): 
 		return 92;
 	}
 	if (element.kind === 'node' || element.kind === 'edge') {
-		return element.kind === 'edge' ? 247 : 123;
+		return element.kind === 'edge' ? 455 : 123;
 	}
 	if (element.kind === 'note') {
 		return 87;

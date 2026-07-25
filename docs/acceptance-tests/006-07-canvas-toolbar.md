@@ -17,6 +17,11 @@
 - Given the user chooses Arrange Diagram with ontology nodes present, when persistence completes, then nodes are arranged and connected edges are rerouted as one logical edit.
 - Given one or more ontology nodes are selected, when the user chooses Arrange Diagram, then only those nodes are arranged.
 - Given no ontology node is selected, when the user chooses Arrange Diagram, then every ontology node is arranged.
+- Given the diagram contains containment, when the user chooses Arrange Diagram, then
+  each top-level containment tree is arranged as one compound unit without flattening
+  its descendants.
+- Given a contained node is selected, when the user chooses Arrange Diagram, then its
+  complete containment tree is arranged and unselected trees remain in place.
 - Given the user selects Directed Layers, ELK Layered, ELK Force, ELK Mr. Tree, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
 - Given the user selects ELK Layered, when they set the direction, node gap, or layer gap and choose Arrange Diagram, then the resulting layout uses the configured options without persisting those settings in the diagram file.
 - Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.
@@ -40,9 +45,11 @@
 - Given Show related elements adds nodes or edges, when persistence succeeds, then the canvas shows the added elements without an additional success notification.
 - Given a note is selected, when the local toolbar appears, then Resize to compact size and Connect Note are available.
 - Given an image or label is selected, when the local toolbar appears, then Resize to minimum is available.
-- Given an edge is selected, when the local toolbar appears, then Optimize edge path, a routing-type combobox, Straighten edge, and Remove edge are available.
+- Given a node-to-node edge is selected, when the local toolbar appears, then Optimize edge path, a routing-type combobox, an edge-presentation combobox, Straighten edge, and Remove edge are available.
 - Given an edge with `route_layout: direct` is selected, when the local toolbar appears, then its routing-type combobox displays Direct.
 - Given an edge is selected, when the user chooses a different routing type in its local-toolbar combobox, then the selected `route_layout` is persisted for that edge.
+- Given a node-to-node edge is selected, when its presentation combobox appears, then both containment choices identify the source and target by their displayed node names.
+- Given a node-to-node edge is selected, when the user chooses either containment direction in its local-toolbar presentation combobox, then `render_as` and `containment_direction` are persisted together.
 - Given an edge is selected, when the user chooses Straighten edge, then the persisted route is rewritten as a horizontal or vertical two-point line and the edge label is moved to the new route midpoint.
 - Given note or label text editing is active, when the user edits text, then the local toolbar is hidden.
 

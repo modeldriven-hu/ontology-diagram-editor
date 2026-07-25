@@ -78,7 +78,10 @@ Arranging the diagram shall:
 - Provide a deterministic left-to-right directed-layers layout derived from
   ontology-backed edges, an ELK layered layout with orthogonal edge routing, an ELK
   force-directed layout, an ELK Mr. Tree layout, and a deterministic grid layout.
-- Preserve each node's persisted width and height.
+- Preserve each non-container node's persisted width and height. Containment containers
+  may expand to enclose their recursively arranged descendants.
+- Treat each top-level containment tree as one compound unit while arranging, and
+  promote a selected contained node to its complete top-level tree.
 - Reroute connected edges so endpoints remain on element boundaries.
 - Update edge label positions to reasonable route midpoints.
 - Persist the result as one logical `.odiagram` document edit.
@@ -122,7 +125,7 @@ Version 1 local toolbar actions are:
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |
-| Edge | Optimize edge path, choose a routing type, straighten the route, and remove edge. |
+| Edge | Optimize edge path, choose a routing type, choose connection or either containment direction, straighten the route, and remove edge. |
 
 The show-related-elements node action shall ask the user for a relationship depth. It
 shall add unambiguous object-property relationships, object-property assertions, and
@@ -140,3 +143,9 @@ When one edge is selected, its local toolbar shall show a routing-type combobox.
 combobox shall display the edge's current routing type and shall update `route_layout`
 when the user selects a different type. An edge without an explicit routing type shall
 display `Default (orthogonal)`.
+
+For an edge whose source and target are both ontology nodes, the local toolbar shall
+also show an edge-presentation combobox. It shall provide **Connection** and both
+containment directions using the displayed endpoint names, for example **Project
+contains Task** and **Task contains Project**. Choosing an option shall update the edge
+presentation and containment direction as one operation.

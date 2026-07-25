@@ -149,6 +149,7 @@ const alignEdgeEndPointsLocalButton = requiredElement('alignEdgeEndPointsLocalBu
 const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
 const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') as HTMLButtonElement;
 const edgeRouteLayoutLocalSelect = requiredElement('edgeRouteLayoutLocalSelect') as HTMLSelectElement;
+const edgePresentationLocalSelect = requiredElement('edgePresentationLocalSelect') as HTMLSelectElement;
 const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
 const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const savedLayoutAlgorithmId = vscode.getState()?.layoutAlgorithmId;
@@ -249,6 +250,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 		optimizeEdgeLocalButton,
 		straightenEdgeLocalButton,
 		edgeRouteLayoutLocalSelect,
+		edgePresentationLocalSelect,
 		resetEdgeLabelLocalButton,
 		deleteEdgeLocalButton,
 	},

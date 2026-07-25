@@ -1,6 +1,7 @@
-import { Bounds, containmentEndpoints, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { Bounds, DiagramEdge, DiagramNode, Point, type OntologyDiagramDocument } from '../../documents/odiagram';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from '../../shared/diagram-layout';
 import { createDefaultDiagramLayoutAlgorithms, type DiagramLayoutAlgorithm, type DiagramLayoutEdgeRoute } from '../layout';
+import { copyNodeWithBounds, createDocumentContainmentIndex, layoutContainmentNodes, type DocumentContainmentIndex } from './containment-layout';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 import { boundaryPoint, closestBoundaryPointPair, roundCoordinate, selfLoopEdgeLabel, selfLoopEdgePoints } from './geometry';
@@ -19,43 +20,23 @@ export class ArrangeDiagramUseCase {
 		if (diagram.nodes.length === 0) {
 			return { notification: 'There are no ontology nodes to arrange.' };
 		}
-		if (selectionIncludesContainmentNodes(diagram, selectedNodeIds)) {
-			return { notification: 'Nested containment is arranged automatically when its edge presentation changes.' };
-		}
 
 		const algorithm = this.algorithms.find((candidate) => candidate.id === algorithmId);
 		if (algorithm === undefined) {
 			return { notification: `The diagram layout algorithm "${algorithmId}" is not available.` };
 		}
 
-		const layoutDiagram = layoutScope(diagram, selectedNodeIds);
+		const containment = createDocumentContainmentIndex(diagram);
+		const normalizedNodes = layoutContainmentNodes(diagram, containment);
+		const normalizedDiagram = cloneDiagram(diagram, { nodes: normalizedNodes });
+		const scope = compoundLayoutScope(normalizedDiagram, containment, selectedNodeIds);
 		const layout = await algorithm.layout(
-			layoutDiagram,
+			scope.diagram,
 			algorithmId === 'elk-layered' ? elkLayeredOptions : undefined,
 		);
-		const arrangedBoundsById = layout.nodeBoundsById;
-		const arrangedNodeIds = new Set(arrangedBoundsById.keys());
-		const movedNodeIds = new Set<string>();
-		const nextNodes = diagram.nodes.map((node) => {
-			const bounds = arrangedBoundsById.get(node.id.value);
-			if (bounds === undefined || boundsEqual(node.bounds, bounds)) {
-				return node;
-			}
-
-			movedNodeIds.add(node.id.value);
-			return new DiagramNode(
-				node.id.value,
-				node.ontologyRef.value,
-				bounds,
-				node.style,
-				node.image,
-				node.extra,
-				node.showDataProperties,
-				node.showType,
-				node.showPropertyValues,
-				node.propertyValueTextOverflow,
-			);
-		});
+		const arrangedRootBoundsById = layout.nodeBoundsById;
+		const arrangedNodeIds = arrangedCompoundNodeIds(containment, arrangedRootBoundsById);
+		const nextNodes = applyCompoundRootBounds(normalizedNodes, containment, arrangedRootBoundsById);
 
 		const boundsByElementId = new Map([
 			...nextNodes.map((node) => [node.id.value, node.bounds] as const),
@@ -66,9 +47,12 @@ export class ArrangeDiagramUseCase {
 			edge,
 			boundsByElementId,
 			arrangedNodeIds,
-			layout.edgeRoutesById?.get(edge.id.value),
+			scope.routeEligibleEdgeIds.has(edge.id.value)
+				? layout.edgeRoutesById?.get(edge.id.value)
+				: undefined,
 		));
-		const changed = movedNodeIds.size > 0 || nextEdges.some((edge, index) => edge !== diagram.edges[index]);
+		const changed = nextNodes.some((node, index) => node !== diagram.nodes[index])
+			|| nextEdges.some((edge, index) => edge !== diagram.edges[index]);
 		if (!changed) {
 			return {};
 		}
@@ -82,44 +66,114 @@ export class ArrangeDiagramUseCase {
 	}
 }
 
-function selectionIncludesContainmentNodes(
-	diagram: OntologyDiagramDocument,
-	selectedNodeIds: readonly string[] | undefined,
-): boolean {
-	const containmentNodeIds = new Set(diagram.edges.flatMap((edge) => {
-		if (edge.renderAs !== 'containment' || edge.containmentDirection === undefined) {
-			return [];
-		}
-		const endpoints = containmentEndpoints(edge);
-		return [endpoints.parentNodeId, endpoints.childNodeId];
-	}));
-	if (containmentNodeIds.size === 0) {
-		return false;
-	}
-	if (selectedNodeIds === undefined || selectedNodeIds.length === 0) {
-		return true;
-	}
-	return selectedNodeIds.some((id) => containmentNodeIds.has(id));
+interface CompoundLayoutScope {
+	readonly diagram: OntologyDiagramDocument;
+	readonly routeEligibleEdgeIds: ReadonlySet<string>;
 }
 
-function layoutScope(
+function compoundLayoutScope(
 	diagram: OntologyDiagramDocument,
+	containment: DocumentContainmentIndex,
 	selectedNodeIds: readonly string[] | undefined,
-): OntologyDiagramDocument {
-	if (selectedNodeIds === undefined || selectedNodeIds.length === 0) {
-		return diagram;
+): CompoundLayoutScope {
+	const allRootIds = new Set(containment.nodeIdsByRootId.keys());
+	const selectedRootIds = selectedNodeIds === undefined || selectedNodeIds.length === 0
+		? allRootIds
+		: new Set(selectedNodeIds.flatMap((nodeId) => {
+			const rootId = containment.rootByNodeId.get(nodeId);
+			return rootId === undefined ? [] : [rootId];
+		}));
+	const scopedRootIds = selectedRootIds.size === 0 ? allRootIds : selectedRootIds;
+	const rootNodes = diagram.nodes.filter((node) => scopedRootIds.has(node.id.value));
+	const nodeIds = new Set(diagram.nodes.map((node) => node.id.value));
+	const routeEligibleEdgeIds = new Set<string>();
+	const projectedEdges = diagram.edges.flatMap((edge) => {
+		if (edge.renderAs === 'containment'
+			|| !nodeIds.has(edge.source.value)
+			|| !nodeIds.has(edge.target.value)) {
+			return [];
+		}
+		const sourceRootId = containment.rootByNodeId.get(edge.source.value);
+		const targetRootId = containment.rootByNodeId.get(edge.target.value);
+		if (sourceRootId === undefined
+			|| targetRootId === undefined
+			|| sourceRootId === targetRootId
+			|| !scopedRootIds.has(sourceRootId)
+			|| !scopedRootIds.has(targetRootId)) {
+			return [];
+		}
+		if (sourceRootId === edge.source.value && targetRootId === edge.target.value) {
+			routeEligibleEdgeIds.add(edge.id.value);
+			return [edge];
+		}
+		return [new DiagramEdge(
+			edge.id.value,
+			sourceRootId,
+			targetRootId,
+			edge.ontologyRef.value,
+			edge.label,
+			edge.points,
+			edge.style,
+			edge.extra,
+			edge.routeLayout,
+		)];
+	});
+
+	return {
+		diagram: cloneDiagram(diagram, {
+			nodes: rootNodes,
+			edges: projectedEdges,
+		}),
+		routeEligibleEdgeIds,
+	};
+}
+
+function arrangedCompoundNodeIds(
+	containment: DocumentContainmentIndex,
+	arrangedRootBoundsById: ReadonlyMap<string, Bounds>,
+): ReadonlySet<string> {
+	return new Set([...arrangedRootBoundsById.keys()].flatMap((rootId) =>
+		containment.nodeIdsByRootId.get(rootId) ?? []));
+}
+
+function applyCompoundRootBounds(
+	nodes: readonly DiagramNode[],
+	containment: DocumentContainmentIndex,
+	arrangedRootBoundsById: ReadonlyMap<string, Bounds>,
+): readonly DiagramNode[] {
+	const nodeById = new Map(nodes.map((node) => [node.id.value, node]));
+	const deltaByRootId = new Map<string, { readonly x: number; readonly y: number }>();
+	for (const [rootId, arrangedBounds] of arrangedRootBoundsById) {
+		const root = nodeById.get(rootId);
+		if (root !== undefined) {
+			deltaByRootId.set(rootId, {
+				x: arrangedBounds.x - root.bounds.x,
+				y: arrangedBounds.y - root.bounds.y,
+			});
+		}
 	}
 
-	const selectedIds = new Set(selectedNodeIds);
-	const nodes = diagram.nodes.filter((node) => selectedIds.has(node.id.value));
-	if (nodes.length === 0) {
-		return diagram;
-	}
-
-	const scopedIds = new Set(nodes.map((node) => node.id.value));
-	return cloneDiagram(diagram, {
-		nodes,
-		edges: diagram.edges.filter((edge) => scopedIds.has(edge.source.value) && scopedIds.has(edge.target.value)),
+	return nodes.map((node) => {
+		const rootId = containment.rootByNodeId.get(node.id.value);
+		const delta = rootId === undefined ? undefined : deltaByRootId.get(rootId);
+		if (rootId === undefined || delta === undefined) {
+			return node;
+		}
+		const arrangedRootBounds = arrangedRootBoundsById.get(rootId);
+		const bounds = node.id.value === rootId && arrangedRootBounds !== undefined
+			? new Bounds(
+				arrangedRootBounds.x,
+				arrangedRootBounds.y,
+				Math.max(node.bounds.width, arrangedRootBounds.width),
+				Math.max(node.bounds.height, arrangedRootBounds.height),
+			)
+			: new Bounds(
+				node.bounds.x + delta.x,
+				node.bounds.y + delta.y,
+				node.bounds.width,
+				node.bounds.height,
+			);
+		return copyNodeWithBounds(node, bounds);
 	});
 }
 
@@ -129,6 +183,9 @@ function arrangeEdge(
 	arrangedNodeIds: ReadonlySet<string>,
 	providedRoute?: DiagramLayoutEdgeRoute,
 ): DiagramEdge {
+	if (edge.renderAs === 'containment') {
+		return edge;
+	}
 	if (!arrangedNodeIds.has(edge.source.value) && !arrangedNodeIds.has(edge.target.value)) {
 		return edge;
 	}

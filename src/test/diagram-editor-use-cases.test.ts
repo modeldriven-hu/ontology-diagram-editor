@@ -2416,6 +2416,59 @@ suite('Diagram editor use cases', () => {
 		assert.match(cycle.notification ?? '', /cycle/);
 	});
 
+	test('arranges containment trees as compound root nodes', async () => {
+		const useCase = new UpdateEdgePresentationUseCase();
+		const first = useCase.execute(containmentTestDiagram(), 'edge_childA', 'containment', 'target_contains_source').diagram;
+		assert.ok(first);
+		const nestedDiagram = useCase.execute(first, 'edge_childB', 'containment', 'target_contains_source').diagram;
+		assert.ok(nestedDiagram);
+
+		const result = await new ArrangeDiagramUseCase().execute(nestedDiagram, 'grid');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 80, y: 80, width: 248, height: 122 },
+			{ x: 96, y: 136, width: 100, height: 50 },
+			{ x: 212, y: 136, width: 100, height: 50 },
+			{ x: 400, y: 80, width: 120, height: 60 },
+		]);
+		assert.strictEqual(result.diagram.edges[0].renderAs, 'containment');
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 0, y: 0 },
+			{ x: 1, y: 1 },
+		]);
+		assert.notDeepStrictEqual(result.diagram.edges[2].points.map((point) => point.toPersistenceObject()), [
+			{ x: 0, y: 0 },
+			{ x: 1, y: 1 },
+		]);
+	});
+
+	test('promotes a selected contained node to its compound root for layout', async () => {
+		const useCase = new UpdateEdgePresentationUseCase();
+		const nestedDiagram = useCase.execute(
+			containmentTestDiagram(),
+			'edge_childA',
+			'containment',
+			'target_contains_source',
+		).diagram;
+		assert.ok(nestedDiagram);
+
+		const result = await new ArrangeDiagramUseCase().execute(
+			nestedDiagram,
+			'grid',
+			undefined,
+			['node_childA'],
+		);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.bounds.toPersistenceObject()), [
+			{ x: 80, y: 80, width: 132, height: 122 },
+			{ x: 96, y: 136, width: 100, height: 50 },
+			{ x: 360, y: 40, width: 100, height: 50 },
+			{ x: 500, y: 40, width: 120, height: 60 },
+		]);
+	});
+
 	test('reroutes stale edges when arranging already placed nodes', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),

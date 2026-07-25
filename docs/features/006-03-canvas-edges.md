@@ -114,6 +114,8 @@ route. The toolbar shall provide:
   endpoint bounds and updates the edge label to a route midpoint.
 - A straighten-edge action that rewrites the selected edge route as a horizontal or
   vertical two-point line and updates the edge label to the new route midpoint.
+- For ontology node-to-node edges, a presentation selector that changes the connection
+  to either containment direction as one operation.
 
 When a connection-capable ontology item is dragged onto the canvas, the canvas shall
 display a temporary edge preview.

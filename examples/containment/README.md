@@ -27,3 +27,5 @@ Useful checks:
 3. Restore one containment relationship to a connection from an involved node.
 4. Try assigning one child to a second parent or creating a cycle; the editor should
    reject the change with a concise message.
+5. Choose any Arrange Diagram algorithm and verify that each outermost box moves as a
+   compound unit while all nested boxes remain inside their parents.
