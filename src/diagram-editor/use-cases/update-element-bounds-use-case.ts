@@ -88,6 +88,7 @@ export class UpdateElementBoundsUseCase {
 				node.showType,
 				node.showPropertyValues,
 				node.propertyValueTextOverflow,
+				node.labelTextOverflow,
 			);
 		});
 		const nextNotes = diagram.notes.map((note) => {

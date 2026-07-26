@@ -1,4 +1,4 @@
-import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -60,6 +60,12 @@ export interface LabelStylePatch {
 
 export type ElementStylePatch = CommonStylePatch | EdgeStylePatch | LabelStylePatch;
 
+export interface ElementStyleUpdate {
+	readonly elementType: StyledCanvasElementType;
+	readonly id: string;
+	readonly style?: ElementStylePatch;
+}
+
 export type WebviewCommand =
 	| ArrangeDiagramCommand
 	| AlignSubclassEndpointsCommand
@@ -106,6 +112,7 @@ export type WebviewCommand =
 	| UpdateNodeTypeVisibilityCommand
 	| UpdateNodePropertyValuesVisibilityCommand
 	| UpdateNodePropertyValueTextOverflowCommand
+	| UpdateNodeLabelTextOverflowCommand
 	| UpdateNoteExportVisibilityCommand
 	| PickNodeImageCommand
 	| PickImageSourceCommand
@@ -115,7 +122,9 @@ export type WebviewCommand =
 	| UpdateThemeModeCommand
 	| UpdateCanvasViewportCommand
 	| RevealModelTreeItemCommand
-	| UpdateElementStyleCommand;
+	| UpdateElementStyleCommand
+	| UpdateElementStylesCommand
+	| UpdateNodeLabelTextOverflowsCommand;
 
 export class ArrangeDiagramCommand {
 	public readonly type = 'arrangeDiagram';
@@ -572,6 +581,17 @@ export class UpdateNodePropertyValueTextOverflowCommand {
 	}
 }
 
+export class UpdateNodeLabelTextOverflowCommand {
+	public readonly type = 'updateNodeLabelTextOverflow';
+	public readonly id: string;
+	public readonly textOverflow: NodeLabelTextOverflow;
+
+	public constructor(id: string, textOverflow: NodeLabelTextOverflow) {
+		this.id = id;
+		this.textOverflow = textOverflow;
+	}
+}
+
 export class UpdateNoteExportVisibilityCommand {
 	public readonly type = 'updateNoteExportVisibility';
 	public readonly id: string;
@@ -668,5 +688,25 @@ export class UpdateElementStyleCommand {
 		this.elementType = elementType;
 		this.id = id;
 		this.style = style;
+	}
+}
+
+export class UpdateElementStylesCommand {
+	public readonly type = 'updateElementStyles';
+	public readonly updates: readonly ElementStyleUpdate[];
+
+	public constructor(updates: readonly ElementStyleUpdate[]) {
+		this.updates = updates;
+	}
+}
+
+export class UpdateNodeLabelTextOverflowsCommand {
+	public readonly type = 'updateNodeLabelTextOverflows';
+	public readonly ids: readonly string[];
+	public readonly textOverflow: NodeLabelTextOverflow;
+
+	public constructor(ids: readonly string[], textOverflow: NodeLabelTextOverflow) {
+		this.ids = ids;
+		this.textOverflow = textOverflow;
 	}
 }

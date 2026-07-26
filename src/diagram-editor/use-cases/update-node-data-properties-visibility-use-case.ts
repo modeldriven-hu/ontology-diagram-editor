@@ -26,6 +26,7 @@ export class UpdateNodeDataPropertiesVisibilityUseCase {
 				node.showType,
 				node.showPropertyValues,
 				node.propertyValueTextOverflow,
+				node.labelTextOverflow,
 			);
 		});
 

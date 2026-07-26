@@ -1,6 +1,6 @@
 # Acceptance Tests: Canvas Containment
 
-- Given an ordinary node-to-node edge, when **Display as** is changed to
+- Given an ordinary node-to-node edge, when **Display as** is changed on the Style tab to
   **Containment** with **Target contains source**, then the target expands as needed and
   the source is laid out inside it.
 - Given an ordinary node-to-node edge, when **Display as** is changed to
@@ -25,7 +25,7 @@
   persisted edge is rerouted against its actual descendant endpoints.
 - Given a contained node is selected, when Arrange Diagram runs, then its complete
   top-level containment tree is arranged and unselected trees remain in place.
-- Given a containment relationship is active, when either endpoint node's Ontology tab
+- Given a containment relationship is active, when either endpoint node's Style tab
   is opened, then the relationship and an action to restore it as a connection are
   available.
 - Given a relationship would assign a child to a second distinct parent, when

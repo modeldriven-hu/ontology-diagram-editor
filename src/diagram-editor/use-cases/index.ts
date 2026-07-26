@@ -44,6 +44,7 @@ export { UpdateNodeBoundsUseCase } from './update-node-bounds-use-case';
 export { UpdateNodeDataPropertiesVisibilityUseCase } from './update-node-data-properties-visibility-use-case';
 export { UpdateNodeImageUseCase } from './update-node-image-use-case';
 export { UpdateNodePropertyValueTextOverflowUseCase } from './update-node-property-value-text-overflow-use-case';
+export { UpdateNodeLabelTextOverflowUseCase } from './update-node-label-text-overflow-use-case';
 export { UpdateNodePropertyValuesVisibilityUseCase } from './update-node-property-values-visibility-use-case';
 export { UpdateNodeTypeVisibilityUseCase } from './update-node-type-visibility-use-case';
 export { UpdateNoteBoundsUseCase } from './update-note-bounds-use-case';

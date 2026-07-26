@@ -1,7 +1,7 @@
 import { minimumNodeHeight, minimumNodeWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { CreateNodeCommand, type ModelTreeItemDropPayload } from '../../../shared/webview-commands';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
-import { nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
+import { nodeCompartmentAttributes, nodeTitleText, ontologyReferenceDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import type { DiagramNode, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
@@ -157,14 +157,14 @@ export class CanvasDropController {
 					ry: 8,
 					class: 'edge-drop-preview-node',
 				}),
-				svgText(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 4, edgeDisplayName(node.ontologyRef), 'edge-drop-preview-node-label'),
+				svgText(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 4, ontologyReferenceDisplayName(node.ontologyRef, this.options.payload), 'edge-drop-preview-node-label'),
 			);
 		}
 		const label = scaledPoint(preview.label, zoom);
 		svg.append(svgText(
 			label.x,
 			label.y - 8,
-			previewText(preview),
+			previewText(preview, this.options.payload),
 			'edge-drop-preview-label',
 		));
 	}
@@ -581,7 +581,7 @@ function center(bounds: BoundsPreview): CanvasPoint {
 	};
 }
 
-function previewText(preview: ValidEdgePreview): string {
+function previewText(preview: ValidEdgePreview, payload: DiagramPayload): string {
 	const createdCount = preview.createdNodes.length;
 	const suffix = createdCount === 0
 		? ''
@@ -589,7 +589,7 @@ function previewText(preview: ValidEdgePreview): string {
 			? ' - creates missing endpoint'
 			: ' - creates missing endpoints';
 
-	return `${edgeDisplayName(preview.edgeOntologyRef)}${suffix}`;
+	return `${edgeDisplayName(preview.edgeOntologyRef, payload)}${suffix}`;
 }
 
 function svgDefinitions(markerId: string, edgeKind: 'association' | 'generalization'): SVGDefsElement {

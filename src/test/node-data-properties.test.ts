@@ -1,9 +1,75 @@
 import * as assert from 'assert';
 
 import type { DiagramNode, DiagramPayload } from '../ui/webview/ontology-diagram-types';
-import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleText } from '../ui/webview/components/node-data-properties';
+import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleDisplayText, nodeTitleText } from '../ui/webview/components/node-data-properties';
 
 suite('Node data properties', () => {
+	test('uses ontology labels for class node titles', () => {
+		const node: DiagramNode = {
+			id: 'node_service',
+			ontology_ref: 'ex:ApiService',
+			x: 0,
+			y: 0,
+			width: 180,
+			height: 72,
+			ontology_item_type: 'class',
+		};
+		const payload: DiagramPayload = {
+			diagram: {
+				namespaces: {
+					ex: 'https://example.com/ontology#',
+				},
+			},
+			ontology: {
+				items: [{
+					reference: 'https://example.com/ontology#ApiService',
+					displayLabel: 'API Service',
+					type: 'class',
+				}],
+			},
+		};
+
+		assert.strictEqual(nodeTitleText(node, payload), 'API Service');
+	});
+
+	test('truncates node labels by default and wraps them when configured', () => {
+		const node: DiagramNode = {
+			id: 'node_service',
+			ontology_ref: 'ex:ApiService',
+			x: 0,
+			y: 0,
+			width: 90,
+			height: 60,
+			ontology_item_type: 'class',
+		};
+		const payload: DiagramPayload = {
+			ontology: {
+				items: [{
+					reference: 'ex:ApiService',
+					displayLabel: 'Application programming interface service',
+					type: 'class',
+				}],
+			},
+		};
+		const displayOptions = {
+			node,
+			payload,
+			width: 70,
+			height: 60,
+			fontSize: 12,
+		};
+
+		assert.match(nodeTitleDisplayText(displayOptions), /\.\.\.$/u);
+		const wrapped = nodeTitleDisplayText({
+			...displayOptions,
+			node: { ...node, label_text_overflow: 'wrap' },
+		});
+		const lines = wrapped.split('\n');
+		assert.ok(lines.length > 1);
+		assert.ok(lines.length <= 4);
+		assert.ok(lines.every((line) => measuredTextWidth({ text: line, fontSize: 12 }) <= 70));
+	});
+
 	test('formats individual type and property value slots', () => {
 		const node: DiagramNode = {
 			id: 'node_requirement',

@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateElementStyleCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodeLabelTextOverflowCommand, UpdateNodeLabelTextOverflowsCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import { serializedContainmentEndpoints } from '../../../shared/diagram-containment';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -39,6 +39,7 @@ interface PropertyTab {
 export class CanvasPropertyPanel {
 	private selectedElement: CanvasPropertyElement | undefined;
 	private selectedElementCount = 0;
+	private selectedElementIdentifiers: readonly string[] = [];
 	private readonly selectedTabByContext: Map<string, string>;
 
 	public constructor(private readonly options: CanvasPropertyPanelOptions) {
@@ -67,6 +68,7 @@ export class CanvasPropertyPanel {
 					selectedElementCount: event.selectedElementIdentifiers.length,
 				});
 				this.selectedElementCount = event.selectedElementIdentifiers.length;
+				this.selectedElementIdentifiers = event.selectedElementIdentifiers;
 				this.selectedElement = event.selectedElementIdentifier === undefined
 					? undefined
 					: this.options.registry.element(event.selectedElementIdentifier);
@@ -82,12 +84,11 @@ export class CanvasPropertyPanel {
 
 	private renderSelection(): void {
 		this.options.body.textContent = '';
+		if (this.selectedElementCount > 1) {
+			this.renderMultipleSelectionContext();
+			return;
+		}
 		if (this.selectedElement === undefined) {
-			if (this.selectedElementCount > 1) {
-				this.renderMultipleSelectionContext();
-				return;
-			}
-
 			this.renderDiagramContext();
 			return;
 		}
@@ -96,10 +97,26 @@ export class CanvasPropertyPanel {
 	}
 
 	private renderMultipleSelectionContext(): void {
+		const elements = this.selectedElementIdentifiers
+			.map((id) => this.options.registry.element(id))
+			.filter((element): element is CanvasPropertyElement => element !== undefined);
+		const nodes = elements
+			.filter((element): element is Extract<CanvasPropertyElement, { readonly kind: 'node' }> => element.kind === 'node')
+			.map((element) => element.value);
+		if (nodes.length === this.selectedElementCount) {
+			this.renderContextHeader('Nodes', `${nodes.length} selected`);
+			this.renderTabs('multiple-nodes', [{
+				id: 'style',
+				label: 'Style',
+				sections: this.multipleNodeStyleSections(nodes),
+			}]);
+			return;
+		}
+
 		this.renderContextHeader('Multiple selection', `${this.selectedElementCount} elements selected`);
 		const message = document.createElement('p');
 		message.className = 'property-empty-message';
-		message.textContent = 'Select a single element to inspect and edit its properties.';
+		message.textContent = 'Style editing is available when every selected element is a node.';
 		this.options.body.appendChild(message);
 	}
 
@@ -216,6 +233,93 @@ export class CanvasPropertyPanel {
 		];
 	}
 
+	private multipleNodeStyleSections(nodes: readonly DiagramNode[]): readonly HTMLElement[] {
+		const nodeIds = nodes.map((node) => node.id);
+		const styles = nodes.map((node) => node.style);
+		const labelOverflow = sharedValue(nodes.map((node) => node.label_text_overflow ?? 'truncate'));
+		const fillColor = sharedValue(styles.map((style) => style?.bg_color));
+		const textColor = sharedValue(styles.map((style) => style?.text_color));
+		const fontFamily = sharedValue(styles.map((style) => style?.font?.family));
+		const fontSize = sharedValue(styles.map((style) => style?.font?.size));
+		const bold = sharedValue(styles.map((style) => style?.font?.bold ?? false));
+		const italic = sharedValue(styles.map((style) => style?.font?.italic ?? false));
+		const borderType = sharedValue(styles.map((style) => style?.border?.type ?? ''));
+		const borderWeight = sharedValue(styles.map((style) => style?.border?.weight));
+		const borderColor = sharedValue(styles.map((style) => style?.border?.color));
+		const cornerRadius = sharedValue(styles.map((style) => style?.corner_radius));
+		const shadow = sharedValue(styles.map((style) => shadowValue(style?.shadow)));
+
+		return [
+			sectionElement('Label', [
+				mixedSelectField('Overflow', labelOverflow, nodeLabelTextOverflowOptions, (value) => {
+					this.updateNodeLabelTextOverflow(nodeIds, value ?? 'truncate');
+				}),
+			]),
+			sectionElement('Style', [
+				markMixedField(colorField('Fill Color', fillColor.mixed ? '' : fillColor.value ?? '', (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({ ...style, bg_color: blankToUndefined(value) }));
+				}), fillColor.mixed),
+				markMixedField(colorField('Text Color', textColor.mixed ? '' : textColor.value ?? '', (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({ ...style, text_color: blankToUndefined(value) }));
+				}), textColor.mixed),
+				mixedSelectField('Font', normalizeSharedString(fontFamily), fontFamilyOptions(fontFamily.value), (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						font: { ...style.font, family: blankToUndefined(value ?? '') },
+					}));
+				}),
+				markMixedField(optionalNumberComboField('Font Size', fontSize.mixed ? undefined : fontSize.value, standardFontSizes, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						font: { ...style.font, size: value },
+					}));
+				}), fontSize.mixed),
+				checkboxField('Bold', bold.value ?? false, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						font: { ...style.font, bold: value },
+					}));
+				}, bold.mixed),
+				checkboxField('Italic', italic.value ?? false, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						font: { ...style.font, italic: value },
+					}));
+				}, italic.mixed),
+				mixedSelectField('Border', borderType, borderTypeOptions, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						border: { ...style.border, type: value },
+					}));
+				}),
+				markMixedField(optionalNumberField('Border Weight', borderWeight.mixed ? undefined : borderWeight.value, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						border: { ...style.border, weight: value },
+					}));
+				}), borderWeight.mixed),
+				markMixedField(colorField('Border Color', borderColor.mixed ? '' : borderColor.value ?? '', (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						border: { ...style.border, color: blankToUndefined(value) },
+					}));
+				}), borderColor.mixed),
+				markMixedField(optionalNumberComboField('Corner Radius', cornerRadius.mixed ? undefined : cornerRadius.value, standardCornerRadii, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({ ...style, corner_radius: value }));
+				}), cornerRadius.mixed),
+				mixedSelectField('Drop Shadow', shadow, shadowOptions, (value) => {
+					this.updateNodeStyles(nodeIds, (style) => ({
+						...style,
+						shadow: value === undefined ? undefined : value === 'true',
+					}));
+				}),
+				actionButton('Clear Style', 'secondary', () => {
+					this.updateNodeStyles(nodeIds, () => undefined);
+				}),
+			]),
+		];
+	}
+
 	private nodeTabs(node: DiagramNode): readonly PropertyTab[] {
 		const iconColor = embeddedGalleryIconColor(node.image);
 		const dataPropertyAttributes = availableNodeDataPropertyAttributes(node, this.options.payload);
@@ -225,6 +329,19 @@ export class CanvasPropertyPanel {
 			edge.render_as === 'containment'
 			&& edge.containment_direction !== undefined
 			&& (edge.source === node.id || edge.target === node.id));
+		const containmentSections = containmentEdges.length === 0 ? [] : [sectionElement('Containment', containmentEdges.flatMap((edge) => {
+			const endpoints = serializedContainmentEndpoints(edge);
+			const role = endpoints.parentNodeId === node.id
+				? `Contains ${endpoints.childNodeId}`
+				: `Inside ${endpoints.parentNodeId}`;
+			return [
+				readonlyField(edgeDisplayName(edge.ontology_ref, this.options.payload), role),
+				actionButton(`Show ${edgeDisplayName(edge.ontology_ref, this.options.payload)} as connection`, 'secondary', () => {
+					this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
+					this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(edge.id));
+				}),
+			];
+		}))];
 		const ontologySections = [
 			sectionElement('Ontology', [
 				readonlyField('Ref', node.ontology_ref),
@@ -232,19 +349,6 @@ export class CanvasPropertyPanel {
 			...(annotationFields.length === 0 ? [] : [sectionElement('Annotations', annotationFields.map((annotation) =>
 				readonlyField(annotation.label, annotation.value),
 			))]),
-			...(containmentEdges.length === 0 ? [] : [sectionElement('Containment', containmentEdges.flatMap((edge) => {
-				const endpoints = serializedContainmentEndpoints(edge);
-				const role = endpoints.parentNodeId === node.id
-					? `Contains ${endpoints.childNodeId}`
-					: `Inside ${endpoints.parentNodeId}`;
-				return [
-					readonlyField(edgeDisplayName(edge.ontology_ref), role),
-					actionButton(`Show ${edgeDisplayName(edge.ontology_ref)} as connection`, 'secondary', () => {
-						this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
-						this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(edge.id));
-					}),
-				];
-			}))]),
 			...(node.ontology_item_type === 'individual' ? [] : [
 				sectionElement('Data Properties', [
 					readonlyField('Data Properties', String(dataPropertyAttributes.length)),
@@ -336,6 +440,15 @@ export class CanvasPropertyPanel {
 				id: 'style',
 				label: 'Style',
 				sections: [
+					sectionElement('Label', [
+						selectField('Overflow', node.label_text_overflow ?? 'truncate', nodeLabelTextOverflowOptions, (value) => {
+							const textOverflow = value ?? 'truncate';
+							this.updateElementContent({ kind: 'nodeLabelTextOverflow', id: node.id, textOverflow });
+							this.propertyEdited('node', node.id, ['label_text_overflow']);
+							this.options.messageBus.publishCommand(new UpdateNodeLabelTextOverflowCommand(node.id, textOverflow));
+						}),
+					]),
+					...containmentSections,
 					this.commonStyleSection('node', node.id, node.style),
 				],
 			},
@@ -346,6 +459,30 @@ export class CanvasPropertyPanel {
 		const containmentDirection = edge.containment_direction ?? 'target_contains_source';
 		const nodeIds = new Set((this.options.payload.diagram?.nodes ?? []).map((node) => node.id));
 		const canRenderAsContainment = nodeIds.has(edge.source) && nodeIds.has(edge.target);
+		const presentationFields = [
+			...(canRenderAsContainment ? [selectField('Display as', edge.render_as ?? '', [
+				{ value: '', label: 'Connection' },
+				{ value: 'containment', label: 'Containment' },
+			], (value) => {
+				this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
+				this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
+					edge.id,
+					value,
+					value === 'containment' ? containmentDirection : undefined,
+				));
+			})] : []),
+			...(edge.render_as === 'containment' ? [selectField('Container', containmentDirection, [
+				{ value: 'target_contains_source', label: 'Target contains source' },
+				{ value: 'source_contains_target', label: 'Source contains target' },
+			], (value) => {
+				this.propertyEdited('edge', edge.id, ['containment_direction']);
+				this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
+					edge.id,
+					'containment',
+					value ?? 'target_contains_source',
+				));
+			})] : []),
+		];
 		return [
 			{
 				id: 'details',
@@ -353,34 +490,12 @@ export class CanvasPropertyPanel {
 				sections: [
 					sectionElement('Ontology', [
 						readonlyField('Ref', edge.ontology_ref),
-						readonlyField('Label', edgeDisplayName(edge.ontology_ref)),
+						readonlyField('Label', edgeDisplayName(edge.ontology_ref, this.options.payload)),
 						...this.commentFields(edge.ontology_ref),
 					]),
 					sectionElement('Connection', [
 						readonlyField('Source', edge.source),
 						readonlyField('Target', edge.target),
-						...(canRenderAsContainment ? [selectField('Display as', edge.render_as ?? '', [
-							{ value: '', label: 'Connection' },
-							{ value: 'containment', label: 'Containment' },
-						], (value) => {
-							this.propertyEdited('edge', edge.id, ['render_as', 'containment_direction']);
-							this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
-								edge.id,
-								value,
-								value === 'containment' ? containmentDirection : undefined,
-							));
-						})] : []),
-						...(edge.render_as === 'containment' ? [selectField('Container', containmentDirection, [
-							{ value: 'target_contains_source', label: 'Target contains source' },
-							{ value: 'source_contains_target', label: 'Source contains target' },
-						], (value) => {
-							this.propertyEdited('edge', edge.id, ['containment_direction']);
-							this.options.messageBus.publishCommand(new UpdateEdgePresentationCommand(
-								edge.id,
-								'containment',
-								value ?? 'target_contains_source',
-							));
-						})] : []),
 					]),
 				],
 			},
@@ -388,6 +503,7 @@ export class CanvasPropertyPanel {
 				id: 'style',
 				label: 'Style',
 				sections: [
+					...(presentationFields.length === 0 ? [] : [sectionElement('Presentation', presentationFields)]),
 					this.edgeStyleSection(edge.id, edge.style),
 				],
 			},
@@ -786,6 +902,34 @@ export class CanvasPropertyPanel {
 		this.options.messageBus.publishCommand(new UpdateElementStyleCommand(elementType, id, style));
 	}
 
+	private updateNodeStyles(
+		nodeIds: readonly string[],
+		update: (style: CommonStylePatch) => CommonStylePatch | undefined,
+	): void {
+		const updates = nodeIds.flatMap((id) => {
+			const element = this.options.registry.element(id);
+			if (element?.kind !== 'node') {
+				return [];
+			}
+
+			const style = cleanCommonStyle(update(cloneCommonStyle(element.value.style)) ?? {});
+			this.options.registry.updateStyle('node', id, style);
+			this.propertyEdited('node', id, ['style']);
+			return [{ elementType: 'node' as const, id, style }];
+		});
+		if (updates.length > 0) {
+			this.options.messageBus.publishCommand(new UpdateElementStylesCommand(updates));
+		}
+	}
+
+	private updateNodeLabelTextOverflow(nodeIds: readonly string[], textOverflow: 'truncate' | 'wrap'): void {
+		for (const id of nodeIds) {
+			this.updateElementContent({ kind: 'nodeLabelTextOverflow', id, textOverflow });
+			this.propertyEdited('node', id, ['label_text_overflow']);
+		}
+		this.options.messageBus.publishCommand(new UpdateNodeLabelTextOverflowsCommand(nodeIds, textOverflow));
+	}
+
 	private updateDiagramMetadata(patch: DiagramMetadataPatch, changedFields: readonly string[]): void {
 		this.propertyEdited('diagram', 'diagram', changedFields);
 		this.options.messageBus.publishCommand(new UpdateDiagramMetadataCommand(patch));
@@ -870,6 +1014,57 @@ export class CanvasPropertyPanel {
 
 }
 
+interface SharedValue<TValue> {
+	readonly value: TValue | undefined;
+	readonly mixed: boolean;
+}
+
+const mixedSelectionValue = '__mixed_selection_value__';
+
+function sharedValue<TValue>(values: readonly TValue[]): SharedValue<TValue> {
+	const first = values[0];
+	return {
+		value: first,
+		mixed: values.some((value) => !Object.is(value, first)),
+	};
+}
+
+function normalizeSharedString(value: SharedValue<string | undefined>): SharedValue<string | ''> {
+	return {
+		value: value.value ?? '',
+		mixed: value.mixed,
+	};
+}
+
+function mixedSelectField<TValue extends string>(
+	label: string,
+	shared: SharedValue<TValue | ''>,
+	options: readonly { readonly value: TValue | ''; readonly label: string }[],
+	commit: (value: TValue | undefined) => void,
+): HTMLElement {
+	const value = shared.mixed ? mixedSelectionValue : shared.value ?? '';
+	const mixedOptions = shared.mixed
+		? [{ value: mixedSelectionValue, label: 'Mixed' } as const, ...options]
+		: options;
+	return selectField<TValue | typeof mixedSelectionValue>(label, value, mixedOptions, (selectedValue) => {
+		if (selectedValue !== mixedSelectionValue) {
+			commit(selectedValue);
+		}
+	});
+}
+
+function markMixedField(field: HTMLElement, mixed: boolean): HTMLElement {
+	if (mixed) {
+		const input = field.querySelector<HTMLInputElement>('.property-input');
+		if (input !== null) {
+			input.placeholder = 'Mixed';
+			input.title = 'Selected nodes have different values';
+		}
+	}
+
+	return field;
+}
+
 function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
@@ -903,6 +1098,11 @@ const lineStyleOptions = [
 
 const propertyValueTextOverflowOptions = [
 	{ value: 'truncate', label: 'Truncate' },
+	{ value: 'wrap', label: 'Wrap' },
+] as const;
+
+const nodeLabelTextOverflowOptions = [
+	{ value: 'truncate', label: 'Truncate with ...' },
 	{ value: 'wrap', label: 'Wrap' },
 ] as const;
 

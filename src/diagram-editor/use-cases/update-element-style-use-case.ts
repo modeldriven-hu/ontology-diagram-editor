@@ -16,11 +16,31 @@ import {
 	type EdgeLineStyle,
 	type OntologyDiagramDocument,
 } from '../../documents/odiagram';
-import type { ElementStylePatch, StyledCanvasElementType } from '../../shared/webview-commands';
+import type { ElementStylePatch, ElementStyleUpdate, StyledCanvasElementType } from '../../shared/webview-commands';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 
 export class UpdateElementStyleUseCase {
+	public executeMany(
+		diagram: OntologyDiagramDocument,
+		updates: readonly ElementStyleUpdate[],
+	): DiagramMutationResult {
+		let nextDiagram = diagram;
+		let changed = false;
+		for (const update of updates) {
+			const result = this.execute(nextDiagram, update.elementType, update.id, update.style);
+			if (result.notification !== undefined) {
+				return { notification: result.notification };
+			}
+			if (result.diagram !== undefined) {
+				nextDiagram = result.diagram;
+				changed = true;
+			}
+		}
+
+		return changed ? { diagram: nextDiagram } : {};
+	}
+
 	public execute(
 		diagram: OntologyDiagramDocument,
 		elementType: StyledCanvasElementType,
@@ -103,7 +123,7 @@ function updateNodeStyle(
 		}
 
 		changed = true;
-		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra, node.showDataProperties, node.showType, node.showPropertyValues, node.propertyValueTextOverflow);
+		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra, node.showDataProperties, node.showType, node.showPropertyValues, node.propertyValueTextOverflow, node.labelTextOverflow);
 	});
 
 	return changed ? { diagram: cloneDiagram(diagram, { nodes: nextNodes }) } : {};

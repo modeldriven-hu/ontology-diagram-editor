@@ -57,9 +57,7 @@ export function availableNodePropertyValueAttributes(node: DiagramNode, payload:
 }
 
 export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): string {
-	const title = node.ontology_item_type === 'individual'
-		? ontologyReferenceDisplayName(node.ontology_ref, payload)
-		: ontologyDisplayName(node.ontology_ref);
+	const title = ontologyReferenceDisplayName(node.ontology_ref, payload);
 	if (!nodeShowsType(node)) {
 		return title;
 	}
@@ -67,6 +65,37 @@ export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): strin
 	const typeNames = uniqueStrings((individualForNode(node, payload)?.assertedClassReferences ?? [])
 		.map((reference) => ontologyReferenceDisplayName(reference, payload)));
 	return typeNames.length === 0 ? title : `${title} : ${typeNames.join(', ')}`;
+}
+
+export function nodeTitleDisplayText(options: {
+	readonly node: DiagramNode;
+	readonly payload: DiagramPayload;
+	readonly width: number;
+	readonly height: number;
+	readonly fontSize: number;
+	readonly fontFamily?: string;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+}): string {
+	const text = nodeTitleText(options.node, options.payload);
+	if (options.node.label_text_overflow !== 'wrap') {
+		return truncateText({ ...options, text });
+	}
+
+	const lineHeight = options.fontSize * 1.25;
+	const maximumLines = Math.max(1, Math.floor(Math.max(1, options.height) / lineHeight));
+	const lines = wrapText({ ...options, text });
+	if (lines.length <= maximumLines) {
+		return lines.join('\n');
+	}
+
+	const visibleLines = lines.slice(0, maximumLines);
+	const finalLineIndex = visibleLines.length - 1;
+	visibleLines[finalLineIndex] = truncateText({
+		...options,
+		text: lines.slice(finalLineIndex).join(' '),
+	});
+	return visibleLines.join('\n');
 }
 
 export function nodeShowsType(node: DiagramNode): boolean {
@@ -427,7 +456,7 @@ function individualForNode(node: DiagramNode, payload: DiagramPayload) {
 		.find((individual) => ontologyReferencesEqual(individual.reference, node.ontology_ref, namespaces));
 }
 
-function ontologyReferenceDisplayName(reference: string, payload: DiagramPayload): string {
+export function ontologyReferenceDisplayName(reference: string, payload: DiagramPayload): string {
 	const namespaces = payload.diagram?.namespaces ?? {};
 	const item = (payload.ontology?.items ?? [])
 		.find((candidate) => ontologyReferencesEqual(candidate.reference, reference, namespaces));

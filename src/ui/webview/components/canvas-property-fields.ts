@@ -111,12 +111,17 @@ export function textAreaField(label: string, value: string, commit: (value: stri
 	return editableField(label, input);
 }
 
-export function checkboxField(label: string, checked: boolean, commit: (checked: boolean) => void): HTMLElement {
+export function checkboxField(label: string, checked: boolean, commit: (checked: boolean) => void, indeterminate = false): HTMLElement {
 	const input = document.createElement('input');
 	input.className = 'property-checkbox';
 	input.type = 'checkbox';
 	input.checked = checked;
+	input.indeterminate = indeterminate;
+	if (indeterminate) {
+		input.title = 'Selected nodes have different values';
+	}
 	input.addEventListener('change', () => {
+		input.indeterminate = false;
 		commit(input.checked);
 	});
 	input.addEventListener('keydown', (event) => {

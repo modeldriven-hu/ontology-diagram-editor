@@ -33,7 +33,12 @@ When one element is selected, the panel shall show a compact context header cont
 the element type and read-only identifier, followed by the supported property tabs for
 that element type.
 
-Version 1 shall support single-selection properties.
+When multiple nodes are selected, the panel shall show their shared Style properties.
+Fields with different values shall indicate a mixed value. Committing a field shall
+apply that field to every selected node as one logical document change while preserving
+the other style overrides on each node. Clearing Style shall clear every selected
+node's style overrides. Mixed selections containing another element type shall remain
+read-only.
 
 # Displayed And Editable Properties
 
@@ -101,8 +106,9 @@ The panel shall also expose element-level style override fields for styled eleme
 | Label | Text color, font family, font size, bold, italic. |
 | Image | Border type, border weight, border color, drop shadow. |
 
-Style edits shall update only the selected element's `style` map in the `.odiagram`
-file. The property panel shall not modify the active `.otheme` file.
+Style edits shall update only the selected element's `style` map, or the `style` maps of
+all selected nodes during node multi-selection, in the `.odiagram` file. The property
+panel shall not modify the active `.otheme` file.
 
 The property panel shall provide a way to clear all style overrides for the selected
 element. If a style field is cleared, the renderer shall fall back to the active theme or

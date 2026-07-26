@@ -14,6 +14,7 @@ export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan'
 export type EdgeRenderAs = 'containment';
 export type ContainmentDirection = 'source_contains_target' | 'target_contains_source';
 export type PropertyValueTextOverflow = 'truncate' | 'wrap';
+export type NodeLabelTextOverflow = 'truncate' | 'wrap';
 export type OntologyColorMode = 'border' | 'background';
 export type OntologyColorBy = 'ontologySource' | 'elementType' | 'none';
 
@@ -308,6 +309,7 @@ export class DiagramNode {
 		public readonly showType?: boolean,
 		public readonly showPropertyValues?: boolean,
 		public readonly propertyValueTextOverflow?: PropertyValueTextOverflow,
+		public readonly labelTextOverflow?: NodeLabelTextOverflow,
 	) {
 		this.id = DiagramIdentifier.create(id, 'node');
 		this.ontologyRef = OntologyReference.create(ontologyRef);
@@ -329,6 +331,7 @@ export class DiagramNode {
 			show_type: this.showType,
 			show_property_values: this.showPropertyValues,
 			property_value_text_overflow: this.propertyValueTextOverflow === 'wrap' ? 'wrap' : undefined,
+			label_text_overflow: this.labelTextOverflow === 'wrap' ? 'wrap' : undefined,
 		});
 	}
 }
@@ -664,6 +667,7 @@ const nodeSchema = boundsFieldsSchema.extend({
 	show_type: z.boolean().optional(),
 	show_property_values: z.boolean().optional(),
 	property_value_text_overflow: z.enum(['truncate', 'wrap']).optional(),
+	label_text_overflow: z.enum(['truncate', 'wrap']).optional(),
 }).passthrough();
 
 const edgeSchema = z.object({
@@ -774,11 +778,12 @@ function parseNode(value: z.infer<typeof nodeSchema>): DiagramNode {
 		new Bounds(value.x, value.y, value.width, value.height),
 		value.style ? parseCommonStyle(value.style) : undefined,
 		value.image,
-		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties', 'show_type', 'show_property_values', 'property_value_text_overflow']),
+		getExtraFields(value, ['id', 'ontology_ref', 'x', 'y', 'width', 'height', 'style', 'image', 'show_data_properties', 'show_type', 'show_property_values', 'property_value_text_overflow', 'label_text_overflow']),
 		value.show_data_properties,
 		value.show_type,
 		value.show_property_values,
 		value.property_value_text_overflow,
+		value.label_text_overflow,
 	);
 }
 

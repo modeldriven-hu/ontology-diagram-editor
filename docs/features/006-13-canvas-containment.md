@@ -6,7 +6,7 @@ relationships without inferring semantics from the relationship name.
 
 # Choosing Containment
 
-The selected edge's Properties view shall provide a **Display as** field with
+The selected edge's Properties view Style tab shall provide a **Display as** field with
 **Connection** and **Containment** choices. Containment shall also require a
 **Container** direction:
 
@@ -52,7 +52,7 @@ When a contained node is selected for arrangement, its top-level containment roo
 the complete subtree shall be arranged as one unit. Other unselected compound units
 shall remain in place.
 
-Because the original edge is hidden, the Ontology tab of either endpoint node shall list
+Because the original edge is hidden, the Style tab of either endpoint node shall list
 the containment relationship and provide an action that restores it to an ordinary
 connection.
 

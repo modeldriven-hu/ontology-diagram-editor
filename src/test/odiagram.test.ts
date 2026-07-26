@@ -103,16 +103,19 @@ nodes:
     show_type: false
     show_property_values: true
     property_value_text_overflow: wrap
+    label_text_overflow: wrap
 edges: []
 `);
 		assert.strictEqual(document.nodes[0].showDataProperties, true);
 		assert.strictEqual(document.nodes[0].showType, false);
 		assert.strictEqual(document.nodes[0].showPropertyValues, true);
 		assert.strictEqual(document.nodes[0].propertyValueTextOverflow, 'wrap');
+		assert.strictEqual(document.nodes[0].labelTextOverflow, 'wrap');
 		assert.match(stringifyOntologyDiagramYaml(document), /show_data_properties: true/);
 		assert.match(stringifyOntologyDiagramYaml(document), /show_type: false/);
 		assert.match(stringifyOntologyDiagramYaml(document), /show_property_values: true/);
 		assert.match(stringifyOntologyDiagramYaml(document), /property_value_text_overflow: wrap/);
+		assert.match(stringifyOntologyDiagramYaml(document), /label_text_overflow: wrap/);
 	});
 
 	test('preserves persisted edge cardinality-label positions', () => {

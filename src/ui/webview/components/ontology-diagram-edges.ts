@@ -1,9 +1,19 @@
-export function edgeDisplayName(ontologyRef: string): string {
-	const hashIndex = ontologyRef.lastIndexOf('#');
-	const slashIndex = ontologyRef.lastIndexOf('/');
-	const compactIriIndex = ontologyRef.includes('://') ? -1 : ontologyRef.lastIndexOf(':');
-	const separatorIndex = Math.max(hashIndex, slashIndex, compactIriIndex);
-	const displayName = separatorIndex >= 0 ? ontologyRef.slice(separatorIndex + 1) : ontologyRef;
+import type { DiagramPayload } from '../ontology-diagram-types';
+import { ontologyDisplayName, ontologyReferencesEqual } from './node-data-properties';
 
-	return displayName.length > 0 ? displayName : ontologyRef;
+export function edgeDisplayName(ontologyRef: string, payload?: DiagramPayload): string {
+	if (payload !== undefined) {
+		const namespaces = payload.diagram?.namespaces ?? {};
+		const item = (payload.ontology?.items ?? []).find((candidate) =>
+			candidate.type !== 'subclassRelationship'
+			&& candidate.type !== 'objectPropertyAssertion'
+			&& ontologyReferencesEqual(candidate.reference, ontologyRef, namespaces)
+			&& candidate.displayLabel.trim().length > 0
+			&& candidate.displayLabel !== candidate.reference);
+		if (item !== undefined) {
+			return item.displayLabel;
+		}
+	}
+
+	return ontologyDisplayName(ontologyRef);
 }

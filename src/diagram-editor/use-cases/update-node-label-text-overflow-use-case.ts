@@ -1,17 +1,26 @@
-import { DiagramNode, type OntologyDiagramDocument, type PropertyValueTextOverflow } from '../../documents/odiagram';
+import { DiagramNode, type NodeLabelTextOverflow, type OntologyDiagramDocument } from '../../documents/odiagram';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
 
-export class UpdateNodePropertyValueTextOverflowUseCase {
+export class UpdateNodeLabelTextOverflowUseCase {
 	public execute(
 		diagram: OntologyDiagramDocument,
 		id: string,
-		textOverflow: PropertyValueTextOverflow,
+		textOverflow: NodeLabelTextOverflow,
+	): DiagramMutationResult {
+		return this.executeMany(diagram, [id], textOverflow);
+	}
+
+	public executeMany(
+		diagram: OntologyDiagramDocument,
+		ids: readonly string[],
+		textOverflow: NodeLabelTextOverflow,
 	): DiagramMutationResult {
 		const nextTextOverflow = textOverflow === 'wrap' ? 'wrap' : undefined;
+		const selectedIds = new Set(ids);
 		let changed = false;
 		const nextNodes = diagram.nodes.map((node) => {
-			if (node.id.value !== id || node.propertyValueTextOverflow === nextTextOverflow) {
+			if (!selectedIds.has(node.id.value) || node.labelTextOverflow === nextTextOverflow) {
 				return node;
 			}
 
@@ -26,8 +35,8 @@ export class UpdateNodePropertyValueTextOverflowUseCase {
 				node.showDataProperties,
 				node.showType,
 				node.showPropertyValues,
+				node.propertyValueTextOverflow,
 				nextTextOverflow,
-				node.labelTextOverflow,
 			);
 		});
 

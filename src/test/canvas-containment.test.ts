@@ -67,13 +67,44 @@ suite('Canvas containment', () => {
 		assert.ok(firstLeafIndex > ordinaryEdgeIndex);
 		assert.doesNotMatch(svg, /partOf/);
 		assert.doesNotMatch(svg, /edge_partOf/);
-		assert.match(svg, /uses/);
-		assert.match(svg, />Outer<\/tspan>/);
-		assert.match(svg, />Inner<\/tspan>/);
+		assert.match(svg, />uses API<\/tspan>/);
+		assert.match(svg, />Outer container<\/tspan>/);
+		assert.match(svg, />Inner item<\/tspan>/);
 		assert.match(svg, /fill="#E8EEF8"/);
 		assert.match(svg, /stroke="#375A8C"/);
 		assert.match(svg, /fill="#F3F6FB"/);
 		assert.match(svg, /stroke="#6682A8"/);
+	});
+
+	test('exports wrapped node labels on multiple lines', () => {
+		const payload: DiagramPayload = {
+			...containmentPayload,
+			diagram: {
+				...containmentPayload.diagram,
+				nodes: [{
+					id: 'node_service',
+					ontology_ref: 'ex:Service',
+					x: 20,
+					y: 20,
+					width: 140,
+					height: 72,
+					label_text_overflow: 'wrap',
+				}],
+				edges: [],
+			},
+			ontology: {
+				items: [{
+					reference: 'ex:Service',
+					displayLabel: 'Application programming interface service',
+					type: 'class',
+				}],
+			},
+		};
+
+		const command = createSvgExportCommand(payload, testTheme);
+		assert.ok(command);
+		assert.match(command.content, />Application<\/tspan>/);
+		assert.match(command.content, />programming<\/tspan>/);
 	});
 });
 
@@ -130,7 +161,7 @@ const containmentPayload: DiagramPayload = {
 			{ reference: 'ex:Inner', displayLabel: 'Inner item', type: 'class' },
 			{ reference: 'ex:Inner2', displayLabel: 'Second inner item', type: 'class' },
 			{ reference: 'ex:partOf', displayLabel: 'partOf', type: 'objectProperty' },
-			{ reference: 'ex:uses', displayLabel: 'uses', type: 'objectProperty' },
+			{ reference: 'ex:uses', displayLabel: 'uses API', type: 'objectProperty' },
 		],
 	},
 };

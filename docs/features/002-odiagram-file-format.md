@@ -257,6 +257,7 @@ Each node shall contain:
 | `show_type` | boolean | No | Whether an individual node shows its asserted type in the title. |
 | `show_property_values` | boolean | No | Whether an individual node shows property assertion values in its attribute section. |
 | `property_value_text_overflow` | enum | No | How long individual property-value attribute text is displayed: `truncate` or `wrap`. |
+| `label_text_overflow` | enum | No | How the node label is displayed when it exceeds the available width: `truncate` or `wrap`. |
 
 The referenced ontology item is the ontology item represented by the node. Canvas
 behavior specifications define which ontology item types can be created or rendered as
@@ -268,6 +269,10 @@ is `false`.
 
 For individual nodes, `property_value_text_overflow` defaults to `truncate` when omitted.
 Writers should omit the field when the effective value is `truncate`.
+
+`label_text_overflow` defaults to `truncate` when omitted. In that mode, labels that
+exceed the available width end with `...`. Writers should omit the field when the
+effective value is `truncate`.
 
 # Edges
 

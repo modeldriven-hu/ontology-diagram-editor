@@ -84,6 +84,17 @@ node text and handles usable.
 When a node is resized, connected edge endpoints shall be recalculated so they remain on
 the node boundary.
 
+# Label Overflow
+
+The node property panel's Style tab shall allow the user to choose how a label that
+exceeds the available node width is displayed. `Truncate with ...` is the default and
+preserves the existing single-line behavior. `Wrap` lays the label out over the lines
+that fit inside the node's title area. The same behavior shall be used on the canvas and
+in diagram exports.
+
+Selecting `Wrap` shall persist `label_text_overflow: wrap` on the node. Selecting the
+default truncation behavior shall remove that field.
+
 # Show Data Properties
 
 For class nodes, the property panel shall show the number of available data properties

@@ -46,6 +46,7 @@ import {
 	UpdateNodeBoundsUseCase,
 	UpdateNodeDataPropertiesVisibilityUseCase,
 	UpdateNodeImageUseCase,
+	UpdateNodeLabelTextOverflowUseCase,
 	UpdateNodePropertyValueTextOverflowUseCase,
 	UpdateNodePropertyValuesVisibilityUseCase,
 	UpdateNodeTypeVisibilityUseCase,
@@ -97,6 +98,7 @@ interface DiagramEditorUseCases {
 	readonly updateNodeBounds: UpdateNodeBoundsUseCase;
 	readonly updateNodeDataPropertiesVisibility: UpdateNodeDataPropertiesVisibilityUseCase;
 	readonly updateNodeImage: UpdateNodeImageUseCase;
+	readonly updateNodeLabelTextOverflow: UpdateNodeLabelTextOverflowUseCase;
 	readonly updateNodePropertyValueTextOverflow: UpdateNodePropertyValueTextOverflowUseCase;
 	readonly updateNodePropertyValuesVisibility: UpdateNodePropertyValuesVisibilityUseCase;
 	readonly updateNodeTypeVisibility: UpdateNodeTypeVisibilityUseCase;
@@ -255,6 +257,13 @@ export class DiagramCommandDispatcher {
 					command.textOverflow,
 				));
 				return;
+			case 'updateNodeLabelTextOverflow':
+				await this.handleResult(this.useCases.updateNodeLabelTextOverflow.execute(
+					this.repository.load(),
+					command.id,
+					command.textOverflow,
+				));
+				return;
 			case 'createNote':
 				await this.handleResult(this.useCases.createNote.execute(
 					this.repository.load(),
@@ -388,6 +397,19 @@ export class DiagramCommandDispatcher {
 					command.elementType,
 					command.id,
 					command.style,
+				));
+				return;
+			case 'updateElementStyles':
+				await this.handleResult(this.useCases.updateElementStyle.executeMany(
+					this.repository.load(),
+					command.updates,
+				));
+				return;
+			case 'updateNodeLabelTextOverflows':
+				await this.handleResult(this.useCases.updateNodeLabelTextOverflow.executeMany(
+					this.repository.load(),
+					command.ids,
+					command.textOverflow,
 				));
 				return;
 			case 'updateThemeMode':
@@ -859,6 +881,7 @@ function createDefaultUseCases(): DiagramEditorUseCases {
 		updateNodeBounds: new UpdateNodeBoundsUseCase(),
 		updateNodeDataPropertiesVisibility: new UpdateNodeDataPropertiesVisibilityUseCase(),
 		updateNodeImage: new UpdateNodeImageUseCase(),
+		updateNodeLabelTextOverflow: new UpdateNodeLabelTextOverflowUseCase(),
 		updateNodePropertyValueTextOverflow: new UpdateNodePropertyValueTextOverflowUseCase(),
 		updateNodePropertyValuesVisibility: new UpdateNodePropertyValuesVisibilityUseCase(),
 		updateNodeTypeVisibility: new UpdateNodeTypeVisibilityUseCase(),

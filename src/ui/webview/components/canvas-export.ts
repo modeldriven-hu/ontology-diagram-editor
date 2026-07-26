@@ -5,7 +5,7 @@ import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../..
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, visibleNodeAttributeTextLines } from './node-data-properties';
+import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
@@ -111,7 +111,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 	const legendElements = diagram.legend_elements ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
-		...edges.flatMap(edgeExportBounds),
+		...edges.flatMap((edge) => edgeExportBounds(edge, payload)),
 		...notes,
 		...images,
 		...labels,
@@ -196,7 +196,7 @@ function renderEdge(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTh
 		: edge.ontology_item_type === 'subclassRelationship'
 			? ` marker-end="url(#${edgeMarkerId(edge, 'hollow-triangle')})"`
 			: ` marker-end="url(#${edgeMarkerId(edge, 'open-arrow')})"`;
-	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
+	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref, payload);
 	const cardinalities = edgeCardinalityLabels(edge, payload);
 
 	return [
@@ -312,12 +312,13 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
 	const bounds = elementBounds(node);
 	if (isContainer) {
+		const titleBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: containmentHeaderHeight };
 		return [
 			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 			renderTextBlock({
 				id: node.id,
-				text: nodeTitleText(node, payload),
-				bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: containmentHeaderHeight },
+				text: nodeTitleDisplayText({ node, payload, width: Math.max(1, titleBounds.width - 20), height: Math.max(1, titleBounds.height - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+				bounds: titleBounds,
 				color: textColor,
 				fontFamily,
 				fontSize,
@@ -325,13 +326,15 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 				italic: fontItalic,
 				align: 'center',
 				verticalAlign: 'middle',
-				padding: 10,
+				padding: 4,
+				wrap: false,
 			}),
 			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y + containmentHeaderHeight)}" width="${numberValue(bounds.width)}" height="1" fill="${escapeAttribute(border.color)}"/>`,
 		].join('\n');
 	}
 	if (hasNodeImage(node)) {
 		const imageBounds = nodeImageBounds(bounds);
+		const titleBounds = { x: bounds.x, y: bounds.y + Math.max(0, bounds.height - 40), width: bounds.width, height: Math.min(32, bounds.height) };
 		return [
 			...(containmentDepth === undefined ? [] : [
 				`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
@@ -339,8 +342,8 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 			`<image href="${escapeAttribute(node.image)}" x="${numberValue(imageBounds.x)}" y="${numberValue(imageBounds.y)}" width="${numberValue(imageBounds.width)}" height="${numberValue(imageBounds.height)}" preserveAspectRatio="${imagePreserveAspectRatio(node)}"/>`,
 			renderTextBlock({
 				id: node.id,
-				text: nodeTitleText(node, payload),
-				bounds: { x: bounds.x, y: bounds.y + Math.max(0, bounds.height - 40), width: bounds.width, height: Math.min(32, bounds.height) },
+				text: nodeTitleDisplayText({ node, payload, width: Math.max(1, titleBounds.width - 20), height: Math.max(1, titleBounds.height - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+				bounds: titleBounds,
 				color: textColor,
 				fontFamily,
 				fontSize,
@@ -348,7 +351,8 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 				italic: fontItalic,
 				align: 'center',
 				verticalAlign: 'middle',
-				padding: 10,
+				padding: 4,
+				wrap: false,
 			}),
 		].join('\n');
 	}
@@ -387,15 +391,16 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 		verticalAlign: 'middle',
 		padding: 4,
 	})];
+	const titleBounds = ontologyLabel === undefined
+		? hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds
+		: hasAttributes ? { ...bounds, y: bounds.y + 12, height: Math.max(1, layout.headerHeight - 12) } : { ...bounds, y: bounds.y + 12, height: Math.max(1, bounds.height - 12) };
 	const parts = [
 		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 		...ontologyLabelPart,
 		renderTextBlock({
 			id: hasAttributes ? `${node.id}_title` : node.id,
-			text: nodeTitleText(node, payload),
-			bounds: ontologyLabel === undefined
-				? hasAttributes ? { ...bounds, height: layout.headerHeight } : bounds
-				: hasAttributes ? { ...bounds, y: bounds.y + 12, height: Math.max(1, layout.headerHeight - 12) } : { ...bounds, y: bounds.y + 12, height: Math.max(1, bounds.height - 12) },
+			text: nodeTitleDisplayText({ node, payload, width: Math.max(1, titleBounds.width - 20), height: Math.max(1, titleBounds.height - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+			bounds: titleBounds,
 			color: textColor,
 			fontFamily,
 			fontSize,
@@ -403,7 +408,8 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 			italic: fontItalic,
 			align: 'center',
 			verticalAlign: 'middle',
-			padding: 10,
+			padding: 4,
+			wrap: false,
 		}),
 	];
 
@@ -706,7 +712,7 @@ function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds |
 	};
 }
 
-function edgeExportBounds(edge: DiagramEdge): readonly ExportBounds[] {
+function edgeExportBounds(edge: DiagramEdge, payload: DiagramPayload): readonly ExportBounds[] {
 	const pointBounds = edgeRoutePoints(edge).map((point) => ({
 		x: point.x,
 		y: point.y,
@@ -720,7 +726,7 @@ function edgeExportBounds(edge: DiagramEdge): readonly ExportBounds[] {
 		{
 			x: edge.label.x,
 			y: edge.label.y,
-			width: Math.max(80, edgeDisplayName(edge.ontology_ref).length * 7),
+			width: Math.max(80, edgeDisplayName(edge.ontology_ref, payload).length * 7),
 			height: 24,
 		},
 		]),

@@ -3,6 +3,7 @@ import * as path from 'path';
 
 import {
 	Bounds,
+	CommonStyle,
 	DiagramEdge,
 	DiagramImage,
 	DiagramLabel,
@@ -17,7 +18,7 @@ import {
 	readOntologyDiagramFile,
 	stringifyOntologyDiagramYaml,
 } from '../documents/odiagram';
-import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgePresentationUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgePresentationUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodeLabelTextOverflowUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
 import { isConnectionCapableOntologyItem } from '../diagram-editor/use-cases/ontology-edge-endpoints';
@@ -1927,6 +1928,35 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(truncated.diagram.nodes[0].toPersistenceObject().property_value_text_overflow, undefined);
 	});
 
+	test('updates node label text overflow', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_requirement', 'ex:REQ-001', new Bounds(0, 0, 100, 50)),
+			new DiagramNode('node_design', 'ex:DES-001', new Bounds(150, 0, 100, 50)),
+			new DiagramNode('node_other', 'ex:Other', new Bounds(300, 0, 100, 50)),
+		]);
+
+		const wrapped = new UpdateNodeLabelTextOverflowUseCase().execute(diagram, 'node_requirement', 'wrap');
+		assert.ok(wrapped.diagram);
+		assert.strictEqual(wrapped.diagram.nodes[0].labelTextOverflow, 'wrap');
+		assert.deepStrictEqual(wrapped.diagram.nodes[0].toPersistenceObject().label_text_overflow, 'wrap');
+
+		const truncated = new UpdateNodeLabelTextOverflowUseCase().execute(wrapped.diagram, 'node_requirement', 'truncate');
+		assert.ok(truncated.diagram);
+		assert.strictEqual(truncated.diagram.nodes[0].labelTextOverflow, undefined);
+		assert.strictEqual(truncated.diagram.nodes[0].toPersistenceObject().label_text_overflow, undefined);
+
+		const batch = new UpdateNodeLabelTextOverflowUseCase().executeMany(
+			truncated.diagram,
+			['node_requirement', 'node_design'],
+			'wrap',
+		);
+		assert.ok(batch.diagram);
+		assert.deepStrictEqual(
+			batch.diagram.nodes.map((node) => node.labelTextOverflow),
+			['wrap', 'wrap', undefined],
+		);
+	});
+
 	test('creates a diagram image with persisted source and default bounds', () => {
 		const result = new CreateImageUseCase().execute(
 			emptyDiagram(),
@@ -2149,6 +2179,35 @@ suite('Diagram editor use cases', () => {
 			shadow: false,
 			image_fit: 'match_height',
 		});
+	});
+
+	test('updates multiple node styles atomically', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_person', 'ex:Person', new Bounds(0, 0, 100, 50), new CommonStyle('#FFFFFF')),
+			new DiagramNode('node_team', 'ex:Team', new Bounds(150, 0, 100, 50), new CommonStyle('#EEEEEE')),
+		]);
+		const useCase = new UpdateElementStyleUseCase();
+		const result = useCase.executeMany(diagram, [
+			{ elementType: 'node', id: 'node_person', style: { bg_color: '#FFFFFF', text_color: '#111111' } },
+			{ elementType: 'node', id: 'node_team', style: { bg_color: '#EEEEEE', text_color: '#111111' } },
+		]);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(
+			result.diagram.nodes.map((node) => node.style?.toPersistenceObject()),
+			[
+				{ bg_color: '#FFFFFF', text_color: '#111111' },
+				{ bg_color: '#EEEEEE', text_color: '#111111' },
+			],
+		);
+
+		const invalid = useCase.executeMany(diagram, [
+			{ elementType: 'node', id: 'node_person', style: { text_color: '#111111' } },
+			{ elementType: 'node', id: 'node_team', style: { font: { size: 0 } } },
+		]);
+		assert.strictEqual(invalid.diagram, undefined);
+		assert.strictEqual(invalid.notification, 'Font size must be greater than 0.');
+		assert.strictEqual(diagram.nodes[0].style?.textColor, undefined);
 	});
 
 	test('updates edge style overrides', () => {

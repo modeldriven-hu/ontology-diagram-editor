@@ -1,7 +1,7 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import { containmentHeaderHeight, containmentMovementNodeIds, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
-import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
+import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from '../components/ontology-legend';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
@@ -300,6 +300,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		} else if (update.kind === 'labelText' && this.elementRegistry.element(update.id)?.kind === 'label') {
 			cell.attr('label/text', update.text);
 		} else if (update.kind === 'nodeImage' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			this.updateOntologyNodePresentation(update.id);
+		} else if (update.kind === 'nodeLabelTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
 		} else if (update.kind === 'nodePropertyValueTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
@@ -1458,7 +1460,7 @@ function x6OntologyNodePresentation(
 			markup: [{ tagName: 'rect', selector: 'containmentSeparator' }],
 			attrs: {
 				label: {
-					text: truncateText({ text: nodeTitleText(node, payload), width: Math.max(0, node.width - 20), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+					text: nodeTitleDisplayText({ node, payload, width: Math.max(0, node.width - 20), height: Math.max(1, containmentHeaderHeight - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
 					fill: textColor,
 					fontFamily,
 					fontSize,
@@ -1486,7 +1488,7 @@ function x6OntologyNodePresentation(
 			markup: [],
 			attrs: {
 				label: {
-					text: truncateText({ text: nodeTitleText(node, payload), width: Math.max(0, node.width - 20), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+					text: nodeTitleDisplayText({ node, payload, width: Math.max(0, node.width - 20), height: Math.max(1, Math.min(32, node.height) - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
 					fill: textColor,
 					fontFamily,
 					fontSize,
@@ -1524,9 +1526,11 @@ function x6OntologyNodePresentation(
 	});
 	const displayAttributeTexts = visibleNodeAttributeTextLines(allAttributeTexts, attributeLayout.maximumAttributeLines);
 	const titleWidth = Math.max(0, node.width - (hasImage && hasAttributes ? 56 : 20));
-	const title = truncateText({
-		text: nodeTitleText(node, payload),
+	const title = nodeTitleDisplayText({
+		node,
+		payload,
 		width: titleWidth,
+		height: Math.max(1, (hasAttributes ? layout.headerHeight : node.height) - (showsOntologyLabel ? 12 : 0) - 8),
 		fontSize,
 		fontFamily,
 		bold: fontBold,
@@ -1622,7 +1626,7 @@ function x6Edge(
 	const strokeWidth = edge.style?.weight ?? theme.edgeWeight;
 	const lineStyle = edge.style?.line_style;
 	const stroke = lineStyle === 'none' || strokeWidth === 0 ? 'none' : edge.style?.color ?? ontologyColor(edge.ontology_ref, payload, edge.ontology_item_type) ?? theme.edgeColor;
-	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref);
+	const label = isNoteConnection(edge) ? '' : edgeDisplayName(edge.ontology_ref, payload);
 	const cardinalities = edgeCardinalityLabels(edge, payload);
 
 	return {

@@ -31,6 +31,7 @@ export function recolorGalleryIconsForLegend(
 			node.showType,
 			node.showPropertyValues,
 			node.propertyValueTextOverflow,
+			node.labelTextOverflow,
 		);
 	});
 }
