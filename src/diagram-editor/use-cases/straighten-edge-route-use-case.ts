@@ -42,6 +42,8 @@ export class StraightenEdgeRouteUseCase {
 				edge.style,
 				edge.extra,
 				'direct',
+				edge.renderAs,
+				edge.containmentDirection,
 			);
 		});
 

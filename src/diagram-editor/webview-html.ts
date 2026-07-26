@@ -150,6 +150,11 @@ function webviewBody(
 						<option value="metro">Metro</option>
 						<option value="entity_relation">Entity Relation</option>
 					</select>
+					<select class="local-element-select edge-presentation-select" id="edgePresentationLocalSelect" title="Edge presentation" aria-label="Edge presentation">
+						<option value="connection">Connection</option>
+						<option value="target_contains_source">Containment: target contains source</option>
+						<option value="source_contains_target">Containment: source contains target</option>
+					</select>
 					<button class="local-element-action" id="resetEdgeLabelLocalButton" type="button" title="Reset label position" aria-label="Reset label position"></button>
 					<button class="local-element-action" id="deleteEdgeLocalButton" type="button" title="Remove edge" aria-label="Remove edge"></button>
 				</div>
@@ -574,6 +579,10 @@ function webviewStyles(): string {
 	.local-element-select:focus-visible {
 		border-color: var(--vscode-focusBorder);
 		outline: none;
+	}
+
+	.edge-presentation-select {
+		max-width: 210px;
 	}
 
 	.local-element-action-separator {

@@ -126,6 +126,8 @@ export interface DiagramEdge {
 	readonly ontology_item_type?: string;
 	readonly style?: DiagramEdgeStyle;
 	readonly route_layout?: 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
+	readonly render_as?: 'containment';
+	readonly containment_direction?: 'source_contains_target' | 'target_contains_source';
 }
 
 export interface DiagramNote {

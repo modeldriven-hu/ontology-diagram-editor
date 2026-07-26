@@ -19,7 +19,7 @@ export function diagramContentBounds(diagram: DiagramPayload['diagram']): Conten
 		...(diagram.images ?? []).map(elementBounds),
 		...(diagram.labels ?? []).map(elementBounds),
 		...(diagram.metadata_elements ?? []).map(elementBounds),
-		...(diagram.edges ?? []).flatMap(edgeBounds),
+		...(diagram.edges ?? []).filter((edge) => edge.render_as !== 'containment').flatMap(edgeBounds),
 	];
 	if (bounds.length === 0) {
 		return undefined;

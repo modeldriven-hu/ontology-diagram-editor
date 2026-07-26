@@ -34,6 +34,8 @@ export function recalculateConnectedEdgeEndpoints(
 			edge.style,
 			edge.extra,
 			edge.routeLayout,
+			edge.renderAs,
+			edge.containmentDirection,
 		);
 	}
 
@@ -79,6 +81,8 @@ export function recalculateConnectedEdgeEndpoints(
 		edge.style,
 		edge.extra,
 		edge.routeLayout,
+		edge.renderAs,
+		edge.containmentDirection,
 	);
 }
 

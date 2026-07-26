@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-26
+
+- Added recursive containment presentation for ontology relationships, including
+  explicit container direction, validation, compound layout, and export support.
+- Added hierarchy-aware arrangement for nested containment trees.
+- Improved containment colors in light and dark themes.
+
 ## [1.3.0] - 2026-07-21
 
 - Added a searchable offline gallery containing Material Design Icons, Bootstrap Icons,

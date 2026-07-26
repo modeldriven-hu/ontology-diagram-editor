@@ -245,6 +245,8 @@ function translateEdgeMovedWithEndpoints(
 		edge.style,
 		edge.extra,
 		edge.routeLayout,
+		edge.renderAs,
+		edge.containmentDirection,
 	).withCardinalityLabelPositions(
 		edge.sourceCardinalityLabel === undefined ? undefined : translatePoint(edge.sourceCardinalityLabel, sourceDelta),
 		edge.targetCardinalityLabel === undefined ? undefined : translatePoint(edge.targetCardinalityLabel, sourceDelta),

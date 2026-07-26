@@ -47,6 +47,8 @@ placing ontology items, relationships, notes, images, and labels on a canvas.
   `.odiagram` metadata.
 - Pan, zoom, fit, and reset the canvas viewport without changing persisted coordinates.
 - Arrange ontology-backed nodes and reroute connected edges through a toolbar action.
+- Render selected `partOf` or `hasPart` relationships as recursively nested boxes with
+  an explicit choice of which endpoint is the container.
 - Export non-empty diagrams as SVG or PNG.
 - Persist completed canvas edits back to the opened `.odiagram` document, preserving
   unknown fields whenever practical.
@@ -79,7 +81,8 @@ This extension does not currently contribute VS Code settings.
 Current version 1 scope intentionally excludes:
 
 - Multi-user editing.
-- Grouping elements, layer management, custom z-index controls, and freehand drawing.
+- General-purpose grouping, layer management, custom z-index controls, and freehand
+  drawing.
 - Direct ontology source editing from canvas controls.
 - Theme file editing from canvas controls.
 - Annotation property edge creation.

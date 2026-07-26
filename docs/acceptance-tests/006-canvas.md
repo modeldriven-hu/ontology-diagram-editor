@@ -8,6 +8,7 @@
 - Given a rejected canvas action, when the action fails validation, then the document remains unchanged and the user sees a concise problem message.
 - Given the user switches theme mode, when persistence completes, then `metadata.theme_mode` stores the selected light or dark mode.
 - Given a non-empty diagram is open, when the user exports SVG or PNG, then an export file can be saved without modifying the `.odiagram` document.
+- Given a node-to-node relationship is configured as containment, when the canvas renders, then the designated child is shown inside the designated container without a visible relationship line.
 
 ## Viewport
 

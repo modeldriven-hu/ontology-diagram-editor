@@ -68,6 +68,8 @@ export class UpdateEdgeRouteUseCase {
 				edge.style,
 				edge.extra,
 				edge.routeLayout,
+				edge.renderAs,
+				edge.containmentDirection,
 			).withCardinalityLabelPositions(nextSourceCardinalityLabel, nextTargetCardinalityLabel);
 		});
 

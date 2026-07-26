@@ -1,0 +1,49 @@
+@prefix example: <https://example.com/containment/part-of#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://example.com/containment/part-of> a owl:Ontology ;
+	rdfs:label "Part-of containment example" .
+
+example:System a owl:Class ; rdfs:label "Service System" .
+example:Platform a owl:Class ; rdfs:label "Platform" .
+example:Operations a owl:Class ; rdfs:label "Operations" .
+example:UserInterface a owl:Class ; rdfs:label "User Interface" .
+example:ApiService a owl:Class ; rdfs:label "API Service" .
+example:Monitoring a owl:Class ; rdfs:label "Monitoring" .
+example:Support a owl:Class ; rdfs:label "Support" .
+
+example:platformPartOfSystem a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:Platform ;
+	rdfs:range example:System .
+
+example:operationsPartOfSystem a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:Operations ;
+	rdfs:range example:System .
+
+example:uiPartOfPlatform a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:UserInterface ;
+	rdfs:range example:Platform .
+
+example:apiPartOfPlatform a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:ApiService ;
+	rdfs:range example:Platform .
+
+example:monitoringPartOfOperations a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:Monitoring ;
+	rdfs:range example:Operations .
+
+example:supportPartOfOperations a owl:ObjectProperty ;
+	rdfs:label "part of" ;
+	rdfs:domain example:Support ;
+	rdfs:range example:Operations .
+
+example:usesApi a owl:ObjectProperty ;
+	rdfs:label "uses API" ;
+	rdfs:domain example:UserInterface ;
+	rdfs:range example:ApiService .

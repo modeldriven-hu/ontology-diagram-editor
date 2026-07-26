@@ -1,14 +1,15 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
+import { containmentHeaderHeight, containmentMovementNodeIds, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
-import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, ontologyTextColor } from '../components/ontology-legend';
+import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from '../components/ontology-legend';
 import { noteHtmlResetStyle, noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
 import { edgeDisplayName } from '../components/ontology-diagram-edges';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from '../components/edge-cardinality-labels';
 import type { BoundsDragKind, CanvasBoundsChangeListener, CanvasDoubleClickListener, CanvasEdgeRouteChangeListener, CanvasElementContentUpdate, CanvasSelectionListener, DiagramCanvasEngine } from './diagram-canvas-engine';
 import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
-import type { WebviewTheme } from '../webview-theme';
+import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
 import type { X6Cell, X6Edge, X6EdgeView, X6Graph, X6LabelPosition, X6Node, X6SelectionPlugin } from './x6-browser';
 
 type ElementBorder = NonNullable<NonNullable<DiagramNode['style']>['border']>;
@@ -44,6 +45,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 	private edgeRoutePublishTimer: number | undefined;
 	private labelDragHighlight: { readonly edgeId: string; readonly lineAttrs: unknown } | undefined;
 	private currentPayload?: DiagramPayload;
+	private containmentIndex: DiagramContainmentIndex = createDiagramContainmentIndex([], []);
 	private selectionBeforePointerDown: readonly string[] = [];
 
 	public constructor(
@@ -131,11 +133,24 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.programmaticLabelChanges.clear();
 			this.selectedEdgeLineAttrs.clear();
 			this.graph.clearCells();
+			const diagramNodes = payload.diagram?.nodes ?? [];
+			this.containmentIndex = createDiagramContainmentIndex(diagramNodes.map((node) => node.id), payload.diagram?.edges ?? []);
 			for (const image of payload.diagram?.images ?? []) {
 				this.graph.addNode(x6Image(image, theme));
 			}
-			for (const node of payload.diagram?.nodes ?? []) {
-				this.graph.addNode(x6OntologyNode(node, payload, theme));
+			const orderedNodes = diagramNodes
+				.map((node, index) => ({ node, index }))
+				.sort((left, right) =>
+					(this.containmentIndex.depthByNodeId.get(left.node.id) ?? 0)
+					- (this.containmentIndex.depthByNodeId.get(right.node.id) ?? 0)
+					|| left.index - right.index);
+			for (const { node } of orderedNodes) {
+				this.graph.addNode(x6OntologyNode(node, payload, theme, {
+					parentNodeId: this.containmentIndex.parentByNodeId.get(node.id),
+					childNodeIds: this.containmentIndex.childrenByNodeId.get(node.id) ?? [],
+					depth: this.containmentIndex.depthByNodeId.get(node.id) ?? 0,
+					isContainer: this.containmentIndex.containerNodeIds.has(node.id),
+				}));
 			}
 			for (const note of payload.diagram?.notes ?? []) {
 				this.graph.addNode(x6Note(note, theme));
@@ -150,6 +165,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				...(payload.diagram?.images ?? []).map((image) => [image.id, image] as const),
 			]);
 			for (const edge of payload.diagram?.edges ?? []) {
+				if (this.containmentIndex.containmentEdgeIds.has(edge.id)) {
+					continue;
+				}
 				this.edgeLabelPoints.set(edge.id, edge.label);
 				this.edgeCardinalityLabelPoints.set(edge.id, {
 					source: edge.source_cardinality_label,
@@ -307,59 +325,61 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return false;
 		}
 
-		this.elementRegistry.updateBounds(update);
-		cell.position(update.x, update.y);
-		if (this.selectedIds.includes(id)) {
+		const movementCells = this.containmentMovementCells([id]);
+		this.suppressBoundsEvents = true;
+		try {
+			cell.position(update.x, update.y);
+		} finally {
+			this.suppressBoundsEvents = false;
+		}
+		const updates = movementCells
+			.map(boundsUpdate)
+			.filter((candidate) => boundsDifferFromRegistry(candidate, this.elementRegistry));
+		for (const candidate of updates) {
+			this.elementRegistry.updateBounds(candidate);
+		}
+		if (updates.some((candidate) => this.selectedIds.includes(candidate.id))) {
 			this.publishSelectionChanged();
 		}
-		for (const listener of this.boundsChangeListeners) {
-			listener({
-				dragKind: 'move',
-				bounds: [update],
-			});
-		}
+		this.publishElementBounds(updates, 'move');
 
 		return true;
 	}
 
 	public nudgeSelectedElements(delta: CanvasPoint): boolean {
-		const cells = this.selectedNodeCells();
-		if (cells.length === 0) {
+		const selectedCells = this.selectedNodeCells();
+		if (selectedCells.length === 0) {
 			return false;
 		}
+		const rootCells = this.topLevelMovementCells(selectedCells);
+		const movementCells = this.containmentMovementCells(selectedCells.map((cell) => cell.id));
 
-		const adjustedDelta = boundedGroupDelta(cells, delta);
+		const adjustedDelta = boundedGroupDelta(movementCells, delta);
 		if (adjustedDelta.x === 0 && adjustedDelta.y === 0) {
 			return false;
 		}
 
 		this.suppressBoundsEvents = true;
-		const edgeRoutes = this.selectedInternalEdgeRoutes();
-		const updates: BoundsUpdate[] = [];
+		const edgeRoutes = this.internalEdgeRoutes(movementCells.map((cell) => cell.id));
 		try {
-			for (const cell of cells) {
+			for (const cell of rootCells) {
 				const position = cell.position();
-				const size = cell.size();
-				const update = {
-					id: cell.id,
-					x: Math.max(0, Math.round(position.x + adjustedDelta.x)),
-					y: Math.max(0, Math.round(position.y + adjustedDelta.y)),
-					width: Math.round(size.width),
-					height: Math.round(size.height),
-				};
-				if (!boundsDifferFromRegistry(update, this.elementRegistry)) {
-					continue;
-				}
-
-				cell.position(update.x, update.y);
-				this.elementRegistry.updateBounds(update);
-				updates.push(update);
+				cell.position(
+					Math.max(0, Math.round(position.x + adjustedDelta.x)),
+					Math.max(0, Math.round(position.y + adjustedDelta.y)),
+				);
 			}
 		} finally {
 			this.suppressBoundsEvents = false;
 		}
+		const updates = movementCells
+			.map(boundsUpdate)
+			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
 		if (updates.length === 0) {
 			return false;
+		}
+		for (const update of updates) {
+			this.elementRegistry.updateBounds(update);
 		}
 
 		this.applyTranslatedEdgeRoutes(edgeRoutes, updates);
@@ -603,11 +623,13 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				return;
 			}
 
-			if (this.selectedIds.length > 1 && this.selectedIds.includes(node.id)) {
+			const selectedIds = new Set(this.selectedIds);
+			if (selectedIds.size > 1
+				&& (selectedIds.has(node.id) || this.hasContainmentAncestor(node.id, selectedIds))) {
 				return;
 			}
 
-			this.publishNodeBounds(node, 'move');
+			this.publishContainedNodeMovement(node);
 		});
 		this.graph.on('node:resize', () => {
 			this.suppressBlankSelectionClear = true;
@@ -748,6 +770,29 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		});
 	}
 
+	private containmentMovementCells(nodeIds: readonly string[]): readonly X6Node[] {
+		return containmentMovementNodeIds(nodeIds, this.containmentIndex.childrenByNodeId).flatMap((id) => {
+			const cell = this.graph.getCellById(id);
+			return isX6Node(cell) ? [cell] : [];
+		});
+	}
+
+	private topLevelMovementCells(cells: readonly X6Node[]): readonly X6Node[] {
+		const movedIds = new Set(cells.map((cell) => cell.id));
+		return cells.filter((cell) => !this.hasContainmentAncestor(cell.id, movedIds));
+	}
+
+	private hasContainmentAncestor(nodeId: string, candidateIds: ReadonlySet<string>): boolean {
+		let parentId = this.containmentIndex.parentByNodeId.get(nodeId);
+		while (parentId !== undefined) {
+			if (candidateIds.has(parentId)) {
+				return true;
+			}
+			parentId = this.containmentIndex.parentByNodeId.get(parentId);
+		}
+		return false;
+	}
+
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
 		if (this.suppressBoundsEvents) {
 			return;
@@ -763,6 +808,32 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.publishSelectionChanged();
 		}
 		this.publishElementBounds([update], dragKind);
+	}
+
+	private publishContainedNodeMovement(node: X6Node): void {
+		if (this.suppressBoundsEvents) {
+			return;
+		}
+
+		const cells = this.containmentMovementCells([node.id]);
+		const updates = cells
+			.map(boundsUpdate)
+			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
+		if (updates.length === 0) {
+			return;
+		}
+
+		for (const update of updates) {
+			const cell = this.graph.getCellById(update.id);
+			if (isX6Node(cell)) {
+				this.restoreClampedNodePosition(cell, update);
+			}
+			this.elementRegistry.updateBounds(update);
+		}
+		if (updates.some((update) => this.selectedIds.includes(update.id))) {
+			this.publishSelectionChanged();
+		}
+		this.publishElementBounds(updates, 'move');
 	}
 
 	private restoreClampedNodePosition(node: X6Node, update: BoundsUpdate): void {
@@ -788,8 +859,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
-	private selectedInternalEdgeRoutes(): readonly EdgeRouteSnapshot[] {
-		const selectedIds = new Set(this.selectedIds);
+	private internalEdgeRoutes(nodeIds: readonly string[]): readonly EdgeRouteSnapshot[] {
+		const selectedIds = new Set(nodeIds);
 		return elementRegistryEdges(this.elementRegistry).flatMap((edge) => {
 			if (!selectedIds.has(edge.source) || !selectedIds.has(edge.target)) {
 				return [];
@@ -817,7 +888,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		const updates = this.selectedNodeCells()
+		const updates = this.containmentMovementCells(this.selectedNodeCells().map((cell) => cell.id))
 			.map(boundsUpdate)
 			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
 		if (updates.length > 0) {
@@ -966,11 +1037,23 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme);
+		const isContainer = this.containmentIndex.containerNodeIds.has(id);
+		const containmentDepth = isContainer || this.containmentIndex.parentByNodeId.has(id)
+			? this.containmentIndex.depthByNodeId.get(id) ?? 0
+			: undefined;
+		const presentation = x6OntologyNodePresentation(element.value, payload, this.theme, isContainer, containmentDepth);
 		cell.setMarkup?.(x6OntologyNodeMarkup(presentation.markup));
 		cell.attr({
-			body: x6OntologyNodeBodyAttrs(element.value, payload, this.theme, cornerRadius(element.value.style, this.theme.nodeCornerRadius)),
-			nodeImage: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
+			body: x6OntologyNodeBodyAttrs(
+				element.value,
+				payload,
+				this.theme,
+				cornerRadius(element.value.style, this.theme.nodeCornerRadius),
+				containmentDepth,
+			),
+			nodeImage: isContainer
+				? { opacity: 0, pointerEvents: 'none' }
+				: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),
 			...presentation.attrs,
 		});
 	}
@@ -1139,23 +1222,38 @@ function installX6Styles(theme: WebviewTheme): void {
 	}
 }
 
-function x6OntologyNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): Record<string, unknown> {
+function x6OntologyNode(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	containment: {
+		readonly parentNodeId?: string;
+		readonly childNodeIds: readonly string[];
+		readonly depth: number;
+		readonly isContainer: boolean;
+	},
+): Record<string, unknown> {
 	const radius = cornerRadius(node.style, theme.nodeCornerRadius);
-	const presentation = x6OntologyNodePresentation(node, payload, theme);
+	const containmentDepth = containment.isContainer || containment.parentNodeId !== undefined ? containment.depth : undefined;
+	const presentation = x6OntologyNodePresentation(node, payload, theme, containment.isContainer, containmentDepth);
 
 	return {
 		id: node.id,
+		...(containment.parentNodeId === undefined ? {} : { parent: containment.parentNodeId }),
+		...(containment.childNodeIds.length === 0 ? {} : { children: [...containment.childNodeIds] }),
 		x: node.x,
 		y: node.y,
 		width: node.width,
 		height: node.height,
 		markup: x6OntologyNodeMarkup(presentation.markup),
 		attrs: {
-			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius),
-			nodeImage: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
+			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius, containmentDepth),
+			nodeImage: containment.isContainer
+				? { opacity: 0, pointerEvents: 'none' }
+				: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
 			...presentation.attrs,
 		},
-		zIndex: 20,
+		zIndex: 20 + containment.depth,
 	};
 }
 
@@ -1163,8 +1261,14 @@ function hasNodeImage(node: DiagramNode): boolean {
 	return node.image !== undefined && node.image.trim() !== '';
 }
 
-function x6OntologyNodeBodyAttrs(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, radius: number): Record<string, unknown> {
-	if (hasNodeImage(node)) {
+function x6OntologyNodeBodyAttrs(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	radius: number,
+	containmentDepth?: number,
+): Record<string, unknown> {
+	if (containmentDepth === undefined && hasNodeImage(node)) {
 		return {
 			refWidth: '100%',
 			refHeight: '100%',
@@ -1179,13 +1283,19 @@ function x6OntologyNodeBodyAttrs(node: DiagramNode, payload: DiagramPayload, the
 
 	const ontologyColorValue = ontologyColor(node.ontology_ref, payload, node.ontology_item_type);
 	const colorMode = ontologyColorMode(payload);
+	const backgroundFallback = containmentDepth === undefined
+		? theme.nodeBackground
+		: containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground);
+	const borderFallback = containmentDepth === undefined
+		? theme.nodeBorder
+		: containmentColorAtDepth(theme.containmentBorders, containmentDepth, theme.nodeBorder);
 	return {
 		refWidth: '100%',
 		refHeight: '100%',
 		rx: radius,
 		ry: radius,
-		fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? theme.nodeBackground, node.ontology_item_type),
-		...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? theme.nodeBorder : theme.nodeBorder, 1),
+		fill: ontologyBackgroundColor(node.ontology_ref, payload, node.style?.bg_color ?? backgroundFallback, node.ontology_item_type),
+		...borderAttrs(node.style?.border, colorMode === 'border' ? ontologyColorValue ?? borderFallback : borderFallback, 1),
 		filter: shadowFilter(node.style, theme.elementShadow, theme),
 	};
 }
@@ -1317,7 +1427,13 @@ function x6LegendElement(element: DiagramLegendElement, payload: DiagramPayload,
 	};
 }
 
-function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme): {
+function x6OntologyNodePresentation(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: WebviewTheme,
+	isContainer = false,
+	containmentDepth?: number,
+): {
 	readonly hasAttributes: boolean;
 	readonly markup: readonly Record<string, string>[];
 	readonly attrs: Record<string, unknown>;
@@ -1327,7 +1443,43 @@ function x6OntologyNodePresentation(node: DiagramNode, payload: DiagramPayload, 
 	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
 	const fontBold = node.style?.font?.bold ?? theme.nodeFontBold;
 	const fontItalic = node.style?.font?.italic ?? theme.nodeFontItalic;
-	const textColor = ontologyTextColor(node.ontology_ref, payload, node.style?.text_color ?? theme.editorForeground, node.ontology_item_type);
+	const backgroundColor = ontologyBackgroundColor(
+		node.ontology_ref,
+		payload,
+		node.style?.bg_color ?? (containmentDepth === undefined
+			? theme.nodeBackground
+			: containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground)),
+		node.ontology_item_type,
+	);
+	const textColor = node.style?.text_color ?? readableTextColor(backgroundColor, theme.editorForeground);
+	if (isContainer) {
+		return {
+			hasAttributes: false,
+			markup: [{ tagName: 'rect', selector: 'containmentSeparator' }],
+			attrs: {
+				label: {
+					text: truncateText({ text: nodeTitleText(node, payload), width: Math.max(0, node.width - 20), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
+					fill: textColor,
+					fontFamily,
+					fontSize,
+					fontWeight: fontBold === true ? 700 : 400,
+					fontStyle: fontItalic === true ? 'italic' : 'normal',
+					textAnchor: 'middle',
+					textVerticalAnchor: 'middle',
+					refX: '50%',
+					refY: containmentHeaderHeight / 2,
+					pointerEvents: 'none',
+				},
+				containmentSeparator: {
+					refWidth: '100%',
+					height: 1,
+					refY: containmentHeaderHeight,
+					fill: node.style?.border?.color ?? theme.nodeBorder,
+					pointerEvents: 'none',
+				},
+			},
+		};
+	}
 	if (hasImage) {
 		return {
 			hasAttributes: false,

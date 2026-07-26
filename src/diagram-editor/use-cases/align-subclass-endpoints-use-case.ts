@@ -93,6 +93,8 @@ export class AlignSubclassEndpointsUseCase {
 				edge.style,
 				edge.extra,
 				nextRouteLayout,
+				edge.renderAs,
+				edge.containmentDirection,
 			);
 		});
 

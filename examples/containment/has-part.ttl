@@ -1,0 +1,32 @@
+@prefix example: <https://example.com/containment/has-part#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://example.com/containment/has-part> a owl:Ontology ;
+	rdfs:label "Has-part containment example" .
+
+example:Enterprise a owl:Class ; rdfs:label "Enterprise" .
+example:ProductPortfolio a owl:Class ; rdfs:label "Product Portfolio" .
+example:SharedServices a owl:Class ; rdfs:label "Shared Services" .
+example:ProductAlpha a owl:Class ; rdfs:label "Product Alpha" .
+example:ProductBeta a owl:Class ; rdfs:label "Product Beta" .
+
+example:hasPortfolio a owl:ObjectProperty ;
+	rdfs:label "has part" ;
+	rdfs:domain example:Enterprise ;
+	rdfs:range example:ProductPortfolio .
+
+example:hasSharedServices a owl:ObjectProperty ;
+	rdfs:label "has part" ;
+	rdfs:domain example:Enterprise ;
+	rdfs:range example:SharedServices .
+
+example:hasProductAlpha a owl:ObjectProperty ;
+	rdfs:label "has part" ;
+	rdfs:domain example:ProductPortfolio ;
+	rdfs:range example:ProductAlpha .
+
+example:hasProductBeta a owl:ObjectProperty ;
+	rdfs:label "has part" ;
+	rdfs:domain example:ProductPortfolio ;
+	rdfs:range example:ProductBeta .

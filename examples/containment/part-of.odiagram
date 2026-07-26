@@ -1,0 +1,116 @@
+metadata:
+  schema_version: "1.0"
+  title: Part-of nested boxes
+  authors: []
+  diagram_version: "0.1.0"
+  theme_mode: light
+ontologies:
+  - path: part-of.ttl
+namespaces:
+  example: https://example.com/containment/part-of#
+nodes:
+  - id: node_system
+    ontology_ref: example:System
+    x: 40
+    y: 40
+    width: 784
+    height: 208
+    style:
+      font: { bold: true, size: 16 }
+      border: { weight: 2 }
+  - id: node_platform
+    ontology_ref: example:Platform
+    x: 56
+    y: 96
+    width: 368
+    height: 136
+    style:
+      font: { bold: true }
+  - id: node_operations
+    ontology_ref: example:Operations
+    x: 440
+    y: 96
+    width: 368
+    height: 136
+    style:
+      font: { bold: true }
+  - id: node_ui
+    ontology_ref: example:UserInterface
+    x: 72
+    y: 152
+    width: 160
+    height: 64
+  - id: node_api
+    ontology_ref: example:ApiService
+    x: 248
+    y: 152
+    width: 160
+    height: 64
+  - id: node_monitoring
+    ontology_ref: example:Monitoring
+    x: 456
+    y: 152
+    width: 160
+    height: 64
+  - id: node_support
+    ontology_ref: example:Support
+    x: 632
+    y: 152
+    width: 160
+    height: 64
+edges:
+  - id: edge_platformPartOfSystem
+    source: node_platform
+    target: node_system
+    ontology_ref: example:platformPartOfSystem
+    label: { x: 40, y: 40 }
+    points: [{ x: 40, y: 40 }, { x: 41, y: 41 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_operationsPartOfSystem
+    source: node_operations
+    target: node_system
+    ontology_ref: example:operationsPartOfSystem
+    label: { x: 40, y: 40 }
+    points: [{ x: 40, y: 40 }, { x: 41, y: 41 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_uiPartOfPlatform
+    source: node_ui
+    target: node_platform
+    ontology_ref: example:uiPartOfPlatform
+    label: { x: 56, y: 96 }
+    points: [{ x: 56, y: 96 }, { x: 57, y: 97 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_apiPartOfPlatform
+    source: node_api
+    target: node_platform
+    ontology_ref: example:apiPartOfPlatform
+    label: { x: 56, y: 96 }
+    points: [{ x: 56, y: 96 }, { x: 57, y: 97 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_monitoringPartOfOperations
+    source: node_monitoring
+    target: node_operations
+    ontology_ref: example:monitoringPartOfOperations
+    label: { x: 440, y: 96 }
+    points: [{ x: 440, y: 96 }, { x: 441, y: 97 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_supportPartOfOperations
+    source: node_support
+    target: node_operations
+    ontology_ref: example:supportPartOfOperations
+    label: { x: 440, y: 96 }
+    points: [{ x: 440, y: 96 }, { x: 441, y: 97 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_usesApi
+    source: node_ui
+    target: node_api
+    ontology_ref: example:usesApi
+    label: { x: 240, y: 174 }
+    points: [{ x: 232, y: 184 }, { x: 248, y: 184 }]
+    route_layout: direct

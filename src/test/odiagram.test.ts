@@ -133,6 +133,67 @@ edges: []
 		assert.match(stringifyOntologyDiagramYaml(document), /target_cardinality_label:/);
 	});
 
+	test('parses and serializes containment edge presentation', () => {
+		const document = parseOntologyDiagramYaml(validDiagramYaml.replace('edges: []', `edges:
+  - id: edge_partOf
+    source: node_person
+    target: node_person
+    ontology_ref: ex:partOf
+    label: { x: 90, y: 80 }
+    points: [{ x: 40, y: 60 }, { x: 140, y: 60 }]
+    render_as: containment
+    containment_direction: target_contains_source
+`).replace('  - id: edge_partOf\n    source: node_person\n    target: node_person', `  - id: edge_partOf
+    source: node_person
+    target: node_group`).replace('edges:', `  - id: node_group
+    ontology_ref: ex:Group
+    x: 200
+    y: 20
+    width: 200
+    height: 120
+edges:`));
+
+		assert.strictEqual(document.edges[0].renderAs, 'containment');
+		assert.strictEqual(document.edges[0].containmentDirection, 'target_contains_source');
+		const serialized = stringifyOntologyDiagramYaml(document);
+		assert.match(serialized, /render_as: containment/);
+		assert.match(serialized, /containment_direction: target_contains_source/);
+	});
+
+	test('rejects containment cycles', () => {
+		assert.throws(() => parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Cycle"
+  authors: []
+  diagram_version: "0.1.0"
+ontologies: []
+namespaces:
+  ex: "https://example.com/ontology#"
+nodes:
+  - { id: node_a, ontology_ref: ex:A, x: 0, y: 0, width: 100, height: 50 }
+  - { id: node_b, ontology_ref: ex:B, x: 200, y: 0, width: 100, height: 50 }
+edges:
+  - id: edge_ab
+    source: node_a
+    target: node_b
+    ontology_ref: ex:partOf
+    label: { x: 0, y: 0 }
+    points: [{ x: 0, y: 0 }, { x: 1, y: 1 }]
+    render_as: containment
+    containment_direction: target_contains_source
+  - id: edge_ba
+    source: node_b
+    target: node_a
+    ontology_ref: ex:partOf
+    label: { x: 0, y: 0 }
+    points: [{ x: 0, y: 0 }, { x: 1, y: 1 }]
+    render_as: containment
+    containment_direction: target_contains_source
+`), (error: unknown) => error instanceof OntologyDiagramValidationError
+			&& error.issues.some((issue) => issue.includes('cycle')));
+	});
+
 	test('parses and serializes note export visibility', () => {
 		const document = parseOntologyDiagramYaml(`
 metadata:
@@ -440,6 +501,19 @@ custom_section:
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
+	});
+
+	test('loads both nested containment examples', async () => {
+		const examplesDirectory = path.resolve(__dirname, '../../examples/containment');
+		const partOf = await readOntologyDiagramFile(path.join(examplesDirectory, 'part-of.odiagram'));
+		const hasPart = await readOntologyDiagramFile(path.join(examplesDirectory, 'has-part.odiagram'));
+
+		assert.ok(partOf.edges.some((edge) =>
+			edge.renderAs === 'containment'
+			&& edge.containmentDirection === 'target_contains_source'));
+		assert.ok(hasPart.edges.some((edge) =>
+			edge.renderAs === 'containment'
+			&& edge.containmentDirection === 'source_contains_target'));
 	});
 
 	test('writes a diagram document to a .odiagram file', async () => {
