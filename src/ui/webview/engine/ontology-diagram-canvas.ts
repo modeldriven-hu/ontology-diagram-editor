@@ -1,4 +1,4 @@
-import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent } from '../../../shared/canvas-editor-events';
+import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent, type CanvasSelectionRequestedMessage } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
@@ -475,9 +475,12 @@ function registerExtensionMessageForwarding(): void {
 }
 
 function registerHostMessageHandlers(): void {
-	window.addEventListener('message', (event: MessageEvent<OpenImageGalleryMessage>) => {
+	window.addEventListener('message', (event: MessageEvent<OpenImageGalleryMessage | CanvasSelectionRequestedMessage>) => {
 		if (event.data.type === 'openImageGallery') {
 			openTargetImageGallery(event.data.targetType, event.data.targetId);
+		}
+		if (event.data.type === 'selectCanvasElements') {
+			canvas.selectElements(event.data.elementIdentifiers.filter((id) => elementRegistry.element(id) !== undefined));
 		}
 	});
 }

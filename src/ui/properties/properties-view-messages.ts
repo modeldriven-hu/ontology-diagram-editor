@@ -30,4 +30,14 @@ export interface PropertiesViewOpenImageGalleryMessage {
 	readonly targetId: string;
 }
 
-export type PropertiesViewToExtensionMessage = PropertiesViewReadyMessage | PropertiesViewCommandMessage | PropertiesViewFocusCanvasMessage | PropertiesViewOpenImageGalleryMessage;
+export interface PropertiesViewSelectElementsMessage {
+	readonly type: 'propertiesViewSelectElements';
+	readonly elementIdentifiers: readonly string[];
+}
+
+export type PropertiesViewToExtensionMessage =
+	| PropertiesViewReadyMessage
+	| PropertiesViewCommandMessage
+	| PropertiesViewFocusCanvasMessage
+	| PropertiesViewOpenImageGalleryMessage
+	| PropertiesViewSelectElementsMessage;

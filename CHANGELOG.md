@@ -6,6 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-07-26
+
+- Added configurable node-label truncation and wrapping on the canvas and in exports.
+- Moved label overflow and containment presentation controls into the Style tab.
+- Added shared style editing for multiple selected nodes, including mixed-value fields
+  and atomic batch persistence.
+- Added actions for narrowing mixed canvas selections to nodes, edges, notes, images,
+  labels, diagram information, or legends.
+
 ## [1.4.0] - 2026-07-26
 
 - Added recursive containment presentation for ontology relationships, including

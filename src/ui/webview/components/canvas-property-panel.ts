@@ -27,6 +27,7 @@ interface CanvasPropertyPanelOptions {
 	readonly focusAfterEscape: () => void;
 	readonly chooseNodeImage: (id: string) => void;
 	readonly chooseStandaloneImage: (id: string) => void;
+	readonly selectElements: (elementIdentifiers: readonly string[]) => void;
 	readonly selectedTabByContext?: Map<string, string>;
 }
 
@@ -100,6 +101,12 @@ export class CanvasPropertyPanel {
 		const elements = this.selectedElementIdentifiers
 			.map((id) => this.options.registry.element(id))
 			.filter((element): element is CanvasPropertyElement => element !== undefined);
+		const groups = propertyElementTypeOrder.flatMap((kind) => {
+			const identifiers = elements
+				.filter((element) => element.kind === kind)
+				.map((element) => element.value.id);
+			return identifiers.length === 0 ? [] : [{ kind, identifiers }];
+		});
 		const nodes = elements
 			.filter((element): element is Extract<CanvasPropertyElement, { readonly kind: 'node' }> => element.kind === 'node')
 			.map((element) => element.value);
@@ -114,9 +121,18 @@ export class CanvasPropertyPanel {
 		}
 
 		this.renderContextHeader('Multiple selection', `${this.selectedElementCount} elements selected`);
+		if (groups.length > 1) {
+			this.options.body.appendChild(sectionElement('Limit Selection', [buttonGroup(groups.map((group) =>
+				actionButton(`Select only ${propertyElementTypeLabels[group.kind]} (${group.identifiers.length})`, 'secondary', () => {
+					this.options.selectElements(group.identifiers);
+				}),
+			))]));
+			return;
+		}
+
 		const message = document.createElement('p');
 		message.className = 'property-empty-message';
-		message.textContent = 'Style editing is available when every selected element is a node.';
+		message.textContent = 'Multi-element property editing is currently available for nodes.';
 		this.options.body.appendChild(message);
 	}
 
@@ -1019,6 +1035,28 @@ interface SharedValue<TValue> {
 	readonly mixed: boolean;
 }
 
+type PropertyElementKind = CanvasPropertyElement['kind'];
+
+const propertyElementTypeOrder: readonly PropertyElementKind[] = [
+	'node',
+	'edge',
+	'note',
+	'image',
+	'label',
+	'metadata',
+	'legend',
+];
+
+const propertyElementTypeLabels: Readonly<Record<PropertyElementKind, string>> = {
+	node: 'Nodes',
+	edge: 'Edges',
+	note: 'Notes',
+	image: 'Images',
+	label: 'Labels',
+	metadata: 'Diagram Information',
+	legend: 'Legends',
+};
+
 const mixedSelectionValue = '__mixed_selection_value__';
 
 function sharedValue<TValue>(values: readonly TValue[]): SharedValue<TValue> {
@@ -1063,6 +1101,13 @@ function markMixedField(field: HTMLElement, mixed: boolean): HTMLElement {
 	}
 
 	return field;
+}
+
+function buttonGroup(buttons: readonly HTMLElement[]): HTMLElement {
+	const group = document.createElement('div');
+	group.className = 'property-button-group';
+	group.append(...buttons);
+	return group;
 }
 
 function capitalize(value: string): string {

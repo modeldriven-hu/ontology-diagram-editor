@@ -21,10 +21,17 @@ export interface PropertiesImageGalleryRequest {
 	readonly targetId: string;
 }
 
+export interface PropertiesCanvasSelectionRequest {
+	readonly diagramUri: vscode.Uri;
+	readonly elementIdentifiers: readonly string[];
+}
+
 export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly imageGalleryRequestEmitter = new vscode.EventEmitter<PropertiesImageGalleryRequest>();
 	public readonly onDidRequestImageGallery = this.imageGalleryRequestEmitter.event;
+	private readonly canvasSelectionRequestEmitter = new vscode.EventEmitter<PropertiesCanvasSelectionRequest>();
+	public readonly onDidRequestCanvasSelection = this.canvasSelectionRequestEmitter.event;
 	private view?: vscode.WebviewView;
 	private activeDocument?: vscode.TextDocument;
 	private selectedElementIdentifier?: string;
@@ -85,6 +92,20 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 					}
 					return;
 				}
+				if (message.type === 'propertiesViewSelectElements') {
+					if (this.activeDocument !== undefined) {
+						const selectedIdentifiers = new Set(this.selectedElementIdentifiers);
+						const elementIdentifiers = [...new Set(message.elementIdentifiers)]
+							.filter((identifier) => selectedIdentifiers.has(identifier));
+						if (elementIdentifiers.length > 0) {
+							this.canvasSelectionRequestEmitter.fire({
+								diagramUri: this.activeDocument.uri,
+								elementIdentifiers,
+							});
+						}
+					}
+					return;
+				}
 				this.dispatch(message.command);
 			}),
 			view.onDidDispose(() => {
@@ -135,6 +156,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 
 	public dispose(): void {
 		this.imageGalleryRequestEmitter.dispose();
+		this.canvasSelectionRequestEmitter.dispose();
 		for (const disposable of this.disposables.splice(0)) {
 			disposable.dispose();
 		}

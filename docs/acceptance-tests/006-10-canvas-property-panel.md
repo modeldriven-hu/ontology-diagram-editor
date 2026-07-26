@@ -10,7 +10,10 @@
 - Given one element is selected, when the panel updates, then it shows the element type, read-only identifier, and supported fields for that element type.
 - Given multiple nodes are selected, when the panel updates, then it shows a shared Style tab.
 - Given selected nodes have different values for a style field, when the shared Style tab is shown, then that field indicates a mixed value.
-- Given a mixed selection includes a non-node element, when the panel updates, then bulk style editing is not offered.
+- Given a selection contains nodes, edges, and notes, when the panel updates, then it offers type-limit actions showing the count for Nodes, Edges, and Notes.
+- Given a mixed selection and its type-limit actions are shown, when Select only Edges is chosen, then all selected non-edge elements are deselected and all previously selected edges remain selected.
+- Given a type-limit action leaves one element selected, when the canvas publishes the resulting selection, then the Properties view shows that element's normal single-selection fields.
+- Given a type-limit action leaves multiple nodes selected, when the canvas publishes the resulting selection, then the Properties view shows the shared node Style tab.
 
 ## Editable Fields
 

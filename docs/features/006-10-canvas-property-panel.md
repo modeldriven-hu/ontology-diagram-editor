@@ -37,8 +37,14 @@ When multiple nodes are selected, the panel shall show their shared Style proper
 Fields with different values shall indicate a mixed value. Committing a field shall
 apply that field to every selected node as one logical document change while preserving
 the other style overrides on each node. Clearing Style shall clear every selected
-node's style overrides. Mixed selections containing another element type shall remain
-read-only.
+node's style overrides.
+
+When a selection contains multiple element types, the panel shall group the selected
+identifiers by type and offer an action for each represented type, including nodes,
+edges, notes, images, labels, diagram-information elements, and legends. Choosing an
+action shall replace the canvas selection with only the selected elements of that type.
+The canvas, floating toolbar, and Properties view shall then reflect the narrowed
+selection through the normal selection-change flow.
 
 # Displayed And Editable Properties
 

@@ -2,6 +2,11 @@ import type { BoundsUpdate } from './canvas-geometry';
 
 export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
 
+export interface CanvasSelectionRequestedMessage {
+	readonly type: 'selectCanvasElements';
+	readonly elementIdentifiers: readonly string[];
+}
+
 export type CanvasEditorEvent =
 	| CanvasRenderedEvent
 	| CanvasSelectionChangedEvent

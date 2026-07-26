@@ -3,14 +3,14 @@ import * as vscode from 'vscode';
 
 import type { DiagramRefreshRequestedEvent, ModelTreeItemDraggedEvent, ModelTreeItemsAddRequestedEvent } from '../ui/model-tree/model-tree';
 import type { WebviewCommand } from '../shared/webview-commands';
-import type { CanvasSelectionChangedEvent } from '../shared/canvas-editor-events';
+import type { CanvasSelectionChangedEvent, CanvasSelectionRequestedMessage } from '../shared/canvas-editor-events';
 import { DiagramDocumentRepository } from './document-repository';
 import { DiagramCommandDispatcher } from './command-dispatcher';
 import { buildDiagramWebviewHtml } from './webview-html';
 import { CanvasViewportPersistence } from './canvas-viewport-persistence';
 import { ActiveDiagramEditorRegistry } from './active-diagram-editor-registry';
 import { DiagramDependencyWatcher, type DiagramDependencyChangedEvent } from './diagram-dependency-watcher';
-import type { PropertiesImageGalleryRequest } from '../ui/properties/properties-view-provider';
+import type { PropertiesCanvasSelectionRequest, PropertiesImageGalleryRequest } from '../ui/properties/properties-view-provider';
 import type { OpenImageGalleryMessage } from '../shared/icon-gallery';
 
 export const diagramEditorViewType = 'ontology-diagram-editor.diagramEditor';
@@ -25,6 +25,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 		private readonly onDidChangeDiagramDependency: (document: vscode.TextDocument, event: DiagramDependencyChangedEvent) => void | Promise<void>,
 		private readonly onDidChangeCanvasSelection: (document: vscode.TextDocument, event: CanvasSelectionChangedEvent) => void | Promise<void>,
 		private readonly onDidRequestImageGallery: vscode.Event<PropertiesImageGalleryRequest>,
+		private readonly onDidRequestCanvasSelection: vscode.Event<PropertiesCanvasSelectionRequest>,
 		private readonly getLastDraggedModelTreeItems: () => readonly ModelTreeItemDraggedEvent[],
 		private readonly revealModelTreeItem: (diagramElementId: string) => Promise<boolean>,
 		private readonly onDidRequestDiagramRefresh: vscode.Event<DiagramRefreshRequestedEvent>,
@@ -100,6 +101,16 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			};
 			void webviewPanel.webview.postMessage(message);
 		});
+		const canvasSelectionRequestDisposable = this.onDidRequestCanvasSelection((event) => {
+			if (event.diagramUri.toString() !== document.uri.toString()) {
+				return;
+			}
+			const message: CanvasSelectionRequestedMessage = {
+				type: 'selectCanvasElements',
+				elementIdentifiers: event.elementIdentifiers,
+			};
+			void webviewPanel.webview.postMessage(message);
+		});
 		const addItemsDisposable = this.onDidRequestItemsAdd((event) => {
 			if (event.diagramUri.toString() !== document.uri.toString()) {
 				return;
@@ -154,6 +165,7 @@ export class DiagramEditorProvider implements vscode.CustomTextEditorProvider {
 			addItemsDisposable.dispose();
 			viewStateDisposable.dispose();
 			imageGalleryRequestDisposable.dispose();
+			canvasSelectionRequestDisposable.dispose();
 			commandDisposable.dispose();
 			dependencyWatcher.dispose();
 			void viewportPersistence.save();

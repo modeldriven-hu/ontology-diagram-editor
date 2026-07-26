@@ -168,6 +168,8 @@ function propertiesViewStyles(): string {
 		cursor: pointer;
 	}
 	.property-button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+	.property-button-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+	.property-button-group .property-button { width: 100%; text-align: left; }
 	.property-button-danger {
 		background: var(--vscode-inputValidation-errorBackground, var(--vscode-button-secondaryBackground));
 		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-button-border, transparent));
