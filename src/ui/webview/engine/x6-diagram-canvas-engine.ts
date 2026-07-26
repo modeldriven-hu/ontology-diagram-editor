@@ -1,5 +1,5 @@
 import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
-import { containmentHeaderHeight, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
+import { containmentHeaderHeight, containmentMovementNodeIds, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleText, truncateText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from '../components/ontology-legend';
@@ -325,59 +325,61 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return false;
 		}
 
-		this.elementRegistry.updateBounds(update);
-		cell.position(update.x, update.y);
-		if (this.selectedIds.includes(id)) {
+		const movementCells = this.containmentMovementCells([id]);
+		this.suppressBoundsEvents = true;
+		try {
+			cell.position(update.x, update.y);
+		} finally {
+			this.suppressBoundsEvents = false;
+		}
+		const updates = movementCells
+			.map(boundsUpdate)
+			.filter((candidate) => boundsDifferFromRegistry(candidate, this.elementRegistry));
+		for (const candidate of updates) {
+			this.elementRegistry.updateBounds(candidate);
+		}
+		if (updates.some((candidate) => this.selectedIds.includes(candidate.id))) {
 			this.publishSelectionChanged();
 		}
-		for (const listener of this.boundsChangeListeners) {
-			listener({
-				dragKind: 'move',
-				bounds: [update],
-			});
-		}
+		this.publishElementBounds(updates, 'move');
 
 		return true;
 	}
 
 	public nudgeSelectedElements(delta: CanvasPoint): boolean {
-		const cells = this.selectedNodeCells();
-		if (cells.length === 0) {
+		const selectedCells = this.selectedNodeCells();
+		if (selectedCells.length === 0) {
 			return false;
 		}
+		const rootCells = this.topLevelMovementCells(selectedCells);
+		const movementCells = this.containmentMovementCells(selectedCells.map((cell) => cell.id));
 
-		const adjustedDelta = boundedGroupDelta(cells, delta);
+		const adjustedDelta = boundedGroupDelta(movementCells, delta);
 		if (adjustedDelta.x === 0 && adjustedDelta.y === 0) {
 			return false;
 		}
 
 		this.suppressBoundsEvents = true;
-		const edgeRoutes = this.selectedInternalEdgeRoutes();
-		const updates: BoundsUpdate[] = [];
+		const edgeRoutes = this.internalEdgeRoutes(movementCells.map((cell) => cell.id));
 		try {
-			for (const cell of cells) {
+			for (const cell of rootCells) {
 				const position = cell.position();
-				const size = cell.size();
-				const update = {
-					id: cell.id,
-					x: Math.max(0, Math.round(position.x + adjustedDelta.x)),
-					y: Math.max(0, Math.round(position.y + adjustedDelta.y)),
-					width: Math.round(size.width),
-					height: Math.round(size.height),
-				};
-				if (!boundsDifferFromRegistry(update, this.elementRegistry)) {
-					continue;
-				}
-
-				cell.position(update.x, update.y);
-				this.elementRegistry.updateBounds(update);
-				updates.push(update);
+				cell.position(
+					Math.max(0, Math.round(position.x + adjustedDelta.x)),
+					Math.max(0, Math.round(position.y + adjustedDelta.y)),
+				);
 			}
 		} finally {
 			this.suppressBoundsEvents = false;
 		}
+		const updates = movementCells
+			.map(boundsUpdate)
+			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
 		if (updates.length === 0) {
 			return false;
+		}
+		for (const update of updates) {
+			this.elementRegistry.updateBounds(update);
 		}
 
 		this.applyTranslatedEdgeRoutes(edgeRoutes, updates);
@@ -621,7 +623,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				return;
 			}
 
-			if (this.selectedIds.length > 1 && this.selectedIds.includes(node.id)) {
+			const selectedIds = new Set(this.selectedIds);
+			if (selectedIds.size > 1
+				&& (selectedIds.has(node.id) || this.hasContainmentAncestor(node.id, selectedIds))) {
 				return;
 			}
 
@@ -766,6 +770,29 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		});
 	}
 
+	private containmentMovementCells(nodeIds: readonly string[]): readonly X6Node[] {
+		return containmentMovementNodeIds(nodeIds, this.containmentIndex.childrenByNodeId).flatMap((id) => {
+			const cell = this.graph.getCellById(id);
+			return isX6Node(cell) ? [cell] : [];
+		});
+	}
+
+	private topLevelMovementCells(cells: readonly X6Node[]): readonly X6Node[] {
+		const movedIds = new Set(cells.map((cell) => cell.id));
+		return cells.filter((cell) => !this.hasContainmentAncestor(cell.id, movedIds));
+	}
+
+	private hasContainmentAncestor(nodeId: string, candidateIds: ReadonlySet<string>): boolean {
+		let parentId = this.containmentIndex.parentByNodeId.get(nodeId);
+		while (parentId !== undefined) {
+			if (candidateIds.has(parentId)) {
+				return true;
+			}
+			parentId = this.containmentIndex.parentByNodeId.get(parentId);
+		}
+		return false;
+	}
+
 	private publishNodeBounds(node: X6Node, dragKind: BoundsDragKind): void {
 		if (this.suppressBoundsEvents) {
 			return;
@@ -788,11 +815,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		const descendantIds = containmentDescendantIds(node.id, this.containmentIndex.childrenByNodeId);
-		const cells = [node, ...descendantIds.flatMap((id) => {
-			const cell = this.graph.getCellById(id);
-			return isX6Node(cell) ? [cell] : [];
-		})];
+		const cells = this.containmentMovementCells([node.id]);
 		const updates = cells
 			.map(boundsUpdate)
 			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
@@ -836,8 +859,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		}
 	}
 
-	private selectedInternalEdgeRoutes(): readonly EdgeRouteSnapshot[] {
-		const selectedIds = new Set(this.selectedIds);
+	private internalEdgeRoutes(nodeIds: readonly string[]): readonly EdgeRouteSnapshot[] {
+		const selectedIds = new Set(nodeIds);
 		return elementRegistryEdges(this.elementRegistry).flatMap((edge) => {
 			if (!selectedIds.has(edge.source) || !selectedIds.has(edge.target)) {
 				return [];
@@ -865,7 +888,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			return;
 		}
 
-		const updates = this.selectedNodeCells()
+		const updates = this.containmentMovementCells(this.selectedNodeCells().map((cell) => cell.id))
 			.map(boundsUpdate)
 			.filter((update) => boundsDifferFromRegistry(update, this.elementRegistry));
 		if (updates.length > 0) {
@@ -1976,21 +1999,6 @@ function edgeTargetMarker(
 
 function isNoteConnection(edge: DiagramEdge): boolean {
 	return edge.ontology_item_type === 'noteConnection';
-}
-
-function containmentDescendantIds(
-	nodeId: string,
-	childrenByNodeId: ReadonlyMap<string, readonly string[]>,
-): readonly string[] {
-	const descendants: string[] = [];
-	const visit = (parentId: string): void => {
-		for (const childId of childrenByNodeId.get(parentId) ?? []) {
-			descendants.push(childId);
-			visit(childId);
-		}
-	};
-	visit(nodeId);
-	return descendants;
 }
 
 function x6Note(note: DiagramNote, theme: WebviewTheme): Record<string, unknown> {

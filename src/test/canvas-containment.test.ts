@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 
-import { createDiagramContainmentIndex } from '../shared/diagram-containment';
+import { containmentMovementNodeIds, createDiagramContainmentIndex } from '../shared/diagram-containment';
 import { createSvgExportCommand } from '../ui/webview/components/canvas-export';
 import type { DiagramPayload } from '../ui/webview/ontology-diagram-types';
 import { containmentColorAtDepth, type WebviewTheme } from '../ui/webview/webview-theme';
@@ -42,17 +42,32 @@ suite('Canvas containment', () => {
 		assert.deepStrictEqual([...index.containmentEdgeIds], ['edge_group', 'edge_leaf']);
 	});
 
-	test('exports containers before descendants without containment edges', () => {
+	test('expands moved containers to every descendant exactly once', () => {
+		const childrenByNodeId = new Map<string, readonly string[]>([
+			['node_root', ['node_group', 'node_leaf']],
+			['node_group', ['node_nested']],
+		]);
+
+		assert.deepStrictEqual(
+			containmentMovementNodeIds(['node_root', 'node_group'], childrenByNodeId),
+			['node_root', 'node_group', 'node_nested', 'node_leaf'],
+		);
+	});
+
+	test('exports containers behind ordinary edges and descendants without containment edges', () => {
 		const command = createSvgExportCommand(containmentPayload, testTheme);
 		assert.ok(command);
 		const svg = command.content;
+		const containerIndex = svg.indexOf('<rect x="20" y="20" width="260" height="150"');
+		const ordinaryEdgeIndex = svg.indexOf('<polyline points="156,104 160,104"');
+		const firstLeafIndex = svg.indexOf('<rect x="36" y="76" width="120" height="56"');
 
-		assert.ok(
-			svg.indexOf('<rect x="20" y="20" width="260" height="150"')
-			< svg.indexOf('<rect x="36" y="76" width="120" height="56"'),
-		);
+		assert.ok(containerIndex >= 0);
+		assert.ok(ordinaryEdgeIndex > containerIndex);
+		assert.ok(firstLeafIndex > ordinaryEdgeIndex);
 		assert.doesNotMatch(svg, /partOf/);
 		assert.doesNotMatch(svg, /edge_partOf/);
+		assert.match(svg, /uses/);
 		assert.match(svg, />Outer<\/tspan>/);
 		assert.match(svg, />Inner<\/tspan>/);
 		assert.match(svg, /fill="#E8EEF8"/);
@@ -75,23 +90,47 @@ const containmentPayload: DiagramPayload = {
 		nodes: [
 			{ id: 'node_outer', ontology_ref: 'ex:Outer', x: 20, y: 20, width: 260, height: 150 },
 			{ id: 'node_inner', ontology_ref: 'ex:Inner', x: 36, y: 76, width: 120, height: 56 },
+			{ id: 'node_inner2', ontology_ref: 'ex:Inner2', x: 160, y: 76, width: 100, height: 56 },
 		],
-		edges: [{
-			id: 'edge_partOf',
-			source: 'node_inner',
-			target: 'node_outer',
-			ontology_ref: 'ex:partOf',
-			label: { x: 900, y: 900 },
-			points: [{ x: 900, y: 900 }, { x: 920, y: 920 }],
-			render_as: 'containment',
-			containment_direction: 'target_contains_source',
-		}],
+		edges: [
+			{
+				id: 'edge_partOf',
+				source: 'node_inner',
+				target: 'node_outer',
+				ontology_ref: 'ex:partOf',
+				label: { x: 900, y: 900 },
+				points: [{ x: 900, y: 900 }, { x: 920, y: 920 }],
+				render_as: 'containment',
+				containment_direction: 'target_contains_source',
+			},
+			{
+				id: 'edge_partOf2',
+				source: 'node_inner2',
+				target: 'node_outer',
+				ontology_ref: 'ex:partOf',
+				label: { x: 900, y: 900 },
+				points: [{ x: 900, y: 900 }, { x: 920, y: 920 }],
+				render_as: 'containment',
+				containment_direction: 'target_contains_source',
+			},
+			{
+				id: 'edge_uses',
+				source: 'node_inner',
+				target: 'node_inner2',
+				ontology_ref: 'ex:uses',
+				label: { x: 158, y: 104 },
+				points: [{ x: 156, y: 104 }, { x: 160, y: 104 }],
+				route_layout: 'direct',
+			},
+		],
 	},
 	ontology: {
 		items: [
 			{ reference: 'ex:Outer', displayLabel: 'Outer container', type: 'class' },
 			{ reference: 'ex:Inner', displayLabel: 'Inner item', type: 'class' },
+			{ reference: 'ex:Inner2', displayLabel: 'Second inner item', type: 'class' },
 			{ reference: 'ex:partOf', displayLabel: 'partOf', type: 'objectProperty' },
+			{ reference: 'ex:uses', displayLabel: 'uses', type: 'objectProperty' },
 		],
 	},
 };

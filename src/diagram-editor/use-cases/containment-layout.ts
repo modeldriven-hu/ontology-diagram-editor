@@ -74,6 +74,7 @@ export function createDocumentContainmentIndex(diagram: OntologyDiagramDocument)
 export function layoutContainmentNodes(
 	diagram: OntologyDiagramDocument,
 	index: DocumentContainmentIndex = createDocumentContainmentIndex(diagram),
+	rootIds: ReadonlySet<string> = new Set(index.nodeIdsByRootId.keys()),
 ): readonly DiagramNode[] {
 	const nodeById = new Map(diagram.nodes.map((node) => [node.id.value, node]));
 	const nextBoundsById = new Map<string, Bounds>();
@@ -137,7 +138,7 @@ export function layoutContainmentNodes(
 	};
 
 	for (const rootId of index.nodeIdsByRootId.keys()) {
-		if (!index.childrenByNodeId.has(rootId)) {
+		if (!rootIds.has(rootId) || !index.childrenByNodeId.has(rootId)) {
 			continue;
 		}
 		const root = nodeById.get(rootId);

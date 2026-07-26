@@ -27,9 +27,10 @@ export class ArrangeDiagramUseCase {
 		}
 
 		const containment = createDocumentContainmentIndex(diagram);
-		const normalizedNodes = layoutContainmentNodes(diagram, containment);
+		const scopedRootIds = compoundLayoutRootIds(containment, selectedNodeIds);
+		const normalizedNodes = layoutContainmentNodes(diagram, containment, scopedRootIds);
 		const normalizedDiagram = cloneDiagram(diagram, { nodes: normalizedNodes });
-		const scope = compoundLayoutScope(normalizedDiagram, containment, selectedNodeIds);
+		const scope = compoundLayoutScope(normalizedDiagram, containment, scopedRootIds);
 		const layout = await algorithm.layout(
 			scope.diagram,
 			algorithmId === 'elk-layered' ? elkLayeredOptions : undefined,
@@ -71,11 +72,10 @@ interface CompoundLayoutScope {
 	readonly routeEligibleEdgeIds: ReadonlySet<string>;
 }
 
-function compoundLayoutScope(
-	diagram: OntologyDiagramDocument,
+function compoundLayoutRootIds(
 	containment: DocumentContainmentIndex,
 	selectedNodeIds: readonly string[] | undefined,
-): CompoundLayoutScope {
+): ReadonlySet<string> {
 	const allRootIds = new Set(containment.nodeIdsByRootId.keys());
 	const selectedRootIds = selectedNodeIds === undefined || selectedNodeIds.length === 0
 		? allRootIds
@@ -83,7 +83,14 @@ function compoundLayoutScope(
 			const rootId = containment.rootByNodeId.get(nodeId);
 			return rootId === undefined ? [] : [rootId];
 		}));
-	const scopedRootIds = selectedRootIds.size === 0 ? allRootIds : selectedRootIds;
+	return selectedRootIds.size === 0 ? allRootIds : selectedRootIds;
+}
+
+function compoundLayoutScope(
+	diagram: OntologyDiagramDocument,
+	containment: DocumentContainmentIndex,
+	scopedRootIds: ReadonlySet<string>,
+): CompoundLayoutScope {
 	const rootNodes = diagram.nodes.filter((node) => scopedRootIds.has(node.id.value));
 	const nodeIds = new Set(diagram.nodes.map((node) => node.id.value));
 	const routeEligibleEdgeIds = new Set<string>();

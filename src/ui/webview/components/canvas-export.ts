@@ -102,6 +102,8 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 			- (containment.depthByNodeId.get(right.node.id) ?? 0)
 			|| left.index - right.index)
 		.map(({ node }) => node);
+	const containerNodes = orderedNodes.filter((node) => containment.containerNodeIds.has(node.id));
+	const leafNodes = orderedNodes.filter((node) => !containment.containerNodeIds.has(node.id));
 	const notes = (diagram.notes ?? []).filter((note) => note.export !== false);
 	const images = diagram.images ?? [];
 	const labels = diagram.labels ?? [];
@@ -141,13 +143,20 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		`<style>${noteHtmlResetStyle()}</style>`,
 		`<rect x="${numberValue(viewBox.x)}" y="${numberValue(viewBox.y)}" width="${numberValue(viewBox.width)}" height="${numberValue(viewBox.height)}" fill="${escapeAttribute(theme.canvasBackground)}"/>`,
 		...images.map((image) => renderImage(image, theme)),
-		...edges.map((edge) => renderEdge(edge, payload, theme)),
-		...orderedNodes.map((node) => renderNode(
+		...containerNodes.map((node) => renderNode(
 			node,
 			payload,
 			theme,
-			containment.containerNodeIds.has(node.id),
-			containment.containerNodeIds.has(node.id) || containment.parentByNodeId.has(node.id)
+			true,
+			containment.depthByNodeId.get(node.id) ?? 0,
+		)),
+		...edges.map((edge) => renderEdge(edge, payload, theme)),
+		...leafNodes.map((node) => renderNode(
+			node,
+			payload,
+			theme,
+			false,
+			containment.parentByNodeId.has(node.id)
 				? containment.depthByNodeId.get(node.id) ?? 0
 				: undefined,
 		)),

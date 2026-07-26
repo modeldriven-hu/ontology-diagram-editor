@@ -91,3 +91,26 @@ export function serializedContainmentEndpoints(edge: SerializedContainmentEdge):
 		? { parentNodeId: edge.source, childNodeId: edge.target }
 		: { parentNodeId: edge.target, childNodeId: edge.source };
 }
+
+export function containmentMovementNodeIds(
+	nodeIds: readonly string[],
+	childrenByNodeId: ReadonlyMap<string, readonly string[]>,
+): readonly string[] {
+	const result: string[] = [];
+	const visited = new Set<string>();
+	const visit = (nodeId: string): void => {
+		if (visited.has(nodeId)) {
+			return;
+		}
+		visited.add(nodeId);
+		result.push(nodeId);
+		for (const childId of childrenByNodeId.get(nodeId) ?? []) {
+			visit(childId);
+		}
+	};
+
+	for (const nodeId of nodeIds) {
+		visit(nodeId);
+	}
+	return result;
+}

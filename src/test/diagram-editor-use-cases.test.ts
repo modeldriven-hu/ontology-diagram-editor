@@ -2469,6 +2469,78 @@ suite('Diagram editor use cases', () => {
 		]);
 	});
 
+	test('leaves unselected containment trees unchanged when arranging a selected tree', async () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Containment selection'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_parentA', 'ex:ParentA', new Bounds(20, 20, 180, 160)),
+				new DiagramNode('node_childA', 'ex:ChildA', new Bounds(60, 100, 100, 50)),
+				new DiagramNode('node_parentB', 'ex:ParentB', new Bounds(400, 20, 220, 180)),
+				new DiagramNode('node_childB', 'ex:ChildB', new Bounds(480, 120, 100, 50)),
+			],
+			[
+				new DiagramEdge(
+					'edge_childA',
+					'node_childA',
+					'node_parentA',
+					'ex:partOf',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+					undefined,
+					{},
+					undefined,
+					'containment',
+					'target_contains_source',
+				),
+				new DiagramEdge(
+					'edge_childB',
+					'node_childB',
+					'node_parentB',
+					'ex:partOf',
+					new Point(0, 0),
+					[new Point(0, 0), new Point(1, 1)],
+					undefined,
+					{},
+					undefined,
+					'containment',
+					'target_contains_source',
+				),
+			],
+		);
+		const algorithm: DiagramLayoutAlgorithm = {
+			id: 'grid',
+			layout: async (layoutDiagram) => ({
+				nodeBoundsById: new Map(layoutDiagram.nodes.map((node) => [
+					node.id.value,
+					new Bounds(80, 80, node.bounds.width, node.bounds.height),
+				])),
+			}),
+		};
+
+		const result = await new ArrangeDiagramUseCase([algorithm]).execute(
+			diagram,
+			'grid',
+			undefined,
+			['node_childA'],
+		);
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.nodes[2].bounds.toPersistenceObject(), {
+			x: 400,
+			y: 20,
+			width: 220,
+			height: 180,
+		});
+		assert.deepStrictEqual(result.diagram.nodes[3].bounds.toPersistenceObject(), {
+			x: 480,
+			y: 120,
+			width: 100,
+			height: 50,
+		});
+	});
+
 	test('reroutes stale edges when arranging already placed nodes', async () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),
