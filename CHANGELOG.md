@@ -6,6 +6,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-07-29
+
 - Fixed exported edge, cardinality, and standalone label positioning, text clipping,
   and content bounds.
 - Removed the redundant full diagram path from the canvas header.
