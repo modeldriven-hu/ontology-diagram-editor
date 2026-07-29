@@ -38,6 +38,12 @@ The export shall compute its bounds from visible exported content, add an
 implementation-defined margin, and set the exported image dimensions to the resulting
 content bounds.
 
+Edge labels and edge-cardinality labels shall use their persisted coordinates as center
+points, matching their placement on the interactive canvas. Standalone labels shall
+remain centered within their persisted geometry. The export bounds shall include the
+full rendered label text, and export shall not introduce wrapping, truncation, or
+clipping that is absent from the interactive label renderer.
+
 The export shall use the same draw order as the interactive renderer: images, edges,
 nodes, export-included notes, and standalone labels.
 

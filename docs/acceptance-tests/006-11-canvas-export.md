@@ -13,6 +13,8 @@
 - Given a note has `export: false`, when an export is created, then that note is omitted from the exported image but remains visible in the interactive canvas.
 - Given a node has `show_data_properties: true`, when an export is created, then the exported node includes its visible data-property attribute section.
 - Given the canvas is in dark mode, when an export is created, then the export uses the dark-mode resolved styles.
+- Given an edge label or edge-cardinality label has a persisted position, when an export is created, then that position is the center of the complete exported label text.
+- Given a standalone label contains text wider than its persisted element bounds, when an export is created, then its complete text remains centered at the canvas position and is included in the export bounds without export-only wrapping or clipping.
 
 ## File Output
 

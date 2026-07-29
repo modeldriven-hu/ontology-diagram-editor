@@ -6,6 +6,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+- Fixed exported edge, cardinality, and standalone label positioning, text clipping,
+  and content bounds.
+
 ## [1.4.1] - 2026-07-26
 
 - Added configurable node-label truncation and wrapping on the canvas and in exports.

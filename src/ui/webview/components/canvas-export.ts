@@ -5,7 +5,7 @@ import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../..
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
 import { edgeDisplayName } from './ontology-diagram-edges';
-import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from './node-data-properties';
+import { measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from './node-data-properties';
 import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
@@ -40,6 +40,8 @@ interface TextBlockOptions {
 	readonly padding: number;
 	readonly lineHeight?: number;
 	readonly wrap?: boolean;
+	readonly clip?: boolean;
+	readonly limitLines?: boolean;
 }
 
 export function renderDiagramExportToolbarIcons(exportSvgButton: HTMLButtonElement, exportPngButton: HTMLButtonElement): void {
@@ -111,10 +113,10 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 	const legendElements = diagram.legend_elements ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
-		...edges.flatMap((edge) => edgeExportBounds(edge, payload)),
+		...edges.flatMap((edge) => edgeExportBounds(edge, payload, theme)),
 		...notes,
 		...images,
-		...labels,
+		...labels.map((label) => standaloneLabelExportBounds(label, theme)),
 		...metadataElements,
 		...legendElements,
 	]);
@@ -201,26 +203,45 @@ function renderEdge(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTh
 
 	return [
 		`<polyline points="${points.map((point) => `${numberValue(point.x)},${numberValue(point.y)}`).join(' ')}" fill="none" stroke="${escapeAttribute(stroke)}" stroke-width="${numberValue(strokeWidth)}"${dashArray}${marker}/>`,
-		label.length === 0 ? '' : renderTextBlock({
-			id: edge.id,
-			text: label,
-			bounds: {
-				x: edge.label.x,
-				y: edge.label.y,
-				width: Math.max(80, label.length * 7),
-				height: 24,
-			},
+		label.length === 0 ? '' : renderEdgeLabel(edge, edge.id, label, edge.label, false, theme),
+		renderEdgeCardinalityLabel(edge, 'source', cardinalities.source, edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points), theme),
+		renderEdgeCardinalityLabel(edge, 'target', cardinalities.target, edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points), theme),
+	].join('\n');
+}
+
+function renderEdgeLabel(
+	edge: DiagramEdge,
+	id: string,
+	text: string,
+	position: { readonly x: number; readonly y: number },
+	cardinality: boolean,
+	theme: WebviewTheme,
+): string {
+	const appearance = edgeLabelAppearance(edge, cardinality, theme);
+	const bounds = centeredTextBounds({
+		center: position,
+		text,
+		...appearance,
+		minimumWidth: cardinality ? 28 : 80,
+		minimumHeight: cardinality ? 20 : 24,
+		padding: 2,
+	});
+
+	return [
+		`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="3" fill="${escapeAttribute(theme.canvasBackground)}" fill-opacity="0.85"/>`,
+		renderTextBlock({
+			id,
+			text,
+			bounds,
 			color: edge.style?.text_color ?? theme.edgeTextColor,
-			fontFamily: edge.style?.font?.family ?? theme.fontFamily,
-			fontSize: edge.style?.font?.size ?? Math.max(10, theme.fontSize - 1),
-			bold: edge.style?.font?.bold,
-			italic: edge.style?.font?.italic,
+			...appearance,
 			align: 'center',
 			verticalAlign: 'middle',
 			padding: 2,
+			wrap: false,
+			clip: false,
+			limitLines: false,
 		}),
-		renderEdgeCardinalityLabel(edge, 'source', cardinalities.source, edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points), theme),
-		renderEdgeCardinalityLabel(edge, 'target', cardinalities.target, edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points), theme),
 	].join('\n');
 }
 
@@ -235,19 +256,7 @@ function renderEdgeCardinalityLabel(
 		return '';
 	}
 
-	return renderTextBlock({
-		id: `${edge.id}_${endpoint}_cardinality`,
-		text,
-		bounds: { x: position.x, y: position.y, width: Math.max(28, text.length * 7), height: 20 },
-		color: edge.style?.text_color ?? theme.edgeTextColor,
-		fontFamily: edge.style?.font?.family ?? theme.fontFamily,
-		fontSize: Math.max(9, (edge.style?.font?.size ?? theme.fontSize) - 1),
-		bold: edge.style?.font?.bold,
-		italic: edge.style?.font?.italic,
-		align: 'center',
-		verticalAlign: 'middle',
-		padding: 2,
-	});
+	return renderEdgeLabel(edge, `${edge.id}_${endpoint}_cardinality`, text, position, true, theme);
 }
 
 function renderEdgeMarkerDefinitions(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): readonly string[] {
@@ -521,7 +530,7 @@ function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {
 	return renderTextBlock({
 		id: label.id,
 		text: label.text,
-		bounds: elementBounds(label),
+		bounds: standaloneLabelExportBounds(label, theme),
 		color: label.style?.text_color ?? theme.editorForeground,
 		fontFamily: label.style?.font?.family ?? theme.fontFamily,
 		fontSize: label.style?.font?.size ?? theme.fontSize,
@@ -530,6 +539,9 @@ function renderLabel(label: DiagramLabel, theme: WebviewTheme): string {
 		align: 'center',
 		verticalAlign: 'middle',
 		padding: 4,
+		wrap: false,
+		clip: false,
+		limitLines: false,
 	});
 }
 
@@ -589,24 +601,29 @@ function renderImage(image: DiagramImage, theme: WebviewTheme): string {
 }
 
 function renderTextBlock(options: TextBlockOptions): string {
-	const clipId = `clip_${safeIdentifier(options.id)}`;
 	const contentWidth = Math.max(1, options.bounds.width - (options.padding * 2));
 	const contentHeight = Math.max(1, options.bounds.height - (options.padding * 2));
 	const lineHeight = options.lineHeight ?? options.fontSize * 1.25;
 	const lines = options.wrap === false ? explicitLines(options.text) : wrapLines(options.text, contentWidth, options.fontSize);
 	const maxLines = Math.max(1, Math.floor(contentHeight / lineHeight));
-	const visibleLines = lines.slice(0, maxLines);
+	const visibleLines = options.limitLines === false ? lines : lines.slice(0, maxLines);
 	const textX = options.align === 'center' ? options.bounds.x + (options.bounds.width / 2) : options.bounds.x + options.padding;
 	const textAnchor = options.align === 'center' ? 'middle' : 'start';
 	const textY = options.verticalAlign === 'middle'
 		? options.bounds.y + ((options.bounds.height - ((visibleLines.length - 1) * lineHeight)) / 2)
 		: options.bounds.y + options.padding + options.fontSize;
-
-	return [
+	const clipId = `clip_${safeIdentifier(options.id)}`;
+	const clipDefinition = options.clip === false ? [] : [
 		'<defs>',
 		`<clipPath id="${clipId}"><rect x="${numberValue(options.bounds.x)}" y="${numberValue(options.bounds.y)}" width="${numberValue(options.bounds.width)}" height="${numberValue(options.bounds.height)}"/></clipPath>`,
 		'</defs>',
-		`<text clip-path="url(#${clipId})" x="${numberValue(textX)}" y="${numberValue(textY)}" fill="${escapeAttribute(options.color)}" font-family="${escapeAttribute(options.fontFamily)}" font-size="${numberValue(options.fontSize)}" font-weight="${options.bold === true ? '700' : '400'}" font-style="${options.italic === true ? 'italic' : 'normal'}" text-anchor="${textAnchor}">`,
+	];
+	const clipAttribute = options.clip === false ? '' : ` clip-path="url(#${clipId})"`;
+	const verticalAnchorAttribute = options.verticalAlign === 'middle' ? ' dominant-baseline="central"' : '';
+
+	return [
+		...clipDefinition,
+		`<text${clipAttribute} x="${numberValue(textX)}" y="${numberValue(textY)}" fill="${escapeAttribute(options.color)}" font-family="${escapeAttribute(options.fontFamily)}" font-size="${numberValue(options.fontSize)}" font-weight="${options.bold === true ? '700' : '400'}" font-style="${options.italic === true ? 'italic' : 'normal'}" text-anchor="${textAnchor}"${verticalAnchorAttribute}>`,
 		...visibleLines.map((line, index) => {
 			const dy = index === 0 ? 0 : lineHeight;
 			return `<tspan x="${numberValue(textX)}" dy="${numberValue(dy)}">${escapeHtml(line)}</tspan>`;
@@ -712,25 +729,121 @@ function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds |
 	};
 }
 
-function edgeExportBounds(edge: DiagramEdge, payload: DiagramPayload): readonly ExportBounds[] {
-	const pointBounds = edgeRoutePoints(edge).map((point) => ({
+function edgeExportBounds(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): readonly ExportBounds[] {
+	const points = edgeRoutePoints(edge);
+	if (points.length < 2) {
+		return [];
+	}
+
+	const pointBounds = points.map((point) => ({
 		x: point.x,
 		y: point.y,
 		width: 1,
 		height: 1,
 	}));
+	if (isNoteConnection(edge)) {
+		return pointBounds;
+	}
 
+	const cardinalities = edgeCardinalityLabels(edge, payload);
 	return [
 		...pointBounds,
-		...(isNoteConnection(edge) ? [] : [
-		{
-			x: edge.label.x,
-			y: edge.label.y,
-			width: Math.max(80, edgeDisplayName(edge.ontology_ref, payload).length * 7),
-			height: 24,
-		},
-		]),
+		edgeTextExportBounds(edge, edgeDisplayName(edge.ontology_ref, payload), edge.label, false, theme),
+		...cardinalityTextExportBounds(edge, cardinalities.source, edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points), theme),
+		...cardinalityTextExportBounds(edge, cardinalities.target, edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points), theme),
 	];
+}
+
+function cardinalityTextExportBounds(
+	edge: DiagramEdge,
+	text: string | undefined,
+	position: { readonly x: number; readonly y: number } | undefined,
+	theme: WebviewTheme,
+): readonly ExportBounds[] {
+	return text === undefined || position === undefined
+		? []
+		: [edgeTextExportBounds(edge, text, position, true, theme)];
+}
+
+function edgeTextExportBounds(
+	edge: DiagramEdge,
+	text: string,
+	position: { readonly x: number; readonly y: number },
+	cardinality: boolean,
+	theme: WebviewTheme,
+): ExportBounds {
+	return centeredTextBounds({
+		center: position,
+		text,
+		...edgeLabelAppearance(edge, cardinality, theme),
+		minimumWidth: cardinality ? 28 : 80,
+		minimumHeight: cardinality ? 20 : 24,
+		padding: 2,
+	});
+}
+
+function edgeLabelAppearance(edge: DiagramEdge, cardinality: boolean, theme: WebviewTheme): {
+	readonly fontFamily: string;
+	readonly fontSize: number;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+} {
+	return {
+		fontFamily: edge.style?.font?.family ?? theme.fontFamily,
+		fontSize: cardinality
+			? Math.max(9, (edge.style?.font?.size ?? theme.fontSize) - 1)
+			: edge.style?.font?.size ?? Math.max(10, theme.fontSize - 1),
+		bold: edge.style?.font?.bold,
+		italic: edge.style?.font?.italic,
+	};
+}
+
+function standaloneLabelExportBounds(label: DiagramLabel, theme: WebviewTheme): ExportBounds {
+	return centeredTextBounds({
+		center: {
+			x: label.x + (label.width / 2),
+			y: label.y + (label.height / 2),
+		},
+		text: label.text,
+		fontFamily: label.style?.font?.family ?? theme.fontFamily,
+		fontSize: label.style?.font?.size ?? theme.fontSize,
+		bold: label.style?.font?.bold,
+		italic: label.style?.font?.italic,
+		minimumWidth: label.width,
+		minimumHeight: label.height,
+		padding: 4,
+	});
+}
+
+function centeredTextBounds(options: {
+	readonly center: { readonly x: number; readonly y: number };
+	readonly text: string;
+	readonly fontFamily: string;
+	readonly fontSize: number;
+	readonly bold?: boolean;
+	readonly italic?: boolean;
+	readonly minimumWidth: number;
+	readonly minimumHeight: number;
+	readonly padding: number;
+}): ExportBounds {
+	const lines = explicitLines(options.text);
+	const textWidth = Math.max(0, ...lines.map((line) => measuredTextWidth({
+		text: line,
+		fontFamily: options.fontFamily,
+		fontSize: options.fontSize,
+		bold: options.bold,
+		italic: options.italic,
+	})));
+	const lineHeight = options.fontSize * 1.25;
+	const width = Math.max(options.minimumWidth, textWidth + (options.padding * 2));
+	const height = Math.max(options.minimumHeight, (lines.length * lineHeight) + (options.padding * 2));
+
+	return {
+		x: options.center.x - (width / 2),
+		y: options.center.y - (height / 2),
+		width,
+		height,
+	};
 }
 
 function edgeRoutePoints(edge: DiagramEdge): readonly { readonly x: number; readonly y: number }[] {
