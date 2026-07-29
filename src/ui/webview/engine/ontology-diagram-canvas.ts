@@ -26,7 +26,7 @@ import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredEle
 import { isSelectAllShortcut } from './canvas-keyboard-shortcuts';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
-import { FixedToolbarController } from './fixed-toolbar-controller';
+import { FixedToolbarController, initialFixedToolbarDock, persistedFixedToolbarDock, type PersistedFixedToolbarDock } from './fixed-toolbar-controller';
 import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderCanvasToolbarPinIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 import { embeddedGalleryIconColor } from '../../../shared/embedded-gallery-icon';
 
@@ -59,7 +59,7 @@ interface WebviewState {
 	readonly localToolbarOffsetY?: number;
 	readonly canvasToolbarOffsetX?: number;
 	readonly canvasToolbarOffsetY?: number;
-	readonly canvasToolbarDock?: 'top' | 'bottom';
+	readonly canvasToolbarDock?: PersistedFixedToolbarDock;
 	readonly canvasPanMode?: boolean;
 	readonly themeMode?: WebviewThemeMode;
 	readonly layoutAlgorithmId?: DiagramLayoutAlgorithmId;
@@ -280,13 +280,13 @@ const fixedToolbarController = new FixedToolbarController({
 			x: vscode.getState()?.canvasToolbarOffsetX ?? 0,
 			y: vscode.getState()?.canvasToolbarOffsetY ?? 0,
 		},
-		dock: vscode.getState()?.canvasToolbarDock,
+			dock: initialFixedToolbarDock(vscode.getState()?.canvasToolbarDock),
 	},
 	persistPosition: (position) => {
 		updateWebviewState({
 			canvasToolbarOffsetX: position.offset.x,
 			canvasToolbarOffsetY: position.offset.y,
-			canvasToolbarDock: position.dock,
+				canvasToolbarDock: persistedFixedToolbarDock(position.dock),
 		});
 	},
 });

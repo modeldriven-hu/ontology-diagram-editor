@@ -63,13 +63,12 @@ function webviewBody(
 ): string {
 	return `<body>
 	<div class="editor">
-		<header class="header">
-			<div class="title-group">
-				<span class="title-mark" aria-hidden="true"></span>
-				<strong>Ontology Diagram Editor</strong>
-			</div>
-			<p class="file-location">${escapeHtml(document.uri.fsPath)}</p>
-		</header>
+			<header class="header">
+				<div class="title-group">
+					<span class="title-mark" aria-hidden="true"></span>
+					<strong>Ontology Diagram Editor</strong>
+				</div>
+			</header>
 		<div class="canvas-shell" id="canvasShell">
 			<div class="canvas-actions" id="canvasActions" role="toolbar" aria-label="Canvas tools">
 				<div class="canvas-action-row">
@@ -238,19 +237,6 @@ function webviewStyles(): string {
 		border-radius: 2px;
 		background: color-mix(in srgb, var(--vscode-focusBorder) 22%, var(--vscode-editor-background));
 		box-shadow: inset 0 0 0 2px var(--vscode-sideBar-background);
-	}
-
-	.file-location {
-		margin: 0;
-		padding: 2px 7px;
-		border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 80%, transparent);
-		border-radius: 4px;
-		background: color-mix(in srgb, var(--vscode-editor-background) 72%, transparent);
-		color: var(--vscode-descriptionForeground);
-		overflow-wrap: anywhere;
-		min-width: 0;
-		font-size: 12px;
-		line-height: 1.35;
 	}
 
 	.canvas-shell {

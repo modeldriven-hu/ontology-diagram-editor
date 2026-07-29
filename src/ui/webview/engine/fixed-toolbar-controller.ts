@@ -5,6 +5,7 @@ const toolbarMargin = 8;
 const dockSnapDistance = 32;
 
 export type FixedToolbarDock = 'top' | 'bottom';
+export type PersistedFixedToolbarDock = FixedToolbarDock | 'floating';
 
 export interface FixedToolbarPosition {
 	readonly offset: CanvasPoint;
@@ -30,6 +31,14 @@ interface FixedToolbarDragState {
 export interface FixedToolbarSize {
 	readonly width: number;
 	readonly height: number;
+}
+
+export function initialFixedToolbarDock(persistedDock: PersistedFixedToolbarDock | undefined): FixedToolbarDock | undefined {
+	return persistedDock === 'floating' ? undefined : persistedDock ?? 'top';
+}
+
+export function persistedFixedToolbarDock(dock: FixedToolbarDock | undefined): PersistedFixedToolbarDock {
+	return dock ?? 'floating';
 }
 
 export class FixedToolbarController {

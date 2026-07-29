@@ -1,8 +1,19 @@
 import * as assert from 'assert';
 
-import { constrainFixedToolbarOffset, constrainFixedToolbarPosition, dockedCanvasInsets, dockFixedToolbarPosition, snapFixedToolbarPosition } from '../ui/webview/engine/fixed-toolbar-controller';
+import { constrainFixedToolbarOffset, constrainFixedToolbarPosition, dockedCanvasInsets, dockFixedToolbarPosition, initialFixedToolbarDock, persistedFixedToolbarDock, snapFixedToolbarPosition } from '../ui/webview/engine/fixed-toolbar-controller';
 
 suite('Fixed toolbar controller', () => {
+	test('docks a toolbar with no saved state to the top', () => {
+		assert.strictEqual(initialFixedToolbarDock(undefined), 'top');
+		assert.strictEqual(initialFixedToolbarDock('top'), 'top');
+		assert.strictEqual(initialFixedToolbarDock('bottom'), 'bottom');
+	});
+
+	test('preserves an explicitly floating toolbar', () => {
+		assert.strictEqual(persistedFixedToolbarDock(undefined), 'floating');
+		assert.strictEqual(initialFixedToolbarDock('floating'), undefined);
+	});
+
 	test('keeps a moved toolbar within its container bounds', () => {
 		assert.deepStrictEqual(constrainFixedToolbarOffset(
 			{ x: 500, y: -200 },

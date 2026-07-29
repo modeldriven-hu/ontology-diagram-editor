@@ -8,6 +8,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Fixed exported edge, cardinality, and standalone label positioning, text clipping,
   and content bounds.
+- Removed the redundant full diagram path from the canvas header.
+- Docked the fixed canvas toolbar to the top by default for newly opened diagrams.
 
 ## [1.4.1] - 2026-07-26
 
