@@ -195,6 +195,12 @@ export class DiagramCommandDispatcher {
 					command.id,
 				));
 				return;
+			case 'optimizeEdgeRoutes':
+				await this.handleResult(this.useCases.optimizeEdgeRoute.executeMany(
+					this.repository.load(),
+					command.ids,
+				));
+				return;
 			case 'straightenEdgeRoute':
 				await this.handleResult(this.useCases.straightenEdgeRoute.execute(
 					this.repository.load(),
@@ -211,6 +217,13 @@ export class DiagramCommandDispatcher {
 				await this.handleResult(this.useCases.updateEdgeRouteLayout.execute(
 					this.repository.load(),
 					command.id,
+					command.routeLayout,
+				));
+				return;
+			case 'updateEdgeRouteLayouts':
+				await this.handleResult(this.useCases.updateEdgeRouteLayout.executeMany(
+					this.repository.load(),
+					command.ids,
 					command.routeLayout,
 				));
 				return;

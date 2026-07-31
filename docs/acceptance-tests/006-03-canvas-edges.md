@@ -28,6 +28,13 @@
 - Given the user edits an edge route with canvas route handles, when the edit completes, then persisted route `points` are updated and `source` and `target` identifiers are unchanged.
 - Given the user selects an edge route layout in the property panel, when the edit commits, then `route_layout` is updated and route `points` are preserved.
 - Given the user chooses optimize edge path, when the edge has stale route points, then the route is recalculated from current endpoint bounds.
+- Given an orthogonal edge has an intervening node or persisted edge label, when its path is optimized, then the route maintains clearance from that obstacle.
+- Given a small node is beside a much taller node and their vertical spans overlap, when their edge is optimized, then aligned facing-side anchors produce the shorter horizontal route.
+- Given avoiding an existing edge crossing would require a substantially longer route, when the path is optimized, then the shorter crossing route is preferred.
+- Given multiple edges share the same endpoints, when they are optimized together, then their anchors and routes are separated.
+- Given a self-loop has occupied space in its default quadrant, when its path is optimized, then a clearer surrounding quadrant is selected.
+- Given an edge label remains at its automatic position, when the path is optimized, then the label moves to the distance midpoint of the new path.
+- Given an edge or cardinality label has been manually positioned, when the path is optimized, then its persisted position is preserved.
 
 ## Note Connections
 

@@ -39,6 +39,13 @@ apply that field to every selected node as one logical document change while pre
 the other style overrides on each node. Clearing Style shall clear every selected
 node's style overrides.
 
+When multiple edges are selected, the panel shall show their shared routing type and
+Style properties. Fields with different values shall indicate a mixed value. Committing
+a routing or style field shall apply it to every selected edge as one logical document
+change while preserving unrelated style overrides. The panel shall also provide an
+Optimize Edges action that recalculates every selected edge route as one logical
+document change.
+
 When a selection contains multiple element types, the panel shall group the selected
 identifiers by type and offer an action for each represented type, including nodes,
 edges, notes, images, labels, diagram-information elements, and legends. Choosing an

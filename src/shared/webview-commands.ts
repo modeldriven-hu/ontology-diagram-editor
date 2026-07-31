@@ -95,8 +95,10 @@ export type WebviewCommand =
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
 	| OptimizeEdgeRouteCommand
+	| OptimizeEdgeRoutesCommand
 	| StraightenEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
+	| UpdateEdgeRouteLayoutsCommand
 	| UpdateEdgePresentationCommand
 	| ShowRelatedElementsCommand
 	| ShowEdgesBetweenNodesCommand
@@ -272,6 +274,15 @@ export class OptimizeEdgeRouteCommand {
 	}
 }
 
+export class OptimizeEdgeRoutesCommand {
+	public readonly type = 'optimizeEdgeRoutes';
+	public readonly ids: readonly string[];
+
+	public constructor(ids: readonly string[]) {
+		this.ids = ids;
+	}
+}
+
 export class StraightenEdgeRouteCommand {
 	public readonly type = 'straightenEdgeRoute';
 	public readonly id: string;
@@ -288,6 +299,17 @@ export class UpdateEdgeRouteLayoutCommand {
 
 	public constructor(id: string, routeLayout?: EdgeRouteLayout) {
 		this.id = id;
+		this.routeLayout = routeLayout;
+	}
+}
+
+export class UpdateEdgeRouteLayoutsCommand {
+	public readonly type = 'updateEdgeRouteLayouts';
+	public readonly ids: readonly string[];
+	public readonly routeLayout?: EdgeRouteLayout;
+
+	public constructor(ids: readonly string[], routeLayout?: EdgeRouteLayout) {
+		this.ids = ids;
 		this.routeLayout = routeLayout;
 	}
 }

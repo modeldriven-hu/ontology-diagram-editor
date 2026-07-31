@@ -197,10 +197,32 @@ shall not rewrite the persisted route points. Rendering shall interpret the stor
 points according to the selected route layout.
 
 The optimize-edge-path action shall recalculate stale route points from the current
-source and target element bounds. For default or orthogonal routes it shall create an
-orthogonal route when the endpoints are not horizontally or vertically aligned. For
-router-backed layouts, it shall keep the selected layout and reduce persisted points to
-the current source and target anchors so the canvas router can compute display bends.
+source and target element bounds. For default or orthogonal routes it shall evaluate
+all four sides of each endpoint and choose a deterministic orthogonal path that favors
+the shortest available route while maintaining clearance from other bounded elements,
+edge-name labels, and persisted cardinality labels. Bend count, port direction, and
+existing-edge crossings shall be lower-weight tie breakers; the optimizer shall not
+take a substantially longer route merely to avoid an edge crossing. Multiple edges
+between the same endpoints shall receive separated anchors and routes.
+
+Candidate anchors on facing sides shall use the center of the endpoints' overlapping
+horizontal or vertical span when one exists. This allows a small node beside a much
+taller or wider node to connect directly at its own level instead of detouring to the
+larger node's side midpoint. When the endpoint spans do not overlap, anchors shall be
+projected toward the opposite endpoint and clamped inside the available side.
+
+For router-backed layouts, optimization shall keep the selected layout, choose anchors
+using the same obstacle-aware evaluation, and reduce persisted points to those anchors
+so the canvas router can compute display bends. Direct routes shall remain straight and
+use boundary points aimed toward the opposite endpoint.
+
+Self-loop optimization shall evaluate the four surrounding quadrants and use the one
+with the least interference from elements, labels, and existing edges. Parallel
+self-loops shall use progressively larger extents. An automatically positioned edge
+label shall move to the distance midpoint of the optimized path. A label that is no
+longer near its previous automatic position shall be treated as manually positioned
+and preserved. Persisted source and target cardinality-label positions shall always be
+preserved.
 
 The user can move the edge label by dragging it, or by selecting the edge label/edge and
 using the arrow keys. Arrow keys shall move the label by one canvas unit; holding
