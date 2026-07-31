@@ -72,7 +72,7 @@ The panel shall expose these non-style editable fields in version 1:
 
 | Element type | Editable fields |
 |--------------|-----------------|
-| Node | `x`, `y`, `width`, `height`, `image`, `show_data_properties`, `show_type`, `show_property_values`, `property_value_text_overflow`. |
+| Node | `x`, `y`, `width`, `height`, `image`, `show_data_properties`, `show_type`, `type_display`, `show_property_values`, `property_value_text_overflow`. |
 | Edge | `route_layout`; delete edge action. |
 | Note | `text`, `x`, `y`, `width`, `height`, `export`. |
 | Label | `text`, `x`, `y`, `width`, `height`. |
@@ -93,6 +93,12 @@ replaced by choosing another file. Relative paths and remote URLs are not suppor
 The panel shall display effective read-only values when a field is derived from the
 ontology, renderer, or active theme rather than stored directly on the element.
 
+For nodes, the Ontology tab shall contain only ontology-derived information such as the
+reference, annotations, and available property counts. A separate Display tab shall
+contain diagram-presentation choices, including displayed compartments, individual
+type presentation, text overflow, images, and containment presentation. The Style tab
+shall remain limited to colors, typography, borders, corners, and shadows.
+
 The panel shall not expose direct editing for element identifiers, ontology references,
 edge endpoints, edge route `points`, or edge label position in version 1. Those values
 are structural and shall be edited through canvas gestures or model tree actions.
@@ -103,8 +109,10 @@ When toggling the field on, the panel may resize the node to fit the displayed d
 properties.
 
 For individual nodes, the panel shall allow toggling asserted type display, toggling
-property-value display, and choosing whether long property-value attributes are
-truncated with `...` or wrapped onto additional lines.
+property-value display, choosing inline or stereotype asserted-type presentation, and
+choosing whether long property-value attributes are truncated with `...` or wrapped
+onto additional lines. When multiple individual nodes are selected, the shared
+asserted-type presentation shall be mass editable.
 
 For notes, the panel shall allow toggling whether the selected note is included in
 diagram exports. Excluded notes shall persist `export: false`.
@@ -127,9 +135,10 @@ The property panel shall provide a way to clear all style overrides for the sele
 element. If a style field is cleared, the renderer shall fall back to the active theme or
 internal defaults for that field.
 
-The panel shall group fields into sections for ontology, geometry, text, image, and
-style. Element identity belongs in the context header instead of being repeated inside
-a property tab. Section grouping is presentation behavior and shall not affect persistence.
+The panel shall group fields into tabs and sections for ontology, display, geometry,
+and style. Element identity belongs in the context header instead of being repeated
+inside a property tab. Section grouping is presentation behavior and shall not affect
+persistence.
 
 # Validation
 

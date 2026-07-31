@@ -119,6 +119,14 @@ suite('Node data properties', () => {
 		};
 
 		assert.strictEqual(nodeTitleText(node, payload), 'REQ-001 : Functional Requirement');
+		assert.strictEqual(nodeTitleText({ ...node, type_display: 'stereotype' }, payload), '«Functional Requirement»\nREQ-001');
+		assert.strictEqual(nodeTitleDisplayText({
+			node: { ...node, type_display: 'stereotype' },
+			payload,
+			width: 180,
+			height: 44,
+			fontSize: 12,
+		}), '«Functional Requirement»\nREQ-001');
 		assert.deepStrictEqual(availableNodePropertyValueAttributes(node, payload).map((attribute) => attribute.text), [
 			"title = 'User Authentication'",
 			'depends on = Password Reset',

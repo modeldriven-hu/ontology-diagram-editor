@@ -51,6 +51,7 @@ export class UpdateNodeBoundsUseCase {
 				node.showPropertyValues,
 				node.propertyValueTextOverflow,
 				node.labelTextOverflow,
+				node.typeDisplay,
 			);
 		});
 		const nextEdges = diagram.edges.map((edge) => recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId));

@@ -64,7 +64,13 @@ export function nodeTitleText(node: DiagramNode, payload: DiagramPayload): strin
 
 	const typeNames = uniqueStrings((individualForNode(node, payload)?.assertedClassReferences ?? [])
 		.map((reference) => ontologyReferenceDisplayName(reference, payload)));
-	return typeNames.length === 0 ? title : `${title} : ${typeNames.join(', ')}`;
+	if (typeNames.length === 0) {
+		return title;
+	}
+
+	return node.type_display === 'stereotype'
+		? `«${typeNames.join(', ')}»\n${title}`
+		: `${title} : ${typeNames.join(', ')}`;
 }
 
 export function nodeTitleDisplayText(options: {
@@ -78,12 +84,15 @@ export function nodeTitleDisplayText(options: {
 	readonly italic?: boolean;
 }): string {
 	const text = nodeTitleText(options.node, options.payload);
+	const explicitTitleLines = explicitTextLines(text);
 	if (options.node.label_text_overflow !== 'wrap') {
-		return truncateText({ ...options, text });
+		return explicitTitleLines
+			.map((line) => truncateText({ ...options, text: line }))
+			.join('\n');
 	}
 
 	const lineHeight = options.fontSize * 1.25;
-	const maximumLines = Math.max(1, Math.floor(Math.max(1, options.height) / lineHeight));
+	const maximumLines = Math.max(explicitTitleLines.length, Math.floor(Math.max(1, options.height) / lineHeight));
 	const lines = wrapText({ ...options, text });
 	if (lines.length <= maximumLines) {
 		return lines.join('\n');
@@ -170,12 +179,12 @@ export function requiredNodeWidthForDataProperties(options: {
 	readonly minimumWidth: number;
 }): number {
 	const attributeFontSize = Math.max(9, options.fontSize - 1);
-	const titleWidth = measuredTextWidth({
-		text: options.title,
+	const titleWidth = Math.max(...explicitTextLines(options.title).map((text) => measuredTextWidth({
+		text,
 		fontSize: options.fontSize,
 		fontFamily: options.fontFamily,
 		bold: options.titleBold,
-	}) + 20;
+	}) + 20));
 	const attributeWidth = options.attributeTextOverflow === 'wrap' || options.attributes.length === 0 ? 0 : Math.max(...options.attributes.map((attribute) => measuredTextWidth({
 		text: attribute.text,
 		fontSize: attributeFontSize,
@@ -300,6 +309,11 @@ export function wrapText(options: {
 	}
 
 	return wrappedLines.length === 0 ? [''] : wrappedLines;
+}
+
+function explicitTextLines(text: string): readonly string[] {
+	const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+	return lines.length === 0 ? [''] : lines;
 }
 
 export function measuredTextWidth(options: {

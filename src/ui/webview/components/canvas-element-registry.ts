@@ -166,6 +166,14 @@ export class CanvasElementRegistry {
 				return;
 			}
 
+			if (update.kind === 'nodeTypeDisplay') {
+				this.nodes.set(update.id, {
+					...node,
+					type_display: update.typeDisplay === 'stereotype' ? 'stereotype' : undefined,
+				});
+				return;
+			}
+
 			this.nodes.set(update.id, { ...node, image: update.image });
 		}
 	}

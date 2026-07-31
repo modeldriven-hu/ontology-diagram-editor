@@ -255,6 +255,7 @@ Each node shall contain:
 | `image` | image source | No | Optional image displayed on the node. |
 | `show_data_properties` | boolean | No | Whether available data properties whose domain matches this node are shown inside the node. |
 | `show_type` | boolean | No | Whether an individual node shows its asserted type in the title. |
+| `type_display` | enum | No | How an individual's asserted class is shown: `inline` (`name : type`) or `stereotype` (`«type»` centered above the name). |
 | `show_property_values` | boolean | No | Whether an individual node shows property assertion values in its attribute section. |
 | `property_value_text_overflow` | enum | No | How long individual property-value attribute text is displayed: `truncate` or `wrap`. |
 | `label_text_overflow` | enum | No | How the node label is displayed when it exceeds the available width: `truncate` or `wrap`. |
@@ -269,6 +270,9 @@ is `false`.
 
 For individual nodes, `property_value_text_overflow` defaults to `truncate` when omitted.
 Writers should omit the field when the effective value is `truncate`.
+
+For individual nodes, `type_display` defaults to `inline` when omitted. Writers should
+omit the field when the effective value is `inline`.
 
 `label_text_overflow` defaults to `truncate` when omitted. In that mode, labels that
 exceed the available width end with `...`. Writers should omit the field when the

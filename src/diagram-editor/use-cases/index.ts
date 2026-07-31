@@ -47,6 +47,7 @@ export { UpdateNodePropertyValueTextOverflowUseCase } from './update-node-proper
 export { UpdateNodeLabelTextOverflowUseCase } from './update-node-label-text-overflow-use-case';
 export { UpdateNodePropertyValuesVisibilityUseCase } from './update-node-property-values-visibility-use-case';
 export { UpdateNodeTypeVisibilityUseCase } from './update-node-type-visibility-use-case';
+export { UpdateNodeTypeDisplayUseCase } from './update-node-type-display-use-case';
 export { UpdateNoteBoundsUseCase } from './update-note-bounds-use-case';
 export { UpdateNoteExportVisibilityUseCase } from './update-note-export-visibility-use-case';
 export { UpdateNoteTextUseCase } from './update-note-text-use-case';

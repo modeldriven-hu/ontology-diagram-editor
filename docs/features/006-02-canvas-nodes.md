@@ -118,6 +118,10 @@ overflow indicator rather than changing persisted geometry during rendering.
 
 # Individual Property Values
 
+An individual with asserted type display enabled shall show its class as
+`individual : Class` by default. When its `type_display` is `stereotype`, the same title
+shall be rendered as two centered rows, with `«Class»` above the individual name.
+
 For individual nodes, the property panel shall allow property assertion values to be
 shown in the node attribute area. The user shall be able to choose whether long
 property-value attribute text is truncated at the node width with `...` or wrapped onto

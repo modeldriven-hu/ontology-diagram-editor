@@ -1,6 +1,6 @@
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { OptimizeEdgeRoutesCommand, PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutsCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodeLabelTextOverflowCommand, UpdateNodeLabelTextOverflowsCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { OptimizeEdgeRoutesCommand, PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutsCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodeLabelTextOverflowCommand, UpdateNodeLabelTextOverflowsCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeDisplayCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import { serializedContainmentEndpoints } from '../../../shared/diagram-containment';
 import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
@@ -112,11 +112,18 @@ export class CanvasPropertyPanel {
 			.map((element) => element.value);
 		if (nodes.length === this.selectedElementCount) {
 			this.renderContextHeader('Nodes', `${nodes.length} selected`);
-			this.renderTabs('multiple-nodes', [{
-				id: 'style',
-				label: 'Style',
-				sections: this.multipleNodeStyleSections(nodes),
-			}]);
+			this.renderTabs('multiple-nodes', [
+				{
+					id: 'display',
+					label: 'Display',
+					sections: this.multipleNodeDisplaySections(nodes),
+				},
+				{
+					id: 'style',
+					label: 'Style',
+					sections: this.multipleNodeStyleSections(nodes),
+				},
+			]);
 			return;
 		}
 		const edges = elements
@@ -264,7 +271,6 @@ export class CanvasPropertyPanel {
 	private multipleNodeStyleSections(nodes: readonly DiagramNode[]): readonly HTMLElement[] {
 		const nodeIds = nodes.map((node) => node.id);
 		const styles = nodes.map((node) => node.style);
-		const labelOverflow = sharedValue(nodes.map((node) => node.label_text_overflow ?? 'truncate'));
 		const fillColor = sharedValue(styles.map((style) => style?.bg_color));
 		const textColor = sharedValue(styles.map((style) => style?.text_color));
 		const fontFamily = sharedValue(styles.map((style) => style?.font?.family));
@@ -278,11 +284,6 @@ export class CanvasPropertyPanel {
 		const shadow = sharedValue(styles.map((style) => shadowValue(style?.shadow)));
 
 		return [
-			sectionElement('Label', [
-				mixedSelectField('Overflow', labelOverflow, nodeLabelTextOverflowOptions, (value) => {
-					this.updateNodeLabelTextOverflow(nodeIds, value ?? 'truncate');
-				}),
-			]),
 			sectionElement('Style', [
 				markMixedField(colorField('Fill Color', fillColor.mixed ? '' : fillColor.value ?? '', (value) => {
 					this.updateNodeStyles(nodeIds, (style) => ({ ...style, bg_color: blankToUndefined(value) }));
@@ -345,6 +346,26 @@ export class CanvasPropertyPanel {
 					this.updateNodeStyles(nodeIds, () => undefined);
 				}),
 			]),
+		];
+	}
+
+	private multipleNodeDisplaySections(nodes: readonly DiagramNode[]): readonly HTMLElement[] {
+		const nodeIds = nodes.map((node) => node.id);
+		const labelOverflow = sharedValue(nodes.map((node) => node.label_text_overflow ?? 'truncate'));
+		const individualSections = nodes.every((node) => node.ontology_item_type === 'individual')
+			? [sectionElement('Instance', [
+				mixedSelectField('Display Type', sharedValue(nodes.map((node) => node.type_display ?? 'inline')), individualTypeDisplayOptions, (value) => {
+					this.updateNodeTypeDisplay(nodeIds, value ?? 'inline');
+				}),
+			])]
+			: [];
+		return [
+			sectionElement('Label', [
+				mixedSelectField('Overflow', labelOverflow, nodeLabelTextOverflowOptions, (value) => {
+					this.updateNodeLabelTextOverflow(nodeIds, value ?? 'truncate');
+				}),
+			]),
+			...individualSections,
 		];
 	}
 
@@ -443,21 +464,13 @@ export class CanvasPropertyPanel {
 			...(annotationFields.length === 0 ? [] : [sectionElement('Annotations', annotationFields.map((annotation) =>
 				readonlyField(annotation.label, annotation.value),
 			))]),
-			...(node.ontology_item_type === 'individual' ? [] : [
-				sectionElement('Data Properties', [
-					readonlyField('Data Properties', String(dataPropertyAttributes.length)),
-					checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
-						if (value) {
-							this.resizeNodeToFitDetails({ ...node, show_data_properties: value }, dataPropertyAttributes);
-						}
-						this.propertyEdited('node', node.id, ['show_data_properties']);
-						this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
-					}),
-				]),
-			]),
+			...(node.ontology_item_type === 'individual'
+				? [sectionElement('Instance', [readonlyField('Property Values', String(propertyValueAttributes.length))])]
+				: [sectionElement('Data Properties', [readonlyField('Data Properties', String(dataPropertyAttributes.length))])]),
+		];
+		const displaySections = [
 			...(node.ontology_item_type === 'individual' ? [
 				sectionElement('Instance', [
-					readonlyField('Property Values', String(propertyValueAttributes.length)),
 					checkboxField('Show Type', node.show_type !== false, (value) => {
 						const nextNode = { ...node, show_type: value };
 						if (value) {
@@ -465,6 +478,19 @@ export class CanvasPropertyPanel {
 						}
 						this.propertyEdited('node', node.id, ['show_type']);
 						this.options.messageBus.publishCommand(new UpdateNodeTypeVisibilityCommand(node.id, value));
+					}),
+					selectField('Display Type', node.type_display ?? 'inline', individualTypeDisplayOptions, (value) => {
+						const typeDisplay = value ?? 'inline';
+						const nextNode = {
+							...node,
+							type_display: typeDisplay === 'stereotype' ? typeDisplay : undefined,
+						};
+						this.updateElementContent({ kind: 'nodeTypeDisplay', id: node.id, typeDisplay });
+						if (node.show_type !== false) {
+							this.resizeNodeToFitDetails(nextNode, node.show_property_values === true ? propertyValueAttributes : []);
+						}
+						this.propertyEdited('node', node.id, ['type_display']);
+						this.options.messageBus.publishCommand(new UpdateNodeTypeDisplayCommand([node.id], typeDisplay));
 					}),
 					checkboxField('Show Property Values', node.show_property_values === true, (value) => {
 						const nextNode = { ...node, show_property_values: value };
@@ -488,36 +514,54 @@ export class CanvasPropertyPanel {
 						this.options.messageBus.publishCommand(new UpdateNodePropertyValueTextOverflowCommand(node.id, textOverflow));
 					}),
 				]),
-			] : []),
+			] : [
+				sectionElement('Data Properties', [
+					checkboxField('Show Data Properties', node.show_data_properties === true, (value) => {
+						if (value) {
+							this.resizeNodeToFitDetails({ ...node, show_data_properties: value }, dataPropertyAttributes);
+						}
+						this.propertyEdited('node', node.id, ['show_data_properties']);
+						this.options.messageBus.publishCommand(new UpdateNodeDataPropertiesVisibilityCommand(node.id, value));
+					}),
+				]),
+			]),
+			sectionElement('Label', [
+				selectField('Overflow', node.label_text_overflow ?? 'truncate', nodeLabelTextOverflowOptions, (value) => {
+					const textOverflow = value ?? 'truncate';
+					this.updateElementContent({ kind: 'nodeLabelTextOverflow', id: node.id, textOverflow });
+					this.propertyEdited('node', node.id, ['label_text_overflow']);
+					this.options.messageBus.publishCommand(new UpdateNodeLabelTextOverflowCommand(node.id, textOverflow));
+				}),
+			]),
+			sectionElement('Image', [
+				imageField('Image', () => {
+					this.options.chooseNodeImage(node.id);
+				}, node.image === undefined ? undefined : () => {
+					this.updateElementContent({ kind: 'nodeImage', id: node.id, image: undefined });
+					this.propertyEdited('node', node.id, ['image']);
+					this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
+				}),
+				...(iconColor === undefined || node.image === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
+					const image = recolorEmbeddedGalleryIcon(node.image ?? '', color);
+					if (image === undefined) {
+						return;
+					}
+					this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
+					this.propertyEdited('node', node.id, ['image']);
+					this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
+				})]),
+				...(node.image === undefined ? [] : [selectField('Fit', node.style?.image_fit ?? 'contain', nodeImageFitOptions, (value) => {
+					const style = cloneCommonStyle(node.style);
+					this.updateElementStyle('node', node.id, cleanCommonStyle({ ...style, image_fit: value ?? 'contain' }));
+				})]),
+			]),
+			...containmentSections,
 		];
 		return [
 			{
-				id: 'details',
-				label: 'Details',
-				sections: [
-					sectionElement('Image', [
-						imageField('Image', () => {
-							this.options.chooseNodeImage(node.id);
-						}, node.image === undefined ? undefined : () => {
-							this.updateElementContent({ kind: 'nodeImage', id: node.id, image: undefined });
-							this.propertyEdited('node', node.id, ['image']);
-							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
-						}),
-						...(iconColor === undefined || node.image === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
-							const image = recolorEmbeddedGalleryIcon(node.image ?? '', color);
-							if (image === undefined) {
-								return;
-							}
-							this.updateElementContent({ kind: 'nodeImage', id: node.id, image });
-							this.propertyEdited('node', node.id, ['image']);
-							this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, image));
-						})]),
-						...(node.image === undefined ? [] : [selectField('Fit', node.style?.image_fit ?? 'contain', nodeImageFitOptions, (value) => {
-							const style = cloneCommonStyle(node.style);
-							this.updateElementStyle('node', node.id, cleanCommonStyle({ ...style, image_fit: value ?? 'contain' }));
-						})]),
-					]),
-				],
+				id: 'display',
+				label: 'Display',
+				sections: displaySections,
 			},
 			{ id: 'ontology', label: 'Ontology', sections: ontologySections },
 			{
@@ -534,15 +578,6 @@ export class CanvasPropertyPanel {
 				id: 'style',
 				label: 'Style',
 				sections: [
-					sectionElement('Label', [
-						selectField('Overflow', node.label_text_overflow ?? 'truncate', nodeLabelTextOverflowOptions, (value) => {
-							const textOverflow = value ?? 'truncate';
-							this.updateElementContent({ kind: 'nodeLabelTextOverflow', id: node.id, textOverflow });
-							this.propertyEdited('node', node.id, ['label_text_overflow']);
-							this.options.messageBus.publishCommand(new UpdateNodeLabelTextOverflowCommand(node.id, textOverflow));
-						}),
-					]),
-					...containmentSections,
 					this.commonStyleSection('node', node.id, node.style),
 				],
 			},
@@ -1071,6 +1106,14 @@ export class CanvasPropertyPanel {
 		this.options.messageBus.publishCommand(new UpdateNodeLabelTextOverflowsCommand(nodeIds, textOverflow));
 	}
 
+	private updateNodeTypeDisplay(nodeIds: readonly string[], typeDisplay: 'inline' | 'stereotype'): void {
+		for (const id of nodeIds) {
+			this.updateElementContent({ kind: 'nodeTypeDisplay', id, typeDisplay });
+			this.propertyEdited('node', id, ['type_display']);
+		}
+		this.options.messageBus.publishCommand(new UpdateNodeTypeDisplayCommand(nodeIds, typeDisplay));
+	}
+
 	private updateDiagramMetadata(patch: DiagramMetadataPatch, changedFields: readonly string[]): void {
 		this.propertyEdited('diagram', 'diagram', changedFields);
 		this.options.messageBus.publishCommand(new UpdateDiagramMetadataCommand(patch));
@@ -1279,6 +1322,11 @@ const edgeRouteLayoutOptions = [
 const propertyValueTextOverflowOptions = [
 	{ value: 'truncate', label: 'Truncate' },
 	{ value: 'wrap', label: 'Wrap' },
+] as const;
+
+const individualTypeDisplayOptions = [
+	{ value: 'inline', label: 'Name : Type' },
+	{ value: 'stereotype', label: '«Type» above Name' },
 ] as const;
 
 const nodeLabelTextOverflowOptions = [

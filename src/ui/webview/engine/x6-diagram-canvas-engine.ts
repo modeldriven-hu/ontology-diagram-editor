@@ -305,6 +305,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.updateOntologyNodePresentation(update.id);
 		} else if (update.kind === 'nodePropertyValueTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
+		} else if (update.kind === 'nodeTypeDisplay' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			this.updateOntologyNodePresentation(update.id);
 		}
 	}
 

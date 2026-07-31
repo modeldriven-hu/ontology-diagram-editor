@@ -337,6 +337,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 				verticalAlign: 'middle',
 				padding: 4,
 				wrap: false,
+				limitLines: false,
 			}),
 			`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y + containmentHeaderHeight)}" width="${numberValue(bounds.width)}" height="1" fill="${escapeAttribute(border.color)}"/>`,
 		].join('\n');
@@ -362,6 +363,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 				verticalAlign: 'middle',
 				padding: 4,
 				wrap: false,
+				limitLines: false,
 			}),
 		].join('\n');
 	}
@@ -419,6 +421,7 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 			verticalAlign: 'middle',
 			padding: 4,
 			wrap: false,
+			limitLines: false,
 		}),
 	];
 

@@ -17,6 +17,7 @@ export type CanvasElementContentUpdate =
 	| { readonly kind: 'nodeImage'; readonly id: string; readonly image?: string }
 	| { readonly kind: 'nodeLabelTextOverflow'; readonly id: string; readonly textOverflow: 'truncate' | 'wrap' }
 	| { readonly kind: 'nodePropertyValueTextOverflow'; readonly id: string; readonly textOverflow: 'truncate' | 'wrap' }
+	| { readonly kind: 'nodeTypeDisplay'; readonly id: string; readonly typeDisplay: 'inline' | 'stereotype' }
 	| { readonly kind: 'noteExport'; readonly id: string; readonly exported: boolean }
 	| { readonly kind: 'noteText'; readonly id: string; readonly text: string }
 	| { readonly kind: 'labelText'; readonly id: string; readonly text: string };

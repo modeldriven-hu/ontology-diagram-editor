@@ -175,6 +175,7 @@ export function copyNodeWithBounds(node: DiagramNode, bounds: Bounds | undefined
 		node.showPropertyValues,
 		node.propertyValueTextOverflow,
 		node.labelTextOverflow,
+		node.typeDisplay,
 	);
 }
 

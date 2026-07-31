@@ -18,7 +18,7 @@ import {
 	readOntologyDiagramFile,
 	stringifyOntologyDiagramYaml,
 } from '../documents/odiagram';
-import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgePresentationUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodeLabelTextOverflowUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
+import { AlignEdgeEndPointsUseCase, AlignEdgeStartPointsUseCase, AlignSubclassEndpointsUseCase, ArrangeDiagramUseCase, CreateCommentNoteUseCase, CreateEdgeUseCase, CreateImageUseCase, CreateLabelUseCase, CreateMetadataElementUseCase, CreateNodeUseCase, CreateNoteConnectionUseCase, DeleteEdgeUseCase, DeleteElementsUseCase, DeleteImageUseCase, DeleteLabelUseCase, DeleteMetadataElementUseCase, DeleteNodeUseCase, DeleteNoteUseCase, OptimizeEdgeRouteUseCase, SaveDiagramExportUseCase, ShowRelatedElementsUseCase, StraightenEdgeRouteUseCase, UpdateDiagramMetadataUseCase, UpdateEdgePresentationUseCase, UpdateEdgeRouteUseCase, UpdateEdgeRouteLayoutUseCase, UpdateElementBoundsUseCase, UpdateElementStyleUseCase, UpdateImageBoundsUseCase, UpdateImageSourceUseCase, UpdateLabelBoundsUseCase, UpdateLabelTextUseCase, UpdateMetadataBoundsUseCase, UpdateNodeBoundsUseCase, UpdateNodeDataPropertiesVisibilityUseCase, UpdateNodeImageUseCase, UpdateNodeLabelTextOverflowUseCase, UpdateNodePropertyValueTextOverflowUseCase, UpdateNodePropertyValuesVisibilityUseCase, UpdateNodeTypeDisplayUseCase, UpdateNodeTypeVisibilityUseCase, UpdateNoteBoundsUseCase, UpdateNoteExportVisibilityUseCase, UpdateThemeModeUseCase } from '../diagram-editor/use-cases';
 import type { DiagramExportSavePort } from '../diagram-editor/use-cases';
 import type { DiagramLayoutAlgorithm } from '../diagram-editor/layout';
 import { isConnectionCapableOntologyItem } from '../diagram-editor/use-cases/ontology-edge-endpoints';
@@ -2181,6 +2181,29 @@ suite('Diagram editor use cases', () => {
 		assert.ok(enabled.diagram);
 		assert.strictEqual(enabled.diagram.nodes[0].showType, true);
 		assert.deepStrictEqual(enabled.diagram.nodes[0].toPersistenceObject().show_type, true);
+	});
+
+	test('updates individual type display for one or many nodes', () => {
+		const diagram = diagramWithNodes([
+			new DiagramNode('node_requirement', 'ex:REQ-001', new Bounds(0, 0, 100, 50), undefined, undefined, { ontology_item_type: 'individual' }, undefined, true),
+			new DiagramNode('node_design', 'ex:DES-001', new Bounds(150, 0, 100, 50), undefined, undefined, { ontology_item_type: 'individual' }, undefined, true),
+			new DiagramNode('node_other', 'ex:Other', new Bounds(300, 0, 100, 50)),
+		]);
+
+		const stereotyped = new UpdateNodeTypeDisplayUseCase().executeMany(
+			diagram,
+			['node_requirement', 'node_design'],
+			'stereotype',
+		);
+		assert.ok(stereotyped.diagram);
+		assert.deepStrictEqual(stereotyped.diagram.nodes.map((node) => node.typeDisplay), ['stereotype', 'stereotype', undefined]);
+		assert.strictEqual(stereotyped.diagram.nodes[0].toPersistenceObject().type_display, 'stereotype');
+
+		const inline = new UpdateNodeTypeDisplayUseCase().execute(stereotyped.diagram, 'node_requirement', 'inline');
+		assert.ok(inline.diagram);
+		assert.strictEqual(inline.diagram.nodes[0].typeDisplay, undefined);
+		assert.strictEqual(inline.diagram.nodes[0].toPersistenceObject().type_display, undefined);
+		assert.strictEqual(inline.diagram.nodes[1].typeDisplay, 'stereotype');
 	});
 
 	test('updates node property value visibility', () => {

@@ -1,4 +1,4 @@
-import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, IndividualTypeDisplay, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -112,6 +112,7 @@ export type WebviewCommand =
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
+	| UpdateNodeTypeDisplayCommand
 	| UpdateNodePropertyValuesVisibilityCommand
 	| UpdateNodePropertyValueTextOverflowCommand
 	| UpdateNodeLabelTextOverflowCommand
@@ -579,6 +580,15 @@ export class UpdateNodeTypeVisibilityCommand {
 		this.id = id;
 		this.showType = showType;
 	}
+}
+
+export class UpdateNodeTypeDisplayCommand {
+	public readonly type = 'updateNodeTypeDisplay';
+
+	public constructor(
+		public readonly ids: readonly string[],
+		public readonly typeDisplay: IndividualTypeDisplay,
+	) {}
 }
 
 export class UpdateNodePropertyValuesVisibilityCommand {
