@@ -1786,6 +1786,30 @@ suite('Diagram editor use cases', () => {
 		]);
 	});
 
+	test('moves a stale Website to Thing label onto its vertical route', () => {
+		const diagram = new OntologyDiagramDocument(
+			DiagramMetadata.createEmpty('Example'),
+			[],
+			new Map([['ex', 'https://example.com/ontology#']]),
+			[
+				new DiagramNode('node_website', 'ex:Website', new Bounds(306, 0, 225, 84)),
+				new DiagramNode('node_thing', 'ex:Thing', new Bounds(444, 161, 581, 670)),
+			],
+			[
+				new DiagramEdge('edge_website_thing', 'node_website', 'node_thing', 'ex:subClassOf', new Point(866, 127), [new Point(488, 84), new Point(488, 161)]),
+			],
+		);
+
+		const result = new OptimizeEdgeRouteUseCase().execute(diagram, 'edge_website_thing');
+
+		assert.ok(result.diagram);
+		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
+			{ x: 488, y: 84 },
+			{ x: 488, y: 161 },
+		]);
+		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), { x: 488, y: 123 });
+	});
+
 	test('routes orthogonal edges around intervening nodes', () => {
 		const diagram = new OntologyDiagramDocument(
 			DiagramMetadata.createEmpty('Example'),

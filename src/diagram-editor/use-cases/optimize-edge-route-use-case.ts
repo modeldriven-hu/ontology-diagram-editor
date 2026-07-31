@@ -9,6 +9,7 @@ const turnPenalty = 8;
 const crossingPenalty = 24;
 const obstaclePenalty = 10_000;
 const automaticLabelTolerance = 18;
+const maximumPreservedLabelDistance = 120;
 
 type PortSide = 'right' | 'bottom' | 'left' | 'top';
 type TravelDirection = 'horizontal' | 'vertical' | 'none';
@@ -536,11 +537,42 @@ function selfLoopCandidates(bounds: Bounds, extension: number): readonly (readon
 }
 
 function shouldPreserveLabel(edge: DiagramEdge): boolean {
+	if (distanceToPath(edge.label, edge.points) > maximumPreservedLabelDistance) {
+		return false;
+	}
 	const automaticPositions = [pointAlongPath(edge.points, 0.5)];
 	if (edge.source.value === edge.target.value && edge.points.length === 4) {
 		automaticPositions.push(selfLoopEdgeLabel(edge.points as readonly [Point, Point, Point, Point]));
 	}
 	return automaticPositions.every((position) => distance(edge.label, position) > automaticLabelTolerance);
+}
+
+function distanceToPath(point: Point, points: readonly Point[]): number {
+	if (points.length === 0) {
+		return Number.POSITIVE_INFINITY;
+	}
+	if (points.length === 1) {
+		return distance(point, points[0]);
+	}
+	return Math.min(...pathSegments(points).map((segment) => distanceToSegment(point, segment)));
+}
+
+function distanceToSegment(point: Point, segment: Segment): number {
+	const dx = segment.end.x - segment.start.x;
+	const dy = segment.end.y - segment.start.y;
+	const squaredLength = (dx * dx) + (dy * dy);
+	if (squaredLength === 0) {
+		return distance(point, segment.start);
+	}
+	const ratio = clamp(
+		(((point.x - segment.start.x) * dx) + ((point.y - segment.start.y) * dy)) / squaredLength,
+		0,
+		1,
+	);
+	return Math.hypot(
+		point.x - (segment.start.x + (ratio * dx)),
+		point.y - (segment.start.y + (ratio * dy)),
+	);
 }
 
 function pointAlongPath(points: readonly Point[], ratio: number): Point {

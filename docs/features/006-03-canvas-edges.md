@@ -220,8 +220,10 @@ Self-loop optimization shall evaluate the four surrounding quadrants and use the
 with the least interference from elements, labels, and existing edges. Parallel
 self-loops shall use progressively larger extents. An automatically positioned edge
 label shall move to the distance midpoint of the optimized path. A label that is no
-longer near its previous automatic position shall be treated as manually positioned
-and preserved. Persisted source and target cardinality-label positions shall always be
+longer near its previous automatic position but remains within a reasonable distance
+of the current route shall be treated as manually positioned and preserved. A label
+far from every current route segment shall be treated as stale and moved to the new
+path midpoint. Persisted source and target cardinality-label positions shall always be
 preserved.
 
 The user can move the edge label by dragging it, or by selecting the edge label/edge and

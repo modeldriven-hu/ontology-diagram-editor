@@ -34,6 +34,7 @@
 - Given multiple edges share the same endpoints, when they are optimized together, then their anchors and routes are separated.
 - Given a self-loop has occupied space in its default quadrant, when its path is optimized, then a clearer surrounding quadrant is selected.
 - Given an edge label remains at its automatic position, when the path is optimized, then the label moves to the distance midpoint of the new path.
+- Given the Website-to-Thing edge is vertical and its label is stale far from the route, when the path is optimized, then the label moves onto the vertical route midpoint.
 - Given an edge or cardinality label has been manually positioned, when the path is optimized, then its persisted position is preserved.
 
 ## Note Connections
