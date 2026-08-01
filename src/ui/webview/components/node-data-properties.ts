@@ -40,6 +40,7 @@ export function requiredMinimumNodeSize(
 			fontFamily: node.style?.font?.family ?? theme.nodeFontFamily,
 			titleBold: node.style?.font?.bold ?? theme.nodeFontBold,
 			attributeItalic: node.style?.font?.italic ?? theme.nodeFontItalic,
+			titleTextOverflow: node.label_text_overflow,
 			minimumWidth: hasImage ? minimumNodeWithImageWidth : minimumNodeWidth,
 		}),
 		height: requiredNodeHeightForDataProperties({
@@ -210,10 +211,11 @@ export function requiredNodeWidthForDataProperties(options: {
 	readonly titleBold?: boolean;
 	readonly attributeItalic?: boolean;
 	readonly attributeTextOverflow?: NodeAttributeTextOverflow;
+	readonly titleTextOverflow?: 'truncate' | 'wrap';
 	readonly minimumWidth: number;
 }): number {
 	const attributeFontSize = Math.max(9, options.fontSize - 1);
-	const titleWidth = Math.max(...explicitTextLines(options.title).map((text) => measuredTextWidth({
+	const titleWidth = options.titleTextOverflow === 'wrap' ? 0 : Math.max(...explicitTextLines(options.title).map((text) => measuredTextWidth({
 		text,
 		fontSize: options.fontSize,
 		fontFamily: options.fontFamily,

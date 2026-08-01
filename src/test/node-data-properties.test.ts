@@ -29,6 +29,25 @@ suite('Node data properties', () => {
 		assert.strictEqual(size.height, 88);
 	});
 
+	test('keeps wrapped node titles at the minimum width', () => {
+		const size = requiredMinimumNodeSize({
+			id: 'node_wrapped',
+			ontology_ref: 'ex:LongNodeTitleThatNeedsWrapping',
+			x: 0,
+			y: 0,
+			width: 240,
+			height: 72,
+			label_text_overflow: 'wrap',
+		}, { diagram: {} }, {
+			nodeFontSize: 13,
+			nodeFontFamily: 'Arial',
+			nodeFontBold: true,
+			nodeFontItalic: false,
+		});
+
+		assert.deepStrictEqual(size, { width: 96, height: 44 });
+	});
+
 	test('uses ontology labels for class node titles', () => {
 		const node: DiagramNode = {
 			id: 'node_service',

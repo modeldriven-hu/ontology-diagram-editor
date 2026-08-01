@@ -158,6 +158,8 @@ function createEndpointNode(
 		undefined,
 		ontologyItemType === 'individual' ? true : undefined,
 		ontologyItemType === 'individual' ? true : undefined,
+		undefined,
+		'wrap',
 	);
 }
 

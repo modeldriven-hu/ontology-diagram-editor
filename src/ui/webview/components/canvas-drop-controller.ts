@@ -1,7 +1,7 @@
-import { minimumNodeHeight, minimumNodeWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
+import type { CanvasPoint } from '../../../shared/canvas-geometry';
 import { CreateNodeCommand, type ModelTreeItemDropPayload } from '../../../shared/webview-commands';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
-import { nodeCompartmentAttributes, nodeTitleText, ontologyReferenceDisplayName, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from './node-data-properties';
+import { ontologyReferenceDisplayName } from './node-data-properties';
 import { edgeDisplayName } from './ontology-diagram-edges';
 import type { DiagramNode, DiagramPayload } from '../ontology-diagram-types';
 import type { WebviewTheme } from '../webview-theme';
@@ -111,7 +111,6 @@ export class CanvasDropController {
 				payload: dragPayload,
 				payloads: dragPayloads !== undefined && dragPayloads.length > 1 ? dragPayloads : undefined,
 				position: this.dropPosition(event),
-				size: dragPayload === undefined ? undefined : nodeSizeForDragPayload(this.options.payload, dragPayload, this.options.getTheme()),
 			}));
 		});
 	}
@@ -279,43 +278,6 @@ function edgePreview(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayl
 		points,
 		label: points.length === 4 ? selfLoopLabel(points as readonly [CanvasPoint, CanvasPoint, CanvasPoint, CanvasPoint]) : midpoint(points[0], points[1]),
 		createdNodes: endpointPreview.created,
-	};
-}
-
-function nodeSizeForDragPayload(payload: DiagramPayload, dragPayload: ModelTreeItemDropPayload, theme: WebviewTheme): { readonly width: number; readonly height: number } | undefined {
-	if (isConnectionCapableOntologyItem(dragPayload.ontologyItemType)) {
-		return undefined;
-	}
-
-	const previewNode: DiagramNode = {
-		id: 'preview_node',
-		ontology_ref: dragPayload.ontologyItemReference,
-		x: 0,
-		y: 0,
-		width: minimumNodeWidth,
-		height: minimumNodeHeight,
-		ontology_item_type: dragPayload.ontologyItemType,
-		show_type: dragPayload.ontologyItemType === 'individual' ? true : undefined,
-		show_property_values: dragPayload.ontologyItemType === 'individual' ? true : undefined,
-	};
-	const attributes = nodeCompartmentAttributes(previewNode, payload);
-	const fontSize = theme.nodeFontSize;
-
-	return {
-		width: requiredNodeWidthForDataProperties({
-			title: nodeTitleText(previewNode, payload),
-			attributes,
-			fontSize,
-			fontFamily: theme.nodeFontFamily,
-			titleBold: theme.nodeFontBold,
-			attributeItalic: theme.nodeFontItalic,
-			minimumWidth: minimumNodeWidth,
-		}),
-		height: requiredNodeHeightForDataProperties({
-			attributeCount: attributes.length,
-			fontSize,
-			minimumHeight: minimumNodeHeight,
-		}),
 	};
 }
 

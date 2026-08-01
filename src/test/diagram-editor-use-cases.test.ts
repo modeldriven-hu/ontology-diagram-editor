@@ -120,9 +120,11 @@ suite('Diagram editor use cases', () => {
 		assert.deepStrictEqual(result.diagram.nodes[0].bounds.toPersistenceObject(), {
 			x: 10,
 			y: 21,
-			width: 180,
-			height: 72,
+			width: 96,
+			height: 44,
 		});
+		assert.strictEqual(result.diagram.nodes[0].labelTextOverflow, 'wrap');
+		assert.strictEqual(result.diagram.nodes[0].toPersistenceObject().label_text_overflow, 'wrap');
 		assert.deepStrictEqual(result.diagram.nodes[0].extra, {
 			ontology_item_type: 'class',
 		});
@@ -152,14 +154,14 @@ suite('Diagram editor use cases', () => {
 				},
 			},
 			{ x: 10, y: 20 },
-			{ width: 520, height: 140 },
 		);
 
 		assert.ok(result.diagram);
 		assert.strictEqual(result.diagram.nodes[0].showType, true);
 		assert.strictEqual(result.diagram.nodes[0].showPropertyValues, true);
-		assert.strictEqual(result.diagram.nodes[0].bounds.width, 520);
-		assert.strictEqual(result.diagram.nodes[0].bounds.height, 140);
+		assert.strictEqual(result.diagram.nodes[0].bounds.width, 96);
+		assert.strictEqual(result.diagram.nodes[0].bounds.height, 44);
+		assert.strictEqual(result.diagram.nodes[0].labelTextOverflow, 'wrap');
 		assert.deepStrictEqual(result.diagram.nodes[0].toPersistenceObject().show_type, true);
 		assert.deepStrictEqual(result.diagram.nodes[0].toPersistenceObject().show_property_values, true);
 	});
@@ -751,12 +753,14 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.nodes.length, 2);
 		assert.strictEqual(result.diagram.edges.length, 1);
 		assert.deepStrictEqual(result.diagram.nodes.map((node) => node.ontologyRef.value), ['ex:Person', 'ex:Organization']);
+		assert.ok(result.diagram.nodes.every((node) => node.bounds.width === 96 && node.bounds.height === 44));
+		assert.ok(result.diagram.nodes.every((node) => node.labelTextOverflow === 'wrap'));
 		assert.strictEqual(result.diagram.edges[0].source.value, 'node_item1');
 		assert.strictEqual(result.diagram.edges[0].target.value, 'node_item2');
 		assert.strictEqual(result.diagram.edges[0].ontologyRef.value, 'ex:memberOf');
 		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
-			{ x: 320, y: 156 },
-			{ x: 480, y: 156 },
+			{ x: 320, y: 142 },
+			{ x: 480, y: 142 },
 		]);
 	});
 
@@ -800,15 +804,17 @@ suite('Diagram editor use cases', () => {
 		assert.strictEqual(result.diagram.edges.length, 1);
 		assert.strictEqual(result.diagram.edges[0].source.value, 'node_item1');
 		assert.strictEqual(result.diagram.edges[0].target.value, 'node_item1');
+		assert.deepStrictEqual(result.diagram.nodes[0].bounds.toPersistenceObject(), { x: 352, y: 120, width: 96, height: 44 });
+		assert.strictEqual(result.diagram.nodes[0].labelTextOverflow, 'wrap');
 		assert.deepStrictEqual(result.diagram.edges[0].points.map((point) => point.toPersistenceObject()), [
-			{ x: 490, y: 145 },
-			{ x: 571, y: 145 },
-			{ x: 571, y: 248 },
-			{ x: 427, y: 192 },
+			{ x: 448, y: 135 },
+			{ x: 528, y: 135 },
+			{ x: 528, y: 220 },
+			{ x: 414, y: 164 },
 		]);
 		assert.deepStrictEqual(result.diagram.edges[0].label.toPersistenceObject(), {
-			x: 579,
-			y: 185,
+			x: 536,
+			y: 166,
 		});
 	});
 
@@ -1297,6 +1303,8 @@ suite('Diagram editor use cases', () => {
 		const organizationNode = result.diagram.nodes.find((node) => node.ontologyRef.value === 'ex:Organization');
 		assert.ok(employeeNode);
 		assert.ok(organizationNode);
+		assert.ok([employeeNode, organizationNode].every((node) => node.bounds.width === 96 && node.bounds.height === 44));
+		assert.ok([employeeNode, organizationNode].every((node) => node.labelTextOverflow === 'wrap'));
 		const subclassEdge = result.diagram.edges.find((edge) => edge.ontologyRef.value === 'rdfs:subClassOf');
 		const propertyEdge = result.diagram.edges.find((edge) => edge.ontologyRef.value === 'ex:memberOf');
 		assert.ok(subclassEdge);

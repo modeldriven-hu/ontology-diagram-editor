@@ -1,5 +1,7 @@
-export const defaultNodeWidth = 180;
-export const defaultNodeHeight = 72;
+import { minimumNodeHeight, minimumNodeWidth } from '../../shared/canvas-geometry';
+
+export const defaultNodeWidth = minimumNodeWidth;
+export const defaultNodeHeight = minimumNodeHeight;
 export const defaultNoteWidth = 220;
 export const defaultNoteHeight = 120;
 export const defaultLabelWidth = 180;

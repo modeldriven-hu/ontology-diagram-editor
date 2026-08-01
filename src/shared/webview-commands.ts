@@ -201,24 +201,15 @@ export class CreateNodeCommand {
 	public readonly payload?: ModelTreeItemDropPayload;
 	public readonly payloads?: readonly ModelTreeItemDropPayload[];
 	public readonly position: CanvasPoint;
-	public readonly size?: {
-		readonly width: number;
-		readonly height: number;
-	};
 
 	public constructor(options: {
 		readonly payload?: ModelTreeItemDropPayload;
 		readonly payloads?: readonly ModelTreeItemDropPayload[];
 		readonly position: CanvasPoint;
-		readonly size?: {
-			readonly width: number;
-			readonly height: number;
-		};
 	}) {
 		this.payload = options.payload;
 		this.payloads = options.payloads;
 		this.position = options.position;
-		this.size = options.size;
 	}
 }
 

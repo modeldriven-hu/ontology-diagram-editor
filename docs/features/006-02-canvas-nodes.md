@@ -34,7 +34,8 @@ The new node shall:
 
 - Use the dragged ontology item reference as `ontology_ref`.
 - Receive a generated unique `id` using the `node_` prefix.
-- Use default width and height selected by the implementation.
+- Use the minimum node width and height.
+- Persist `label_text_overflow: wrap` so longer titles wrap within the minimum bounds.
 - Use the drop position as its persisted `x` and `y`.
 - Omit `style` unless the user customizes the node.
 
@@ -50,10 +51,13 @@ Nodes created as part of edge materialization shall:
 
 - Use the resolved source or target ontology item reference as `ontology_ref`.
 - Receive a generated unique `id` using the `node_` prefix.
-- Use default width and height selected by the implementation.
+- Use the minimum node width and height with wrapped title text.
 - Use the deterministic edge materialization placement rules defined in
   `006-03-canvas-edges.md`.
 - Omit `style` unless the user customizes the node.
+
+The same minimum dimensions and wrapped-title default shall apply to nodes created by
+the ontology-item picker, bulk addition, and related-element expansion.
 
 # Move Nodes
 

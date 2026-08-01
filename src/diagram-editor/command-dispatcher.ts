@@ -543,7 +543,6 @@ export class DiagramCommandDispatcher {
 			this.repository.load(),
 			resolvedPayload,
 			command.position,
-			command.size,
 		));
 	}
 
