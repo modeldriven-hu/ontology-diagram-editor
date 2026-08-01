@@ -1,4 +1,6 @@
+import { minimumNodeHeight, minimumNodeWidth, minimumNodeWithImageHeight, minimumNodeWithImageWidth } from '../../../shared/canvas-geometry';
 import type { DiagramNode, DiagramPayload } from '../ontology-diagram-types';
+import type { WebviewTheme } from '../webview-theme';
 
 export interface NodeDataPropertyAttribute {
 	readonly text: string;
@@ -14,6 +16,38 @@ export interface NodeDataPropertyLayout {
 	readonly visibleAttributeCount: number;
 	readonly hiddenAttributeCount: number;
 	readonly showOverflowIndicator: boolean;
+}
+
+type NodeMinimumSizeTheme = Pick<WebviewTheme,
+	'nodeFontSize'
+	| 'nodeFontFamily'
+	| 'nodeFontBold'
+	| 'nodeFontItalic'>;
+
+export function requiredMinimumNodeSize(
+	node: DiagramNode,
+	payload: DiagramPayload,
+	theme: NodeMinimumSizeTheme,
+): { readonly width: number; readonly height: number } {
+	const hasImage = node.image !== undefined && node.image.trim().length > 0;
+	const attributes = hasImage ? [] : nodeCompartmentAttributes(node, payload);
+	const fontSize = node.style?.font?.size ?? theme.nodeFontSize;
+	return {
+		width: requiredNodeWidthForDataProperties({
+			title: nodeTitleText(node, payload),
+			attributes,
+			fontSize,
+			fontFamily: node.style?.font?.family ?? theme.nodeFontFamily,
+			titleBold: node.style?.font?.bold ?? theme.nodeFontBold,
+			attributeItalic: node.style?.font?.italic ?? theme.nodeFontItalic,
+			minimumWidth: hasImage ? minimumNodeWithImageWidth : minimumNodeWidth,
+		}),
+		height: requiredNodeHeightForDataProperties({
+			attributeCount: attributes.length,
+			fontSize,
+			minimumHeight: hasImage ? minimumNodeWithImageHeight : minimumNodeHeight,
+		}),
+	};
 }
 
 export function nodeDataPropertyAttributes(node: DiagramNode, payload: DiagramPayload): readonly NodeDataPropertyAttribute[] {

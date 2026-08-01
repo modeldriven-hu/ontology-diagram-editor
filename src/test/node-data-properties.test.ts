@@ -1,9 +1,34 @@
 import * as assert from 'assert';
 
+import { minimumNodeWithImageHeight, minimumNodeWithImageWidth } from '../shared/canvas-geometry';
 import type { DiagramNode, DiagramPayload } from '../ui/webview/ontology-diagram-types';
-import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleDisplayText, nodeTitleText } from '../ui/webview/components/node-data-properties';
+import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleDisplayText, nodeTitleText, requiredMinimumNodeSize } from '../ui/webview/components/node-data-properties';
 
 suite('Node data properties', () => {
+	test('keeps a minimum usable image area when minimizing an image node', () => {
+		const node: DiagramNode = {
+			id: 'node_icon',
+			ontology_ref: 'ex:Icon',
+			x: 0,
+			y: 0,
+			width: 240,
+			height: 180,
+			image: 'data:image/png;base64,aWNvbg==',
+		};
+		const size = requiredMinimumNodeSize(node, { diagram: {} }, {
+			nodeFontSize: 13,
+			nodeFontFamily: 'Arial',
+			nodeFontBold: true,
+			nodeFontItalic: false,
+		});
+
+		assert.deepStrictEqual(size, {
+			width: minimumNodeWithImageWidth,
+			height: minimumNodeWithImageHeight,
+		});
+		assert.strictEqual(size.height, 88);
+	});
+
 	test('uses ontology labels for class node titles', () => {
 		const node: DiagramNode = {
 			id: 'node_service',

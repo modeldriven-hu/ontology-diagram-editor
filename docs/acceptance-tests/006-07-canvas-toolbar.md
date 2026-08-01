@@ -25,6 +25,7 @@
 - Given the user selects Directed Layers, ELK Layered, ELK Force, ELK Mr. Tree, or Grid and chooses Arrange Diagram, when persistence completes, then the selected algorithm determines the node positions while node sizes are preserved.
 - Given the user selects ELK Layered, when they set the direction, node gap, or layer gap and choose Arrange Diagram, then the resulting layout uses the configured options without persisting those settings in the diagram file.
 - Given the diagram contains a directed cycle and the user selects ELK Layered, when Arrange Diagram completes, then the cycle is distributed across layers and its edges receive ELK-computed routes.
+- Given the user selects ELK Layered and chooses Arrange Diagram, when ELK can place a center edge label inline, then the persisted label center lies on its routed edge.
 - Given the user changes only the layout algorithm selection, when the document is inspected, then the `.odiagram` content is unchanged.
 - Given the user chooses Fit, Reset, Zoom In, or Zoom Out, when the viewport changes, then persisted diagram coordinates are unchanged.
 - Given an ontology-backed node or edge is selected, when the user chooses Select corresponding model-tree item, then the matching model-tree item is revealed when one exists.
@@ -39,6 +40,8 @@
 ## Local Element Toolbar
 
 - Given a node is selected, when the local toolbar appears, then Resize to minimum, Create note from ontology comment, and Show related elements are available.
+- Given a node has an assigned image, when Resize to minimum is chosen, then the resized node retains at least the minimum usable image area and its title remains visible.
+- Given multiple nodes are selected, when the local toolbar appears and Resize to minimum is chosen, then every selected node is resized to its own content-aware minimum size in one diagram edit.
 - Given a selected node has no ontology comment, when the local toolbar appears, then Create note from ontology comment is disabled or reports a concise problem.
 - Given a node is selected, when the user chooses Show related elements and selects a depth, then related object-property relationships, object-property assertions, and subclass relationships up to that depth are added without duplicating existing nodes or edges.
 - Given related data properties exist, when Show related elements runs, then it does not create datatype nodes or data-property edges because data properties are displayed inside nodes.

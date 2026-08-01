@@ -1,5 +1,6 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
+import { nodeImageInset, nodeImageReservedHeight } from '../../../shared/canvas-geometry';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../../shared/diagram-containment';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
@@ -460,10 +461,10 @@ function hasNodeImage(node: DiagramNode): node is DiagramNode & { readonly image
 
 function nodeImageBounds(bounds: ExportBounds): ExportBounds {
 	return {
-		x: bounds.x + 8,
-		y: bounds.y + 8,
-		width: Math.max(0, bounds.width - 16),
-		height: Math.max(0, bounds.height - 56),
+		x: bounds.x + nodeImageInset,
+		y: bounds.y + nodeImageInset,
+		width: Math.max(0, bounds.width - (nodeImageInset * 2)),
+		height: Math.max(0, bounds.height - nodeImageReservedHeight),
 	};
 }
 

@@ -3,7 +3,7 @@ import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEn
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import type { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { nodeTitleText } from '../components/node-data-properties';
-import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
+import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, resizeNodeSelectionToMinimum, type NodeSelectionAlignment, type NodeSelectionDistribution, type NodeSelectionSizeMatch } from '../components/node-selection-layout';
 import type { DiagramEdge, DiagramNode, DiagramPayload } from '../ontology-diagram-types';
 import { edgeSelectionBounds, edgeToolbarPoint, nodeSelectionBounds } from './canvas-content-bounds';
 import { setActionTooltip } from './canvas-dom';
@@ -312,9 +312,9 @@ export class LocalElementToolbarController {
 
 	private updateLocalElementToolbarButtons(element: LocalElementToolbarContext): void {
 		const elements = this.options.elements;
-		const canResize = element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 		const isNodeSelection = element.kind === 'nodeSelection';
 		const isEdgeSelection = element.kind === 'edgeSelection';
+		const canResize = isNodeSelection || element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
 		elements.minimizeLocalButton.hidden = !canResize;
 		elements.createCommentNoteLocalButton.hidden = element.kind !== 'node';
 		elements.showRelatedElementsLocalButton.hidden = element.kind !== 'node';
@@ -391,7 +391,9 @@ export class LocalElementToolbarController {
 			elements.createCommentNoteLocalButton.disabled = false;
 		}
 
-		if (element.kind === 'note') {
+		if (element.kind === 'nodeSelection') {
+			setActionTooltip(elements.minimizeLocalButton, 'Resize selected nodes to minimum size');
+		} else if (element.kind === 'note') {
 			setActionTooltip(elements.minimizeLocalButton, 'Resize note to compact size');
 		} else if (element.kind === 'image') {
 			setActionTooltip(elements.minimizeLocalButton, 'Resize image to minimum size');
@@ -856,6 +858,21 @@ export class LocalElementToolbarController {
 	}
 
 	private resizeSelectedElementToMinimum(): void {
+		const toolbarContext = this.localElementToolbarContext();
+		if (toolbarContext?.kind === 'nodeSelection') {
+			const updates = resizeNodeSelectionToMinimum(toolbarContext.values, (node) =>
+				this.options.minimumSizeForElement({ kind: 'node', value: node }));
+			if (updates.length === 0) {
+				this.options.showStatus('Selected nodes are already at their minimum size.');
+				return;
+			}
+
+			this.options.geometryPersistence.applyElementBounds(updates, 'resize');
+			this.update();
+			this.options.showStatus('Resized selected nodes to minimum size.');
+			return;
+		}
+
 		const selectedElementId = this.options.canvas.selectedElementId();
 		const selectedElement = selectedElementId === undefined
 			? undefined
@@ -1034,7 +1051,7 @@ function localToolbarKeyboardDelta(event: KeyboardEvent): CanvasPoint | undefine
 
 function localElementToolbarFallbackWidth(element: LocalElementToolbarContext): number {
 	if (element.kind === 'nodeSelection') {
-		return 410;
+		return 446;
 	}
 	if (element.kind === 'edgeSelection') {
 		return 92;

@@ -1,5 +1,5 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent, type CanvasSelectionRequestedMessage } from '../../../shared/canvas-editor-events';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
+import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
@@ -11,7 +11,7 @@ import { IconGalleryDialog } from '../components/icon-gallery-dialog';
 import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
-import { measuredTextWidth, nodeCompartmentAttributes, nodeTitleText, requiredNodeHeightForDataProperties, requiredNodeWidthForDataProperties } from '../components/node-data-properties';
+import { measuredTextWidth, requiredMinimumNodeSize } from '../components/node-data-properties';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { metadataBounds, renderMetadataToolbarIcon } from '../components/ontology-diagram-metadata';
@@ -709,24 +709,7 @@ function commentTextForNode(node: DiagramNode): string {
 
 function minimumSizeForElement(element: CanvasPropertyElement | undefined): { readonly width: number; readonly height: number } | undefined {
 	if (element?.kind === 'node') {
-		const attributes = nodeCompartmentAttributes(element.value, webviewConfig.payload);
-		const fontSize = element.value.style?.font?.size ?? theme.nodeFontSize;
-		return {
-			width: requiredNodeWidthForDataProperties({
-				title: nodeTitleText(element.value, webviewConfig.payload),
-				attributes,
-				fontSize,
-				fontFamily: element.value.style?.font?.family ?? theme.nodeFontFamily,
-				titleBold: element.value.style?.font?.bold ?? theme.nodeFontBold,
-				attributeItalic: element.value.style?.font?.italic ?? theme.nodeFontItalic,
-				minimumWidth: minimumNodeWidth,
-			}),
-			height: requiredNodeHeightForDataProperties({
-				attributeCount: attributes.length,
-				fontSize,
-				minimumHeight: minimumNodeHeight,
-			}),
-		};
+		return requiredMinimumNodeSize(element.value, webviewConfig.payload, theme);
 	}
 	if (element?.kind === 'note') {
 		return requiredNoteSize(element.value);
