@@ -32,6 +32,9 @@
 - Given a node or standalone image is selected, when its image field is displayed, then the panel indicates that the image is embedded without exposing an editable data URI.
 - Given a node has an embedded image, when the user clears it, then the node image field is removed.
 - Given an image is selected, when the Style tab is shown, then image border type, border weight, border color, and drop shadow are editable.
+- Given any editable color field is shown, when the diagram uses light or dark mode, then twelve palette swatches appropriate to that mode are available alongside the native picker and text input.
+- Given fill, accent, and text color fields are shown, when their palettes are compared, then they use consistent color-family names with shades appropriate to surfaces, accents, and readable foregrounds respectively.
+- Given a palette swatch is chosen, when the color edit is committed, then its hexadecimal value is persisted and the chosen swatch is visibly selected.
 - Given multiple nodes are selected, when a shared style field or label overflow is changed, then that value is applied to every selected node while their unrelated style overrides are preserved.
 - Given multiple nodes are selected, when Clear Style is used, then all style overrides are cleared from every selected node.
 - Given multiple edges are selected, when routing type is changed, then it is applied to every selected edge without changing route points.

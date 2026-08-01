@@ -583,6 +583,8 @@ function webviewStyles(): string {
 		display: none;
 	}
 
+	.canvas-action[data-tooltip]::after,
+	.canvas-toolbar-drag-handle[data-tooltip]::after,
 	.local-element-action[data-tooltip]::after,
 	.local-element-drag-handle[data-tooltip]::after {
 		content: attr(data-tooltip);
@@ -609,12 +611,50 @@ function webviewStyles(): string {
 		white-space: normal;
 	}
 
+	.canvas-action[data-tooltip]:hover::after,
+	.canvas-action[data-tooltip]:focus-visible::after,
+	.canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+	.canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after,
 	.local-element-action[data-tooltip]:hover::after,
 	.local-element-action[data-tooltip]:focus-visible::after,
 	.local-element-drag-handle[data-tooltip]:hover::after,
 	.local-element-drag-handle[data-tooltip]:focus-visible::after {
 		opacity: 1;
 		transform: translate(-50%, 0);
+	}
+
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]::after {
+		top: auto;
+		bottom: calc(100% + 8px);
+		transform: translate(-50%, 2px);
+	}
+
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]:focus-visible::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after {
+		transform: translate(-50%, 0);
+	}
+
+	.canvas-toolbar-pin[data-tooltip]::after {
+		left: auto;
+		right: 0;
+		transform: translateY(-2px);
+	}
+
+	.canvas-toolbar-pin[data-tooltip]:hover::after,
+	.canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+		transform: translateY(0);
+	}
+
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]::after {
+		transform: translateY(2px);
+	}
+
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+		transform: translateY(0);
 	}
 
 	.local-element-action:hover,
@@ -1147,6 +1187,7 @@ function webviewStyles(): string {
 
 	.property-color-field {
 		align-items: stretch;
+		flex-wrap: wrap;
 	}
 
 	.property-color-input {
@@ -1165,6 +1206,38 @@ function webviewStyles(): string {
 		outline: none;
 	}
 
+	.property-color-palette {
+		display: grid;
+		flex: 1 0 100%;
+		grid-template-columns: repeat(6, 20px);
+		gap: 5px;
+		padding-top: 3px;
+	}
+
+	.property-color-swatch {
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--vscode-editor-foreground) 24%, transparent);
+		border-radius: 5px;
+		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
+		cursor: pointer;
+		transition: border-color 100ms ease, box-shadow 100ms ease, transform 100ms ease;
+	}
+
+	.property-color-swatch:hover,
+	.property-color-swatch:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+		outline: none;
+		transform: translateY(-1px);
+	}
+
+	.property-color-swatch[aria-pressed="true"] {
+		border-color: var(--vscode-focusBorder);
+		box-shadow: 0 0 0 2px var(--vscode-focusBorder), inset 0 0 0 2px var(--vscode-editor-background);
+	}
+
 	.property-button {
 		flex: 0 0 auto;
 		height: 26px;
@@ -1181,6 +1254,139 @@ function webviewStyles(): string {
 		background: var(--vscode-inputValidation-errorBackground, var(--vscode-button-secondaryBackground));
 		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-button-border, transparent));
 		color: var(--vscode-inputValidation-errorForeground, var(--vscode-button-secondaryForeground));
+	}
+
+	body[data-diagram-theme="light"] {
+		--diagram-ui-accent: #2563eb;
+		--diagram-ui-accent-soft: #eff6ff;
+		--diagram-ui-border: #dbe3ec;
+		--diagram-ui-divider: #e7edf4;
+		--diagram-ui-foreground: #334155;
+		--diagram-ui-muted: #64748b;
+		--diagram-ui-surface: rgb(255 255 255 / 94%);
+	}
+
+	body[data-diagram-theme="light"] .canvas-scroll {
+		background-color: var(--diagram-canvas-background, #f5f7fa);
+		background-image: radial-gradient(circle, rgb(148 163 184 / 32%) 0 1px, transparent 1.2px);
+		background-position: 0 0;
+		background-size: 20px 20px;
+	}
+
+	body[data-diagram-theme="light"] .canvas-actions,
+	body[data-diagram-theme="light"] .local-element-toolbar {
+		border-color: var(--diagram-ui-border);
+		border-radius: 10px;
+		background: var(--diagram-ui-surface);
+		color: var(--diagram-ui-foreground);
+		box-shadow: 0 12px 32px rgb(15 23 42 / 11%), 0 2px 8px rgb(15 23 42 / 6%);
+		backdrop-filter: blur(14px) saturate(140%);
+	}
+
+	body[data-diagram-theme="light"] .canvas-actions {
+		padding: 5px;
+	}
+
+	body[data-diagram-theme="light"] .canvas-actions.docked-top,
+	body[data-diagram-theme="light"] .canvas-actions.docked-bottom {
+		border-radius: 0;
+		background: rgb(255 255 255 / 96%);
+	}
+
+	body[data-diagram-theme="light"] .canvas-actions.docked-top {
+		border-bottom: 1px solid var(--diagram-ui-border);
+	}
+
+	body[data-diagram-theme="light"] .canvas-actions.docked-bottom {
+		border-top: 1px solid var(--diagram-ui-border);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action,
+	body[data-diagram-theme="light"] .local-element-action,
+	body[data-diagram-theme="light"] .canvas-toolbar-drag-handle,
+	body[data-diagram-theme="light"] .local-element-drag-handle {
+		border-radius: 7px;
+		color: var(--diagram-ui-foreground);
+		transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+	}
+
+	body[data-diagram-theme="light"] .canvas-toolbar-drag-handle,
+	body[data-diagram-theme="light"] .local-element-drag-handle {
+		color: var(--diagram-ui-muted);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action:hover,
+	body[data-diagram-theme="light"] .canvas-action:focus-visible,
+	body[data-diagram-theme="light"] .local-element-action:hover,
+	body[data-diagram-theme="light"] .local-element-action:focus-visible,
+	body[data-diagram-theme="light"] .local-element-action[aria-pressed="true"],
+	body[data-diagram-theme="light"] .canvas-toolbar-drag-handle:hover,
+	body[data-diagram-theme="light"] .canvas-toolbar-drag-handle:focus-visible,
+	body[data-diagram-theme="light"] .local-element-drag-handle:hover,
+	body[data-diagram-theme="light"] .local-element-drag-handle:focus-visible {
+		border-color: #bfdbfe;
+		background: var(--diagram-ui-accent-soft);
+		color: var(--diagram-ui-accent);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action.is-active,
+	body[data-diagram-theme="light"] .canvas-action[aria-pressed="true"],
+	body[data-diagram-theme="light"] .canvas-toolbar-pin.is-pinned {
+		border-color: var(--diagram-ui-accent);
+		background: var(--diagram-ui-accent);
+		color: #ffffff;
+		box-shadow: 0 2px 6px rgb(37 99 235 / 24%);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action-select,
+	body[data-diagram-theme="light"] .canvas-layout-spacing-input,
+	body[data-diagram-theme="light"] .local-element-select {
+		border-color: var(--diagram-ui-border);
+		border-radius: 7px;
+		background: #f8fafc;
+		color: var(--diagram-ui-foreground);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action-select:hover,
+	body[data-diagram-theme="light"] .canvas-action-select:focus-visible,
+	body[data-diagram-theme="light"] .canvas-layout-spacing-input:hover,
+	body[data-diagram-theme="light"] .canvas-layout-spacing-input:focus-visible,
+	body[data-diagram-theme="light"] .local-element-select:hover,
+	body[data-diagram-theme="light"] .local-element-select:focus-visible {
+		border-color: #93c5fd;
+		box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+	}
+
+	body[data-diagram-theme="light"] .canvas-action-separator,
+	body[data-diagram-theme="light"] .local-element-action-separator {
+		width: 1px;
+		background: var(--diagram-ui-divider);
+	}
+
+	body[data-diagram-theme="light"] .canvas-layout-spacing-field {
+		color: var(--diagram-ui-muted);
+	}
+
+	body[data-diagram-theme="light"] .note-editor,
+	body[data-diagram-theme="light"] .empty-state,
+	body[data-diagram-theme="light"] .error-state {
+		border-color: var(--diagram-ui-border);
+		border-radius: 10px;
+		background: var(--diagram-ui-surface);
+		box-shadow: 0 14px 36px rgb(15 23 42 / 12%);
+		backdrop-filter: blur(14px);
+	}
+
+	body[data-diagram-theme="light"] .empty-state {
+		color: var(--diagram-ui-muted);
+	}
+
+	body[data-diagram-theme="light"] .status {
+		border-color: var(--diagram-ui-border);
+		border-radius: 9px;
+		background: #ffffff;
+		color: var(--diagram-ui-foreground);
+		box-shadow: 0 12px 28px rgb(15 23 42 / 13%);
 	}`;
 }
 

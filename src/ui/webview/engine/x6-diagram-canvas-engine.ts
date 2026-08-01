@@ -2223,7 +2223,7 @@ function cornerRadius(style: ElementStyle | undefined, fallback: number): number
 
 function shadowFilter(style: ElementStyle | undefined, fallback: boolean, theme: WebviewTheme): string {
 	return (style?.shadow ?? fallback)
-		? `drop-shadow(3px 3px 2px ${theme.shadowColor})`
+		? `drop-shadow(0 5px 8px ${theme.shadowColor})`
 		: 'none';
 }
 

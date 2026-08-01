@@ -11,8 +11,10 @@ import {
 	parseOntologyDiagramThemeYaml,
 	readOntologyDiagramThemeFile,
 	resolveCanvasStyle,
+	resolveEdgeStyle,
 	resolveLabelStyle,
 	resolveNodeStyle,
+	resolveNoteStyle,
 	stringifyOntologyDiagramThemeYaml,
 	writeOntologyDiagramThemeFile,
 } from '../documents/otheme';
@@ -88,6 +90,23 @@ theme:
 		assert.strictEqual(style.font?.family, defaultOntologyDiagramTheme.nodes?.font?.family);
 		assert.strictEqual(style.cornerRadius, defaultOntologyDiagramTheme.nodes?.cornerRadius);
 		assert.strictEqual(style.shadow, defaultOntologyDiagramTheme.nodes?.shadow);
+	});
+
+	test('uses the modern card palette for built-in light mode', () => {
+		const canvas = resolveCanvasStyle(undefined, 'light');
+		const node = resolveNodeStyle(undefined, undefined, 'light');
+		const edge = resolveEdgeStyle(undefined, undefined, 'light');
+		const note = resolveNoteStyle(undefined, undefined, 'light');
+
+		assert.strictEqual(canvas.bgColor, '#F5F7FA');
+		assert.strictEqual(node.bgColor, '#FFFFFF');
+		assert.strictEqual(node.textColor, '#1E293B');
+		assert.strictEqual(node.border?.color, '#CBD5E1');
+		assert.strictEqual(node.cornerRadius, 8);
+		assert.strictEqual(edge.color, '#8795A8');
+		assert.strictEqual(edge.textColor, '#475569');
+		assert.strictEqual(note.bgColor, '#FFF8DC');
+		assert.strictEqual(note.cornerRadius, 8);
 	});
 
 	test('merges default theme, active theme, and element style by field', () => {

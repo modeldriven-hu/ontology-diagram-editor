@@ -1,4 +1,5 @@
 export interface WebviewTheme {
+	readonly mode: WebviewThemeMode;
 	readonly canvasBackground: string;
 	readonly containmentBackgrounds: readonly string[];
 	readonly containmentBorders: readonly string[];
@@ -48,6 +49,7 @@ export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode(), o
 	const defaultFontSize = Number.parseInt(cssVariable(styles, '--vscode-font-size', '13'), 10) || 13;
 
 	return {
+		mode,
 		canvasBackground: modeDefaults.canvasBackground,
 		containmentBackgrounds: modeDefaults.containmentBackgrounds,
 		containmentBorders: modeDefaults.containmentBorders,
@@ -103,24 +105,24 @@ interface ThemeModeDefaults {
 }
 
 const lightThemeDefaults: ThemeModeDefaults = {
-	canvasBackground: '#FFFFFF',
-	containmentBackgrounds: ['#E8EEF8', '#F3F6FB', '#FFFFCC', '#EAF5FF'],
-	containmentBorders: ['#375A8C', '#6682A8', '#333333', '#5C789A'],
-	edgeColor: '#4A4A4A',
-	edgeTextColor: '#000000',
-	edgeWeight: 1,
+	canvasBackground: '#F5F7FA',
+	containmentBackgrounds: ['#EDF4FF', '#F4F7FB', '#F0F9F7', '#F7F4FC'],
+	containmentBorders: ['#9BB8DE', '#BAC6D6', '#9ECFC4', '#C5B4DD'],
+	edgeColor: '#8795A8',
+	edgeTextColor: '#475569',
+	edgeWeight: 1.25,
 	elementShadow: true,
-	editorBackground: '#FFFFFF',
-	editorForeground: '#000000',
-	nodeBackground: '#FFFFCC',
-	nodeBorder: '#333333',
-	nodeCornerRadius: 0,
-	noteBackground: '#CCFFCC',
-	noteBorder: '#669966',
-	noteCornerRadius: 0,
-	noteFoldBackground: '#B8E6B8',
-	noteForeground: '#000000',
-	shadowColor: 'rgb(0 0 0 / 16%)',
+	editorBackground: '#F5F7FA',
+	editorForeground: '#1E293B',
+	nodeBackground: '#FFFFFF',
+	nodeBorder: '#CBD5E1',
+	nodeCornerRadius: 8,
+	noteBackground: '#FFF8DC',
+	noteBorder: '#E7CA72',
+	noteCornerRadius: 8,
+	noteFoldBackground: '#F5DFA0',
+	noteForeground: '#493D1F',
+	shadowColor: 'rgb(15 23 42 / 12%)',
 };
 
 const darkThemeDefaults: ThemeModeDefaults = {

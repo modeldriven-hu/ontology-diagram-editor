@@ -6,6 +6,26 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-01
+
+- Added obstacle-aware edge-path optimization with deterministic port selection,
+  parallel-route separation, self-loop routing, and preservation of manually positioned
+  edge and cardinality labels.
+- Added shared routing and style controls for multiple selected edges, including an
+  atomic Optimize Edges action.
+- Added inline and stereotype asserted-type presentation for individuals, together with
+  clearer Ontology, Display, Geometry, and Style property tabs.
+- Made newly created and materialized nodes start at their minimum size with wrapped
+  titles, and improved minimum resizing for multi-selection and image-bearing nodes.
+- Improved ELK layered arrangement, including inline edge labels and more consistent
+  spacing and minimum-size behavior.
+- Redesigned the light canvas with neutral card surfaces, softer connectors, rounded
+  elements, modern shadows, a dotted workspace, and polished floating controls.
+- Added twelve named, theme-aware color families to every editable color field, with
+  practical shades for fills, accents, and readable text in light and dark modes.
+- Added accessible custom tooltips to every fixed-toolbar action, including correct
+  placement when the toolbar is docked at the bottom.
+
 ## [1.4.2] - 2026-07-29
 
 - Fixed exported edge, cardinality, and standalone label positioning, text clipping,
