@@ -10,40 +10,11 @@ import { measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, n
 import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
-
-type ExportFormat = 'svg' | 'png';
-
-interface DiagramExport {
-	readonly svg: string;
-	readonly width: number;
-	readonly height: number;
-	readonly defaultFileName: string;
-}
-
-interface ExportBounds {
-	readonly x: number;
-	readonly y: number;
-	readonly width: number;
-	readonly height: number;
-}
-
-interface TextBlockOptions {
-	readonly id: string;
-	readonly text: string;
-	readonly bounds: ExportBounds;
-	readonly color: string;
-	readonly fontFamily: string;
-	readonly fontSize: number;
-	readonly bold?: boolean;
-	readonly italic?: boolean;
-	readonly align: 'left' | 'center';
-	readonly verticalAlign: 'top' | 'middle';
-	readonly padding: number;
-	readonly lineHeight?: number;
-	readonly wrap?: boolean;
-	readonly clip?: boolean;
-	readonly limitLines?: boolean;
-}
+import { elementCornerRadius, imagePreserveAspectRatio, isNoteConnection, plainPresentationText } from './presentation/diagram-presentation';
+import { svgToPngBase64 } from './svg-to-png';
+import type { DiagramExport, ExportBounds, TextBlockOptions } from './canvas-export-types';
+import { explicitLines, wrapLines } from './canvas-export-text-layout';
+import { centeredTextBounds, diagramContentBounds, edgeExportBounds, edgeLabelAppearance, edgeRoutePoints, elementBounds, standaloneLabelExportBounds } from './canvas-export-bounds';
 
 export function renderDiagramExportToolbarIcons(exportSvgButton: HTMLButtonElement, exportPngButton: HTMLButtonElement): void {
 	exportSvgButton.replaceChildren(exportTextIcon('SVG'));
@@ -290,10 +261,6 @@ function edgeMarkerId(edge: DiagramEdge, marker: 'hollow-triangle' | 'open-arrow
 	return `${marker}_${safeIdentifier(edge.id)}`;
 }
 
-function isNoteConnection(edge: DiagramEdge): boolean {
-	return edge.ontology_item_type === 'noteConnection';
-}
-
 function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTheme, isContainer = false, containmentDepth?: number): string {
 	const backgroundFallback = containmentDepth !== undefined
 		? containmentColorAtDepth(theme.containmentBackgrounds, containmentDepth, theme.nodeBackground)
@@ -466,19 +433,6 @@ function nodeImageBounds(bounds: ExportBounds): ExportBounds {
 		width: Math.max(0, bounds.width - (nodeImageInset * 2)),
 		height: Math.max(0, bounds.height - nodeImageReservedHeight),
 	};
-}
-
-function imagePreserveAspectRatio(node: DiagramNode): 'xMidYMid meet' | 'xMidYMid slice' | 'xMidYMin slice' | 'xMinYMid slice' {
-	switch (node.style?.image_fit) {
-		case 'cover':
-			return 'xMidYMid slice';
-		case 'match_width':
-			return 'xMidYMin slice';
-		case 'match_height':
-			return 'xMinYMid slice';
-		default:
-			return 'xMidYMid meet';
-	}
 }
 
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {
@@ -663,246 +617,15 @@ function borderAttributes(border: { readonly color: string; readonly weight: num
 }
 
 function cornerRadius(style: DiagramElementStyle | undefined, fallback: number): number {
-	return style?.corner_radius ?? fallback;
+	return elementCornerRadius(style, fallback);
 }
 
 function shadowAttribute(style: DiagramElementStyle | undefined, fallback: boolean): string {
 	return (style?.shadow ?? fallback) ? ' filter="url(#shadow)"' : '';
 }
 
-function wrapLines(text: string, width: number, fontSize: number): readonly string[] {
-	const maxCharacters = Math.max(1, Math.floor(width / Math.max(1, fontSize * 0.56)));
-	const wrappedLines: string[] = [];
-	for (const rawLine of text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n')) {
-		const words = rawLine.split(/\s+/u).filter((word) => word.length > 0);
-		if (words.length === 0) {
-			wrappedLines.push('');
-			continue;
-		}
-
-		let currentLine = '';
-		for (const word of words) {
-			if (word.length > maxCharacters) {
-				if (currentLine.length > 0) {
-					wrappedLines.push(currentLine);
-					currentLine = '';
-				}
-				for (let index = 0; index < word.length; index += maxCharacters) {
-					wrappedLines.push(word.slice(index, index + maxCharacters));
-				}
-				continue;
-			}
-
-			const candidate = currentLine.length === 0 ? word : `${currentLine} ${word}`;
-			if (candidate.length > maxCharacters) {
-				wrappedLines.push(currentLine);
-				currentLine = word;
-			} else {
-				currentLine = candidate;
-			}
-		}
-		if (currentLine.length > 0) {
-			wrappedLines.push(currentLine);
-		}
-	}
-
-	return wrappedLines.length === 0 ? [''] : wrappedLines;
-}
-
-function explicitLines(text: string): readonly string[] {
-	const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
-
-	return lines.length === 0 ? [''] : lines;
-}
-
-function diagramContentBounds(elements: readonly ExportBounds[]): ExportBounds | undefined {
-	if (elements.length === 0) {
-		return undefined;
-	}
-
-	const minX = Math.min(...elements.map((element) => element.x));
-	const minY = Math.min(...elements.map((element) => element.y));
-	const maxX = Math.max(...elements.map((element) => element.x + element.width));
-	const maxY = Math.max(...elements.map((element) => element.y + element.height));
-
-	return {
-		x: minX,
-		y: minY,
-		width: maxX - minX,
-		height: maxY - minY,
-	};
-}
-
-function edgeExportBounds(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): readonly ExportBounds[] {
-	const points = edgeRoutePoints(edge);
-	if (points.length < 2) {
-		return [];
-	}
-
-	const pointBounds = points.map((point) => ({
-		x: point.x,
-		y: point.y,
-		width: 1,
-		height: 1,
-	}));
-	if (isNoteConnection(edge)) {
-		return pointBounds;
-	}
-
-	const cardinalities = edgeCardinalityLabels(edge, payload);
-	return [
-		...pointBounds,
-		edgeTextExportBounds(edge, edgeDisplayName(edge.ontology_ref, payload), edge.label, false, theme),
-		...cardinalityTextExportBounds(edge, cardinalities.source, edge.source_cardinality_label ?? defaultSourceCardinalityLabel(points), theme),
-		...cardinalityTextExportBounds(edge, cardinalities.target, edge.target_cardinality_label ?? defaultTargetCardinalityLabel(points), theme),
-	];
-}
-
-function cardinalityTextExportBounds(
-	edge: DiagramEdge,
-	text: string | undefined,
-	position: { readonly x: number; readonly y: number } | undefined,
-	theme: WebviewTheme,
-): readonly ExportBounds[] {
-	return text === undefined || position === undefined
-		? []
-		: [edgeTextExportBounds(edge, text, position, true, theme)];
-}
-
-function edgeTextExportBounds(
-	edge: DiagramEdge,
-	text: string,
-	position: { readonly x: number; readonly y: number },
-	cardinality: boolean,
-	theme: WebviewTheme,
-): ExportBounds {
-	return centeredTextBounds({
-		center: position,
-		text,
-		...edgeLabelAppearance(edge, cardinality, theme),
-		minimumWidth: cardinality ? 28 : 80,
-		minimumHeight: cardinality ? 20 : 24,
-		padding: 2,
-	});
-}
-
-function edgeLabelAppearance(edge: DiagramEdge, cardinality: boolean, theme: WebviewTheme): {
-	readonly fontFamily: string;
-	readonly fontSize: number;
-	readonly bold?: boolean;
-	readonly italic?: boolean;
-} {
-	return {
-		fontFamily: edge.style?.font?.family ?? theme.fontFamily,
-		fontSize: cardinality
-			? Math.max(9, (edge.style?.font?.size ?? theme.fontSize) - 1)
-			: edge.style?.font?.size ?? Math.max(10, theme.fontSize - 1),
-		bold: edge.style?.font?.bold,
-		italic: edge.style?.font?.italic,
-	};
-}
-
-function standaloneLabelExportBounds(label: DiagramLabel, theme: WebviewTheme): ExportBounds {
-	return centeredTextBounds({
-		center: {
-			x: label.x + (label.width / 2),
-			y: label.y + (label.height / 2),
-		},
-		text: label.text,
-		fontFamily: label.style?.font?.family ?? theme.fontFamily,
-		fontSize: label.style?.font?.size ?? theme.fontSize,
-		bold: label.style?.font?.bold,
-		italic: label.style?.font?.italic,
-		minimumWidth: label.width,
-		minimumHeight: label.height,
-		padding: 4,
-	});
-}
-
-function centeredTextBounds(options: {
-	readonly center: { readonly x: number; readonly y: number };
-	readonly text: string;
-	readonly fontFamily: string;
-	readonly fontSize: number;
-	readonly bold?: boolean;
-	readonly italic?: boolean;
-	readonly minimumWidth: number;
-	readonly minimumHeight: number;
-	readonly padding: number;
-}): ExportBounds {
-	const lines = explicitLines(options.text);
-	const textWidth = Math.max(0, ...lines.map((line) => measuredTextWidth({
-		text: line,
-		fontFamily: options.fontFamily,
-		fontSize: options.fontSize,
-		bold: options.bold,
-		italic: options.italic,
-	})));
-	const lineHeight = options.fontSize * 1.25;
-	const width = Math.max(options.minimumWidth, textWidth + (options.padding * 2));
-	const height = Math.max(options.minimumHeight, (lines.length * lineHeight) + (options.padding * 2));
-
-	return {
-		x: options.center.x - (width / 2),
-		y: options.center.y - (height / 2),
-		width,
-		height,
-	};
-}
-
-function edgeRoutePoints(edge: DiagramEdge): readonly { readonly x: number; readonly y: number }[] {
-	if (edge.points.length < 2) {
-		return [];
-	}
-	if (edge.route_layout === 'direct') {
-		return [edge.points[0], edge.points[edge.points.length - 1]];
-	}
-
-	return edge.points;
-}
-
-function elementBounds(element: ExportBounds): ExportBounds {
-	return {
-		x: element.x,
-		y: element.y,
-		width: element.width,
-		height: element.height,
-	};
-}
-
-function svgToPngBase64(svg: string, width: number, height: number): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const image = new Image();
-		image.addEventListener('load', () => {
-			const canvas = document.createElement('canvas');
-			const exportScale = Math.max(2, window.devicePixelRatio || 1);
-			canvas.width = Math.ceil(width * exportScale);
-			canvas.height = Math.ceil(height * exportScale);
-			const context = canvas.getContext('2d');
-			if (context === null) {
-				reject(new Error('Could not create PNG export canvas.'));
-				return;
-			}
-
-			context.scale(exportScale, exportScale);
-			context.drawImage(image, 0, 0, width, height);
-			resolve(canvas.toDataURL('image/png').split(',')[1] ?? '');
-		});
-		image.addEventListener('error', () => {
-			reject(new Error('Could not render the diagram SVG as PNG.'));
-		});
-		image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-	});
-}
-
 function plainText(value: string): string {
-	if (!/<[a-z][\s\S]*>/iu.test(value)) {
-		return value;
-	}
-
-	const element = document.createElement('div');
-	element.innerHTML = value;
-	return element.textContent ?? value;
+	return plainPresentationText(value);
 }
 
 function diagramBaseName(payload: DiagramPayload): string {
