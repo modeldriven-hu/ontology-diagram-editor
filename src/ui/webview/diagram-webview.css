@@ -1,0 +1,1200 @@
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editor-background);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+	line-height: 1.4;
+}
+
+.editor {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	height: 100vh;
+}
+
+.header {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-width: 0;
+	min-height: 44px;
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-sideBar-background);
+}
+
+.title-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	min-width: max-content;
+	font-size: 13px;
+}
+
+.title-mark {
+	width: 10px;
+	height: 10px;
+	border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 72%, var(--vscode-editor-background));
+	border-radius: 2px;
+	background: color-mix(in srgb, var(--vscode-focusBorder) 22%, var(--vscode-editor-background));
+	box-shadow: inset 0 0 0 2px var(--vscode-sideBar-background);
+}
+
+.canvas-shell {
+	grid-column: 1;
+	grid-row: 2;
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	--canvas-toolbar-dock-size: 0px;
+}
+
+.canvas-shell.toolbar-docked-top .canvas-scroll {
+	top: var(--canvas-toolbar-dock-size);
+}
+
+.canvas-shell.toolbar-docked-bottom .canvas-scroll {
+	bottom: var(--canvas-toolbar-dock-size);
+}
+
+.canvas-scroll {
+	position: absolute;
+	inset: 0;
+	overflow: auto;
+	outline: none;
+	background:
+		linear-gradient(var(--diagram-canvas-background, var(--vscode-editor-background)), var(--diagram-canvas-background, var(--vscode-editor-background))),
+		linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
+		linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px);
+	background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
+}
+
+.canvas-scroll.pan-mode,
+.canvas-scroll.pan-mode .canvas-content {
+	cursor: grab;
+	touch-action: none;
+}
+
+.canvas-scroll.panning,
+.canvas-scroll.panning .canvas-content {
+	cursor: grabbing;
+}
+
+.canvas-actions {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	z-index: 5;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	margin: 0;
+	padding: 3px;
+	border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, var(--vscode-editor-background));
+	box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+}
+
+.canvas-actions.docked-top,
+.canvas-actions.docked-bottom {
+	left: 0 !important;
+	width: 100%;
+	border: 0;
+	border-radius: 0;
+	background: color-mix(in srgb, var(--vscode-sideBar-background) 96%, var(--vscode-editor-background));
+	box-shadow: 0 5px 16px rgb(0 0 0 / 14%);
+	backdrop-filter: blur(10px) saturate(120%);
+}
+
+.canvas-actions.docked-top {
+	top: 0 !important;
+	border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 88%, transparent);
+}
+
+.canvas-actions.docked-bottom {
+	top: auto !important;
+	bottom: 0;
+	border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 88%, transparent);
+	box-shadow: 0 -5px 16px rgb(0 0 0 / 14%);
+}
+
+.canvas-action-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.canvas-actions.docked-top .canvas-action-row,
+.canvas-actions.docked-bottom .canvas-action-row {
+	width: 100%;
+	gap: 4px;
+}
+
+.canvas-actions.docked-top .canvas-toolbar-drag-handle,
+.canvas-actions.docked-bottom .canvas-toolbar-drag-handle {
+	margin-right: 3px;
+	border-right-color: color-mix(in srgb, var(--vscode-panel-border) 78%, transparent);
+	border-radius: 0;
+}
+
+.canvas-actions.docked-top .canvas-toolbar-pin,
+.canvas-actions.docked-bottom .canvas-toolbar-pin {
+	margin-left: auto;
+}
+
+.canvas-toolbar-drag-handle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	cursor: grab;
+	touch-action: none;
+}
+
+.canvas-toolbar-drag-handle:hover,
+.canvas-toolbar-drag-handle:focus-visible {
+	border-color: color-mix(in srgb, var(--vscode-focusBorder) 72%, transparent);
+	background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+	color: var(--vscode-foreground);
+	outline: none;
+}
+
+.canvas-actions.dragging .canvas-toolbar-drag-handle {
+	cursor: grabbing;
+}
+
+.canvas-toolbar-pin.is-pinned {
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-button-foreground) 18%, transparent);
+}
+
+.canvas-action {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.canvas-action-select {
+	height: 28px;
+	max-width: 140px;
+	padding: 0 24px 0 7px;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.canvas-layout-spacing {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.canvas-actions.docked-top .canvas-layout-spacing,
+.canvas-actions.docked-bottom .canvas-layout-spacing {
+	width: 100%;
+	padding: 3px 4px 0;
+	border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 62%, transparent);
+}
+
+.canvas-layout-spacing[hidden] {
+	display: none;
+}
+
+.canvas-layout-spacing-field {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+.canvas-layout-spacing-input {
+	width: 48px;
+	height: 28px;
+	padding: 0 3px 0 5px;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	font: inherit;
+	font-size: 12px;
+}
+
+.canvas-layout-direction-select {
+	width: 116px;
+}
+
+.canvas-layout-spacing-input:hover,
+.canvas-layout-spacing-input:focus-visible {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.canvas-action-select:hover,
+.canvas-action-select:focus-visible {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.canvas-action:hover,
+.canvas-action:focus-visible {
+	border-color: var(--vscode-focusBorder);
+	background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+	outline: none;
+}
+
+.canvas-action.is-active,
+.canvas-action[aria-pressed="true"] {
+	border-color: var(--vscode-focusBorder);
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	outline: none;
+}
+
+.canvas-action:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+	opacity: 0.62;
+}
+
+.canvas-action:disabled:hover {
+	border-color: transparent;
+	background: transparent;
+}
+
+.canvas-action-icon {
+	width: 18px;
+	height: 18px;
+	stroke-width: 1.9;
+}
+
+.canvas-action-text-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 18px;
+	border: 1.6px solid currentColor;
+	border-radius: 3px;
+	font-size: 8px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0;
+}
+
+.local-element-toolbar {
+	position: absolute;
+	z-index: 6;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 72%, var(--vscode-panel-border));
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--vscode-sideBar-background) 94%, var(--vscode-editor-background));
+	box-shadow: 0 8px 22px rgb(0 0 0 / 22%);
+	transform: translateX(-50%);
+}
+
+.local-element-toolbar[hidden] {
+	display: none;
+}
+
+.local-element-action {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.local-element-action[hidden] {
+	display: none;
+}
+
+.local-element-select {
+	height: 28px;
+	max-width: 132px;
+	padding: 0 22px 0 6px;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.local-element-select[hidden] {
+	display: none;
+}
+
+.local-element-select:hover,
+.local-element-select:focus-visible {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.edge-presentation-select {
+	max-width: 210px;
+}
+
+.local-element-action-separator {
+	width: 2px;
+	height: 22px;
+	margin: 0 2px;
+	border-radius: 1px;
+	background: color-mix(in srgb, var(--vscode-panel-border) 92%, var(--vscode-editor-foreground));
+}
+
+.local-element-action-separator[hidden] {
+	display: none;
+}
+
+.canvas-action[data-tooltip]::after,
+.canvas-toolbar-drag-handle[data-tooltip]::after,
+.local-element-action[data-tooltip]::after,
+.local-element-drag-handle[data-tooltip]::after {
+	content: attr(data-tooltip);
+	position: absolute;
+	left: 50%;
+	top: calc(100% + 8px);
+	z-index: 8;
+	max-width: 220px;
+	width: max-content;
+	padding: 5px 7px;
+	border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+	border-radius: 4px;
+	background: var(--vscode-editorHoverWidget-background, var(--vscode-sideBar-background));
+	color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+	box-shadow: 0 6px 18px rgb(0 0 0 / 24%);
+	font-size: 11px;
+	line-height: 1.3;
+	letter-spacing: 0;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+	opacity: 0;
+	transform: translate(-50%, -2px);
+	transition: opacity 90ms ease, transform 90ms ease;
+	white-space: normal;
+}
+
+.canvas-action[data-tooltip]:hover::after,
+.canvas-action[data-tooltip]:focus-visible::after,
+.canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+.canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after,
+.local-element-action[data-tooltip]:hover::after,
+.local-element-action[data-tooltip]:focus-visible::after,
+.local-element-drag-handle[data-tooltip]:hover::after,
+.local-element-drag-handle[data-tooltip]:focus-visible::after {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+.canvas-actions.docked-bottom .canvas-action[data-tooltip]::after,
+.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]::after {
+	top: auto;
+	bottom: calc(100% + 8px);
+	transform: translate(-50%, 2px);
+}
+
+.canvas-actions.docked-bottom .canvas-action[data-tooltip]:hover::after,
+.canvas-actions.docked-bottom .canvas-action[data-tooltip]:focus-visible::after,
+.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after {
+	transform: translate(-50%, 0);
+}
+
+.canvas-toolbar-pin[data-tooltip]::after {
+	left: auto;
+	right: 0;
+	transform: translateY(-2px);
+}
+
+.canvas-toolbar-pin[data-tooltip]:hover::after,
+.canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+	transform: translateY(0);
+}
+
+.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]::after {
+	transform: translateY(2px);
+}
+
+.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:hover::after,
+.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+	transform: translateY(0);
+}
+
+.local-element-action:hover,
+.local-element-action:focus-visible,
+.local-element-action[aria-pressed="true"] {
+	border-color: var(--vscode-focusBorder);
+	background: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+	outline: none;
+}
+
+.local-element-action:disabled {
+	color: var(--vscode-disabledForeground);
+	cursor: default;
+	opacity: 0.62;
+}
+
+.local-element-action:disabled:hover {
+	border-color: transparent;
+	background: transparent;
+}
+
+.local-element-drag-handle {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	cursor: grab;
+	touch-action: none;
+}
+
+.local-element-drag-handle:hover,
+.local-element-drag-handle:focus-visible {
+	border-color: color-mix(in srgb, var(--vscode-focusBorder) 72%, transparent);
+	background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+	color: var(--vscode-foreground);
+	outline: none;
+}
+
+.local-element-toolbar.dragging .local-element-drag-handle {
+	cursor: grabbing;
+}
+
+.local-action-note-badge {
+	position: absolute;
+	right: 1px;
+	bottom: 1px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 11px;
+	height: 11px;
+	border-radius: 50%;
+	background: var(--vscode-focusBorder);
+	color: var(--vscode-editor-background);
+	font-size: 8px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.canvas-action-separator {
+	width: 2px;
+	height: 22px;
+	margin: 0 2px;
+	border-radius: 1px;
+	background: color-mix(in srgb, var(--vscode-panel-border) 92%, var(--vscode-editor-foreground));
+}
+
+.note-editor {
+	position: absolute;
+	top: 56px;
+	left: 12px;
+	z-index: 4;
+	width: min(320px, calc(100% - 24px));
+	padding: 8px;
+	border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 70%, var(--vscode-panel-border));
+	border-radius: 6px;
+	background: var(--vscode-sideBar-background);
+	box-shadow: 0 10px 28px rgb(0 0 0 / 26%);
+}
+
+.note-editor[hidden] {
+	display: none;
+}
+
+.note-editor-text {
+	display: block;
+	width: 100%;
+	min-height: 112px;
+	resize: vertical;
+	padding: 8px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	line-height: 1.4;
+}
+
+.note-editor-text:focus {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.note-editor-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.note-editor-button {
+	min-width: 68px;
+	height: 28px;
+	padding: 0 10px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font: inherit;
+	cursor: pointer;
+}
+
+.note-editor-button.primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.note-editor-button:hover,
+.note-editor-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.canvas-content {
+	position: relative;
+	min-width: 1800px;
+	min-height: 1200px;
+	cursor: default;
+}
+
+.empty-state,
+.error-state {
+	position: absolute;
+	left: 24px;
+	top: 68px;
+	max-width: 560px;
+	padding: 12px 14px;
+	border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-sideBar-background));
+	color: var(--vscode-descriptionForeground);
+	box-shadow: 0 8px 22px rgb(0 0 0 / 16%);
+	font-size: 13px;
+}
+
+.error-state {
+	border-color: color-mix(in srgb, var(--vscode-errorForeground) 42%, var(--vscode-panel-border));
+	color: var(--vscode-errorForeground);
+}
+
+.drop-active .canvas-content {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: -8px;
+	background: color-mix(in srgb, var(--vscode-focusBorder) 7%, transparent);
+}
+
+.drop-rejected .canvas-content {
+	outline: 2px solid var(--vscode-errorForeground);
+	outline-offset: -8px;
+}
+
+.edge-drop-preview {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.edge-drop-preview-route {
+	fill: none;
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 2;
+	stroke-dasharray: 7 5;
+}
+
+.edge-drop-preview-node {
+	fill: color-mix(in srgb, var(--vscode-focusBorder) 12%, var(--vscode-editor-background));
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1.5;
+	stroke-dasharray: 6 4;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 20%));
+}
+
+.edge-drop-preview-node-label,
+.edge-drop-preview-label,
+.edge-drop-preview-status {
+	fill: var(--vscode-editor-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: 12px;
+	text-anchor: middle;
+	user-select: none;
+}
+
+.edge-drop-preview-label {
+	paint-order: stroke;
+	stroke: var(--vscode-editor-background);
+	stroke-width: 4px;
+}
+
+.edge-drop-preview-status {
+	fill: var(--vscode-errorForeground);
+	text-anchor: start;
+	paint-order: stroke;
+	stroke: var(--vscode-editor-background);
+	stroke-width: 4px;
+}
+
+.edge-drop-preview-marker-arrow {
+	fill: none;
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1.8;
+}
+
+.edge-drop-preview-marker-triangle {
+	fill: var(--vscode-editor-background);
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1.5;
+}
+
+.edge-drop-preview-invalid-marker {
+	fill: color-mix(in srgb, var(--vscode-errorForeground) 16%, transparent);
+	stroke: var(--vscode-errorForeground);
+	stroke-width: 2;
+}
+
+.status {
+	position: absolute;
+	right: 16px;
+	bottom: 16px;
+	max-width: 360px;
+	margin: 0;
+	padding: 9px 11px;
+	border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+	border-radius: 6px;
+	background: var(--vscode-notifications-background);
+	color: var(--vscode-notifications-foreground);
+	font-size: 12px;
+	box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+	visibility: hidden;
+	opacity: 0;
+	transform: translateY(6px);
+	transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.status.visible {
+	visibility: visible;
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.property-panel {
+	grid-column: 2;
+	grid-row: 2;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-width: 200px;
+	min-height: 0;
+	overflow: auto;
+	border-left: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-sideBar-background);
+}
+
+.property-panel.collapsed {
+	min-width: 42px;
+	max-width: 42px;
+	overflow: hidden;
+}
+
+.property-panel-resize-handle {
+	position: absolute;
+	inset: 0 auto 0 -4px;
+	z-index: 2;
+	width: 8px;
+	cursor: col-resize;
+	touch-action: none;
+}
+
+.property-panel-resize-handle::after {
+	content: "";
+	position: absolute;
+	inset: 0 3px;
+	background: transparent;
+}
+
+.property-panel-resize-handle:hover::after,
+.property-panel-resize-handle:focus-visible::after,
+.editor.property-panel-resizing .property-panel-resize-handle::after {
+	background: var(--vscode-focusBorder);
+}
+
+.property-panel-resize-handle:focus-visible {
+	outline: none;
+}
+
+.property-panel.collapsed .property-panel-resize-handle {
+	display: none;
+}
+
+.editor.property-panel-resizing {
+	user-select: none;
+}
+
+.property-panel-header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 34px;
+	padding: 5px 12px;
+	border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, transparent);
+	background: var(--vscode-sideBar-background);
+}
+
+.property-panel.collapsed .property-panel-header {
+	justify-content: center;
+	height: 100%;
+	padding: 8px 4px;
+	border-bottom: 0;
+}
+
+.property-panel.collapsed #propertyPanelTitle,
+.property-panel.collapsed .property-panel-body {
+	display: none;
+}
+
+.property-panel-toggle {
+	height: 24px;
+	padding: 0 8px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font: inherit;
+	cursor: pointer;
+}
+
+.property-panel.collapsed .property-panel-toggle {
+	width: 28px;
+	height: auto;
+	min-height: 104px;
+	padding: 8px 0;
+	writing-mode: vertical-rl;
+	text-orientation: mixed;
+}
+
+.property-panel-body {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 12px;
+	padding: 10px 12px 12px;
+}
+
+.property-tabs {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	min-width: 0;
+	gap: 10px;
+}
+
+.property-tab-list {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 2px;
+	min-width: 0;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.property-tab {
+	position: relative;
+	flex: 0 0 auto;
+	min-width: 0;
+	padding: 5px 9px 6px;
+	border: 0;
+	border-radius: 4px 4px 0 0;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.property-tab:hover,
+.property-tab:focus-visible {
+	background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
+	color: var(--vscode-foreground);
+	outline: none;
+}
+
+.property-tab[aria-selected="true"] {
+	color: var(--vscode-foreground);
+	background: color-mix(in srgb, var(--vscode-sideBar-background) 88%, var(--vscode-editor-background));
+}
+
+.property-tab[aria-selected="true"]::after {
+	content: "";
+	position: absolute;
+	right: 6px;
+	bottom: -1px;
+	left: 6px;
+	height: 2px;
+	border-radius: 1px;
+	background: var(--vscode-focusBorder);
+}
+
+.property-tab-panes,
+.property-tab-pane {
+	min-width: 0;
+}
+
+.property-tab-pane {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 12px;
+}
+
+.property-tab-pane[hidden] {
+	display: none;
+}
+
+.property-section {
+	min-width: 0;
+}
+
+.property-section-title {
+	margin: 0 0 6px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.property-field {
+	display: grid;
+	grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+	align-items: center;
+	gap: 6px 10px;
+	margin-bottom: 7px;
+}
+
+.property-label {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.property-value,
+.property-input,
+.property-textarea {
+	min-width: 0;
+	width: 100%;
+}
+
+.property-value {
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+	font-size: 12px;
+}
+
+.property-input,
+.property-textarea {
+	padding: 4px 6px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+}
+
+.property-input:focus,
+.property-textarea:focus {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.property-checkbox {
+	justify-self: start;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: var(--vscode-focusBorder);
+}
+
+.property-textarea {
+	min-height: 58px;
+	resize: vertical;
+}
+
+.property-inline {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.property-inline .property-input {
+	flex: 1 1 auto;
+}
+
+.property-image-actions {
+	flex-wrap: wrap;
+}
+
+.property-combo-field {
+	display: block;
+	min-width: 0;
+	width: 100%;
+}
+
+.property-color-field {
+	align-items: stretch;
+	flex-wrap: wrap;
+}
+
+.property-color-input {
+	flex: 0 0 auto;
+	width: 32px;
+	height: 28px;
+	padding: 2px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background: var(--vscode-input-background);
+	cursor: pointer;
+}
+
+.property-color-input:focus {
+	border-color: var(--vscode-focusBorder);
+	outline: none;
+}
+
+.property-color-palette {
+	display: grid;
+	flex: 1 0 100%;
+	grid-template-columns: repeat(6, 20px);
+	gap: 5px;
+	padding-top: 3px;
+}
+
+.property-color-swatch {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 1px solid color-mix(in srgb, var(--vscode-editor-foreground) 24%, transparent);
+	border-radius: 5px;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
+	cursor: pointer;
+	transition: border-color 100ms ease, box-shadow 100ms ease, transform 100ms ease;
+}
+
+.property-color-swatch:hover,
+.property-color-swatch:focus-visible {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+	outline: none;
+	transform: translateY(-1px);
+}
+
+.property-color-swatch[aria-pressed="true"] {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 2px var(--vscode-focusBorder), inset 0 0 0 2px var(--vscode-editor-background);
+}
+
+.property-button {
+	flex: 0 0 auto;
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font: inherit;
+	cursor: pointer;
+}
+
+.property-button-danger {
+	background: var(--vscode-inputValidation-errorBackground, var(--vscode-button-secondaryBackground));
+	border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-button-border, transparent));
+	color: var(--vscode-inputValidation-errorForeground, var(--vscode-button-secondaryForeground));
+}
+
+body[data-diagram-theme="light"] {
+	--diagram-ui-accent: #2563eb;
+	--diagram-ui-accent-soft: #eff6ff;
+	--diagram-ui-border: #dbe3ec;
+	--diagram-ui-divider: #e7edf4;
+	--diagram-ui-foreground: #334155;
+	--diagram-ui-muted: #64748b;
+	--diagram-ui-surface: rgb(255 255 255 / 94%);
+}
+
+body[data-diagram-theme="light"] .canvas-scroll {
+	background-color: var(--diagram-canvas-background, #f5f7fa);
+	background-image: radial-gradient(circle, rgb(148 163 184 / 32%) 0 1px, transparent 1.2px);
+	background-position: 0 0;
+	background-size: 20px 20px;
+}
+
+body[data-diagram-theme="light"] .canvas-actions,
+body[data-diagram-theme="light"] .local-element-toolbar {
+	border-color: var(--diagram-ui-border);
+	border-radius: 10px;
+	background: var(--diagram-ui-surface);
+	color: var(--diagram-ui-foreground);
+	box-shadow: 0 12px 32px rgb(15 23 42 / 11%), 0 2px 8px rgb(15 23 42 / 6%);
+	backdrop-filter: blur(14px) saturate(140%);
+}
+
+body[data-diagram-theme="light"] .canvas-actions {
+	padding: 5px;
+}
+
+body[data-diagram-theme="light"] .canvas-actions.docked-top,
+body[data-diagram-theme="light"] .canvas-actions.docked-bottom {
+	border-radius: 0;
+	background: rgb(255 255 255 / 96%);
+}
+
+body[data-diagram-theme="light"] .canvas-actions.docked-top {
+	border-bottom: 1px solid var(--diagram-ui-border);
+}
+
+body[data-diagram-theme="light"] .canvas-actions.docked-bottom {
+	border-top: 1px solid var(--diagram-ui-border);
+}
+
+body[data-diagram-theme="light"] .canvas-action,
+body[data-diagram-theme="light"] .local-element-action,
+body[data-diagram-theme="light"] .canvas-toolbar-drag-handle,
+body[data-diagram-theme="light"] .local-element-drag-handle {
+	border-radius: 7px;
+	color: var(--diagram-ui-foreground);
+	transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+body[data-diagram-theme="light"] .canvas-toolbar-drag-handle,
+body[data-diagram-theme="light"] .local-element-drag-handle {
+	color: var(--diagram-ui-muted);
+}
+
+body[data-diagram-theme="light"] .canvas-action:hover,
+body[data-diagram-theme="light"] .canvas-action:focus-visible,
+body[data-diagram-theme="light"] .local-element-action:hover,
+body[data-diagram-theme="light"] .local-element-action:focus-visible,
+body[data-diagram-theme="light"] .local-element-action[aria-pressed="true"],
+body[data-diagram-theme="light"] .canvas-toolbar-drag-handle:hover,
+body[data-diagram-theme="light"] .canvas-toolbar-drag-handle:focus-visible,
+body[data-diagram-theme="light"] .local-element-drag-handle:hover,
+body[data-diagram-theme="light"] .local-element-drag-handle:focus-visible {
+	border-color: #bfdbfe;
+	background: var(--diagram-ui-accent-soft);
+	color: var(--diagram-ui-accent);
+}
+
+body[data-diagram-theme="light"] .canvas-action.is-active,
+body[data-diagram-theme="light"] .canvas-action[aria-pressed="true"],
+body[data-diagram-theme="light"] .canvas-toolbar-pin.is-pinned {
+	border-color: var(--diagram-ui-accent);
+	background: var(--diagram-ui-accent);
+	color: #ffffff;
+	box-shadow: 0 2px 6px rgb(37 99 235 / 24%);
+}
+
+body[data-diagram-theme="light"] .canvas-action-select,
+body[data-diagram-theme="light"] .canvas-layout-spacing-input,
+body[data-diagram-theme="light"] .local-element-select {
+	border-color: var(--diagram-ui-border);
+	border-radius: 7px;
+	background: #f8fafc;
+	color: var(--diagram-ui-foreground);
+}
+
+body[data-diagram-theme="light"] .canvas-action-select:hover,
+body[data-diagram-theme="light"] .canvas-action-select:focus-visible,
+body[data-diagram-theme="light"] .canvas-layout-spacing-input:hover,
+body[data-diagram-theme="light"] .canvas-layout-spacing-input:focus-visible,
+body[data-diagram-theme="light"] .local-element-select:hover,
+body[data-diagram-theme="light"] .local-element-select:focus-visible {
+	border-color: #93c5fd;
+	box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+}
+
+body[data-diagram-theme="light"] .canvas-action-separator,
+body[data-diagram-theme="light"] .local-element-action-separator {
+	width: 1px;
+	background: var(--diagram-ui-divider);
+}
+
+body[data-diagram-theme="light"] .canvas-layout-spacing-field {
+	color: var(--diagram-ui-muted);
+}
+
+body[data-diagram-theme="light"] .note-editor,
+body[data-diagram-theme="light"] .empty-state,
+body[data-diagram-theme="light"] .error-state {
+	border-color: var(--diagram-ui-border);
+	border-radius: 10px;
+	background: var(--diagram-ui-surface);
+	box-shadow: 0 14px 36px rgb(15 23 42 / 12%);
+	backdrop-filter: blur(14px);
+}
+
+body[data-diagram-theme="light"] .empty-state {
+	color: var(--diagram-ui-muted);
+}
+
+body[data-diagram-theme="light"] .status {
+	border-color: var(--diagram-ui-border);
+	border-radius: 9px;
+	background: #ffffff;
+	color: var(--diagram-ui-foreground);
+	box-shadow: 0 12px 28px rgb(15 23 42 / 13%);
+}
+

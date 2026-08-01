@@ -41,6 +41,10 @@ async function main() {
 		require.resolve('@antv/x6/dist/x6.min.js'),
 		path.join(__dirname, 'dist', 'webview', 'x6.min.js'),
 	);
+	fs.copyFileSync(
+		path.join(__dirname, 'src', 'ui', 'webview', 'diagram-webview.css'),
+		path.join(__dirname, 'dist', 'webview', 'diagram-webview.css'),
+	);
 
 	const extensionContext = await esbuild.context({
 		entryPoints: [

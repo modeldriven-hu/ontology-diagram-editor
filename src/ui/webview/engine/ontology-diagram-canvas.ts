@@ -22,13 +22,16 @@ import { ontologyColor } from '../components/ontology-legend';
 import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
-import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, setActionTooltip, showTransientStatus } from './canvas-dom';
+import { isKeyboardInputTarget, messageElement, setActionTooltip, showTransientStatus } from './canvas-dom';
 import { isSelectAllShortcut } from './canvas-keyboard-shortcuts';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
 import { FixedToolbarController, initialFixedToolbarDock, persistedFixedToolbarDock, type PersistedFixedToolbarDock } from './fixed-toolbar-controller';
 import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, renderCanvasToolbarDragHandle, renderCanvasToolbarPinIcon, renderLocalElementToolbarIcons, renderThemeModeButton, renderViewportToolbarIcons } from './ontology-diagram-toolbar-icons';
 import { embeddedGalleryIconColor } from '../../../shared/embedded-gallery-icon';
+import { CanvasKeyboardController } from './canvas-keyboard-controller';
+import { CanvasViewportController } from './canvas-viewport-controller';
+import { canvasScroll, canvasContent, canvasShell, canvasActions, canvasToolbarDragHandle, canvasToolbarPinButton, status, addOntologyItemButton, addNoteButton, addLabelButton, addImageButton, addMetadataButton, addLegendButton, exportSvgButton, exportPngButton, diagramLayoutAlgorithmSelect, elkLayeredSpacingControls, elkLayeredDirectionSelect, elkLayeredNodeSpacingInput, elkLayeredLayerSpacingInput, arrangeDiagramButton, panCanvasButton, zoomOutButton, zoomInButton, fitDiagramButton, resetViewportButton, revealModelTreeItemButton, themeModeButton, noteEditor, noteEditorText, saveNoteButton, cancelNoteButton, localElementToolbar, localElementDragHandle, minimizeLocalButton, createCommentNoteLocalButton, showRelatedElementsLocalButton, showEdgesBetweenNodesLocalButton, alignLeftLocalButton, alignHorizontalCenterLocalButton, alignRightLocalButton, alignTopLocalButton, alignVerticalCenterLocalButton, alignBottomLocalButton, matchWidthLocalButton, matchHeightLocalButton, matchSizeLocalButton, nodeSelectionSizeSeparator, distributeHorizontalLocalButton, distributeVerticalLocalButton, nodeSelectionDistributeSeparator, nodeSelectionSubclassSeparator, alignSubclassEndpointsLocalButton, connectNoteLocalButton, alignEdgeStartPointsLocalButton, alignEdgeEndPointsLocalButton, optimizeEdgeLocalButton, straightenEdgeLocalButton, edgeRouteLayoutLocalSelect, edgePresentationLocalSelect, resetEdgeLabelLocalButton, deleteEdgeLocalButton } from './canvas-dom-elements';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand | CanvasSelectionChangedEvent): void;
@@ -77,12 +80,6 @@ interface CanvasPanDrag {
 }
 
 const config = window.ontologyDiagramEditorConfig;
-const minimumZoom = 0.25;
-const maximumZoom = 3;
-const defaultCanvasWidth = 1800;
-const defaultCanvasHeight = 1200;
-const viewportPadding = 80;
-
 if (config === undefined) {
 	throw new Error('Missing ontology diagram webview configuration.');
 }
@@ -90,68 +87,6 @@ if (config === undefined) {
 const webviewConfig = config;
 const iconGalleryDialog = new IconGalleryDialog(webviewConfig.iconGallerySets);
 const vscode = acquireVsCodeApi();
-const canvasScroll = requiredElement('canvasScroll');
-const canvasContent = requiredElement('canvasContent');
-const canvasShell = requiredElement('canvasShell');
-const canvasActions = requiredElement('canvasActions');
-const canvasToolbarDragHandle = requiredElement('canvasToolbarDragHandle') as HTMLButtonElement;
-const canvasToolbarPinButton = requiredElement('canvasToolbarPinButton') as HTMLButtonElement;
-const status = requiredElement('status');
-const addOntologyItemButton = requiredElement('addOntologyItemButton') as HTMLButtonElement;
-const addNoteButton = requiredElement('addNoteButton') as HTMLButtonElement;
-const addLabelButton = requiredElement('addLabelButton') as HTMLButtonElement;
-const addImageButton = requiredElement('addImageButton') as HTMLButtonElement;
-const addMetadataButton = requiredElement('addMetadataButton') as HTMLButtonElement;
-const addLegendButton = requiredElement('addLegendButton') as HTMLButtonElement;
-const exportSvgButton = requiredElement('exportSvgButton') as HTMLButtonElement;
-const exportPngButton = requiredElement('exportPngButton') as HTMLButtonElement;
-const diagramLayoutAlgorithmSelect = requiredElement('diagramLayoutAlgorithmSelect') as HTMLSelectElement;
-const elkLayeredSpacingControls = requiredElement('elkLayeredSpacingControls');
-const elkLayeredDirectionSelect = requiredElement('elkLayeredDirectionSelect') as HTMLSelectElement;
-const elkLayeredNodeSpacingInput = requiredElement('elkLayeredNodeSpacingInput') as HTMLInputElement;
-const elkLayeredLayerSpacingInput = requiredElement('elkLayeredLayerSpacingInput') as HTMLInputElement;
-const arrangeDiagramButton = requiredElement('arrangeDiagramButton') as HTMLButtonElement;
-const panCanvasButton = requiredElement('panCanvasButton') as HTMLButtonElement;
-const zoomOutButton = requiredElement('zoomOutButton') as HTMLButtonElement;
-const zoomInButton = requiredElement('zoomInButton') as HTMLButtonElement;
-const fitDiagramButton = requiredElement('fitDiagramButton') as HTMLButtonElement;
-const resetViewportButton = requiredElement('resetViewportButton') as HTMLButtonElement;
-const revealModelTreeItemButton = requiredElement('revealModelTreeItemButton') as HTMLButtonElement;
-const themeModeButton = requiredElement('themeModeButton') as HTMLButtonElement;
-const noteEditor = requiredElement('noteEditor') as HTMLFormElement;
-const noteEditorText = requiredElement('noteEditorText') as HTMLTextAreaElement;
-const saveNoteButton = requiredElement('saveNoteButton') as HTMLButtonElement;
-const cancelNoteButton = requiredElement('cancelNoteButton') as HTMLButtonElement;
-const localElementToolbar = requiredElement('localElementToolbar');
-const localElementDragHandle = requiredElement('localElementDragHandle') as HTMLButtonElement;
-const minimizeLocalButton = requiredElement('minimizeLocalButton') as HTMLButtonElement;
-const createCommentNoteLocalButton = requiredElement('createCommentNoteLocalButton') as HTMLButtonElement;
-const showRelatedElementsLocalButton = requiredElement('showRelatedElementsLocalButton') as HTMLButtonElement;
-const showEdgesBetweenNodesLocalButton = requiredElement('showEdgesBetweenNodesLocalButton') as HTMLButtonElement;
-const alignLeftLocalButton = requiredElement('alignLeftLocalButton') as HTMLButtonElement;
-const alignHorizontalCenterLocalButton = requiredElement('alignHorizontalCenterLocalButton') as HTMLButtonElement;
-const alignRightLocalButton = requiredElement('alignRightLocalButton') as HTMLButtonElement;
-const alignTopLocalButton = requiredElement('alignTopLocalButton') as HTMLButtonElement;
-const alignVerticalCenterLocalButton = requiredElement('alignVerticalCenterLocalButton') as HTMLButtonElement;
-const alignBottomLocalButton = requiredElement('alignBottomLocalButton') as HTMLButtonElement;
-const matchWidthLocalButton = requiredElement('matchWidthLocalButton') as HTMLButtonElement;
-const matchHeightLocalButton = requiredElement('matchHeightLocalButton') as HTMLButtonElement;
-const matchSizeLocalButton = requiredElement('matchSizeLocalButton') as HTMLButtonElement;
-const nodeSelectionSizeSeparator = requiredElement('nodeSelectionSizeSeparator');
-const distributeHorizontalLocalButton = requiredElement('distributeHorizontalLocalButton') as HTMLButtonElement;
-const distributeVerticalLocalButton = requiredElement('distributeVerticalLocalButton') as HTMLButtonElement;
-const nodeSelectionDistributeSeparator = requiredElement('nodeSelectionDistributeSeparator');
-const nodeSelectionSubclassSeparator = requiredElement('nodeSelectionSubclassSeparator');
-const alignSubclassEndpointsLocalButton = requiredElement('alignSubclassEndpointsLocalButton') as HTMLButtonElement;
-const connectNoteLocalButton = requiredElement('connectNoteLocalButton') as HTMLButtonElement;
-const alignEdgeStartPointsLocalButton = requiredElement('alignEdgeStartPointsLocalButton') as HTMLButtonElement;
-const alignEdgeEndPointsLocalButton = requiredElement('alignEdgeEndPointsLocalButton') as HTMLButtonElement;
-const optimizeEdgeLocalButton = requiredElement('optimizeEdgeLocalButton') as HTMLButtonElement;
-const straightenEdgeLocalButton = requiredElement('straightenEdgeLocalButton') as HTMLButtonElement;
-const edgeRouteLayoutLocalSelect = requiredElement('edgeRouteLayoutLocalSelect') as HTMLSelectElement;
-const edgePresentationLocalSelect = requiredElement('edgePresentationLocalSelect') as HTMLSelectElement;
-const resetEdgeLabelLocalButton = requiredElement('resetEdgeLabelLocalButton') as HTMLButtonElement;
-const deleteEdgeLocalButton = requiredElement('deleteEdgeLocalButton') as HTMLButtonElement;
 const savedLayoutAlgorithmId = vscode.getState()?.layoutAlgorithmId;
 diagramLayoutAlgorithmSelect.value = savedLayoutAlgorithmId !== undefined && isDiagramLayoutAlgorithmId(savedLayoutAlgorithmId)
 	? savedLayoutAlgorithmId
@@ -172,8 +107,6 @@ elkLayeredNodeSpacingInput.value = String(savedElkLayeredNodeSpacing);
 elkLayeredLayerSpacingInput.value = String(savedElkLayeredLayerSpacing);
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
 let theme = readTheme(themeMode, webviewConfig.payload.theme);
-let panMode = vscode.getState()?.canvasPanMode === true;
-let canvasPanDrag: CanvasPanDrag | undefined;
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
@@ -193,10 +126,10 @@ const noteEditorController = new NoteEditorController({
 	getNoteText: (noteId) => geometryPersistence.getNoteText(noteId),
 	getLabelText: (labelId) => geometryPersistence.getLabelText(labelId),
 	createNote: (text) => {
-		messageBus.publishCommand(new CreateNoteCommand(text, insertionPosition()));
+		messageBus.publishCommand(new CreateNoteCommand(text, viewportController.insertionPosition()));
 	},
 	createLabel: (text) => {
-		messageBus.publishCommand(new CreateLabelCommand(text, insertionPosition()));
+		messageBus.publishCommand(new CreateLabelCommand(text, viewportController.insertionPosition()));
 	},
 	updateNoteText: (noteId, text) => {
 		geometryPersistence.setNoteText(noteId, text);
@@ -214,6 +147,15 @@ const noteEditorController = new NoteEditorController({
 	focusAfterClose: () => {
 		canvasScroll.focus();
 	},
+});
+const keyboardController = new CanvasKeyboardController({
+	canvas,
+	elementRegistry,
+	geometryPersistence,
+	messageBus,
+	noteEditorIsOpen: () => noteEditorController.isOpen(),
+	diagramFilePath: webviewConfig.payload.file?.fsPath,
+	showStatus,
 });
 const localElementToolbarController = new LocalElementToolbarController({
 	canvas,
@@ -267,7 +209,21 @@ const localElementToolbarController = new LocalElementToolbarController({
 	noteEditorIsOpen: () => noteEditorController.isOpen(),
 	minimumSizeForElement,
 	commentTextForNode,
-	deleteElement,
+	deleteElement: (id) => keyboardController.deleteElement(id),
+	showStatus,
+});
+const viewportController = new CanvasViewportController({
+	canvas,
+	scrollElement: canvasScroll,
+	panButton: panCanvasButton,
+	payload: webviewConfig.payload,
+	initialViewport: webviewConfig.initialViewport,
+	diagramFilePath: webviewConfig.payload.file?.fsPath,
+	messageBus,
+	initialPanMode: vscode.getState()?.canvasPanMode === true,
+	getState: () => vscode.getState(),
+	updateState: updateWebviewState,
+	updateLocalToolbar: () => localElementToolbarController.update(),
 	showStatus,
 });
 const fixedToolbarController = new FixedToolbarController({
@@ -337,7 +293,7 @@ renderViewportToolbarIcons({
 	themeModeButton,
 }, themeMode);
 initializeFixedToolbarTooltips();
-setPanMode(panMode, false);
+viewportController.setPanMode(vscode.getState()?.canvasPanMode === true, false);
 updateToolbarActionStates();
 applyCanvasTheme(theme, themeMode);
 registerExtensionMessageForwarding();
@@ -345,21 +301,20 @@ registerHostMessageHandlers();
 registerCanvasStateSubscriptions();
 render();
 registerSelectionEventPublishing();
-registerViewportEventPublishing();
-registerCanvasPanHandlers();
+viewportController.register();
 localElementToolbarController.register();
 fixedToolbarController.register();
 updateElkLayeredSpacingControls();
 restoreSelection();
-restoreViewport();
+viewportController.restoreViewport();
 noteEditorController.register();
 addOntologyItemButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
-	messageBus.publishCommand(new AddOntologyItemCommand(viewportCenterInsertionPosition()));
+	messageBus.publishCommand(new AddOntologyItemCommand(viewportController.viewportCenterInsertionPosition()));
 });
 addImageButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
-	const position = insertionPosition();
+	const position = viewportController.insertionPosition();
 	iconGalleryDialog.open({
 		title: 'Add image',
 		onIconSelected: (source) => messageBus.publishCommand(new CreateImageCommand(position, source)),
@@ -368,11 +323,11 @@ addImageButton.addEventListener('click', () => {
 });
 addMetadataButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
-	messageBus.publishCommand(new CreateMetadataElementCommand(insertionPosition()));
+	messageBus.publishCommand(new CreateMetadataElementCommand(viewportController.insertionPosition()));
 });
 addLegendButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
-	messageBus.publishCommand(new CreateLegendElementCommand(insertionPosition()));
+	messageBus.publishCommand(new CreateLegendElementCommand(viewportController.insertionPosition()));
 });
 exportSvgButton.addEventListener('click', () => {
 	const command = createSvgExportCommand(webviewConfig.payload, theme);
@@ -409,7 +364,7 @@ arrangeDiagramButton.addEventListener('click', () => {
 panCanvasButton.addEventListener('click', (event) => {
 	event.preventDefault();
 	event.stopPropagation();
-	setPanMode(panCanvasButton.getAttribute('aria-pressed') !== 'true');
+	viewportController.setPanMode(panCanvasButton.getAttribute('aria-pressed') !== 'true');
 	canvasScroll.focus();
 });
 diagramLayoutAlgorithmSelect.addEventListener('change', () => {
@@ -429,16 +384,16 @@ elkLayeredDirectionSelect.addEventListener('change', () => {
 	persistElkLayeredLayoutOptions();
 });
 zoomOutButton.addEventListener('click', () => {
-	zoomBy(1 / 1.2, 'zoom');
+	viewportController.zoomBy(1 / 1.2);
 });
 zoomInButton.addEventListener('click', () => {
-	zoomBy(1.2, 'zoom');
+	viewportController.zoomBy(1.2);
 });
 fitDiagramButton.addEventListener('click', () => {
-	fitDiagramToView();
+	viewportController.fitDiagramToView();
 });
 resetViewportButton.addEventListener('click', () => {
-	resetViewport();
+	viewportController.resetViewport();
 });
 revealModelTreeItemButton.addEventListener('click', () => {
 	revealSelectedModelTreeItem();
@@ -458,10 +413,7 @@ new CanvasDropController({
 }).register();
 geometryPersistence.register();
 registerNoteEditHandlers();
-registerUndoRedoHandlers();
-registerSelectAllHandler();
-registerKeyboardNudgeHandlers();
-registerDeleteHandlers();
+keyboardController.register();
 
 function registerExtensionMessageForwarding(): void {
 	messageBus.subscribe((message) => {
@@ -543,7 +495,7 @@ function render(): void {
 
 	trackRenderedGeometry(webviewConfig.payload);
 	canvas.renderDiagram(webviewConfig.payload, theme);
-	resizeCanvasForZoom();
+	viewportController.resizeCanvasForZoom();
 	localElementToolbarController.update();
 	messageBus.publishEvent(new CanvasRenderedEvent({
 		diagramFilePath: webviewConfig.payload.file?.fsPath,
@@ -598,95 +550,6 @@ function registerSelectionEventPublishing(): void {
 			selectedElementIdentifiers: selectedElementIds,
 		}));
 	});
-}
-
-function registerViewportEventPublishing(): void {
-	canvasScroll.addEventListener('scroll', () => {
-		localElementToolbarController.update();
-		publishViewportChanged('scroll');
-	});
-	canvasScroll.addEventListener('wheel', (event) => {
-		if (!event.ctrlKey && !event.metaKey || isKeyboardInputTarget(event.target)) {
-			return;
-		}
-
-		event.preventDefault();
-		zoomBy(Math.exp(-event.deltaY * 0.002), 'zoom', {
-			x: event.clientX,
-			y: event.clientY,
-		});
-	}, { passive: false });
-}
-
-function registerCanvasPanHandlers(): void {
-	canvasScroll.addEventListener('pointerdown', (event) => {
-		if (!panMode || !event.isPrimary || event.button !== 0 || isKeyboardInputTarget(event.target)) {
-			return;
-		}
-
-		canvasPanDrag = {
-			pointerId: event.pointerId,
-			clientX: event.clientX,
-			clientY: event.clientY,
-			scrollLeft: canvasScroll.scrollLeft,
-			scrollTop: canvasScroll.scrollTop,
-		};
-		canvasScroll.setPointerCapture(event.pointerId);
-		canvasScroll.classList.add('panning');
-		event.preventDefault();
-		event.stopPropagation();
-	}, true);
-	canvasScroll.addEventListener('pointermove', (event) => {
-		const drag = canvasPanDrag;
-		if (drag === undefined || drag.pointerId !== event.pointerId) {
-			return;
-		}
-
-		canvasScroll.scrollTo({
-			left: drag.scrollLeft - (event.clientX - drag.clientX),
-			top: drag.scrollTop - (event.clientY - drag.clientY),
-		});
-		event.preventDefault();
-		event.stopPropagation();
-	}, true);
-	canvasScroll.addEventListener('pointerup', completeCanvasPan, true);
-	canvasScroll.addEventListener('pointercancel', completeCanvasPan, true);
-}
-
-function completeCanvasPan(event: PointerEvent): void {
-	if (canvasPanDrag?.pointerId !== event.pointerId) {
-		return;
-	}
-
-	cancelCanvasPan();
-	event.preventDefault();
-	event.stopPropagation();
-}
-
-function cancelCanvasPan(): void {
-	const drag = canvasPanDrag;
-	if (drag !== undefined && canvasScroll.hasPointerCapture(drag.pointerId)) {
-		canvasScroll.releasePointerCapture(drag.pointerId);
-	}
-	canvasPanDrag = undefined;
-	canvasScroll.classList.remove('panning');
-}
-
-function setPanMode(enabled: boolean, persist = true): void {
-	panMode = enabled;
-	panCanvasButton.classList.toggle('is-active', enabled);
-	panCanvasButton.setAttribute('aria-pressed', String(enabled));
-	const label = enabled ? 'Disable pan canvas' : 'Pan canvas';
-	panCanvasButton.title = label;
-	panCanvasButton.setAttribute('aria-label', label);
-	panCanvasButton.dataset.tooltip = label;
-	canvasScroll.classList.toggle('pan-mode', enabled);
-	if (!enabled && canvasPanDrag !== undefined) {
-		cancelCanvasPan();
-	}
-	if (persist) {
-		updateWebviewState({ canvasPanMode: enabled });
-	}
 }
 
 function updateToolbarActionStates(): void {
@@ -851,90 +714,6 @@ function capitalize(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-function zoomBy(factor: number, source: 'zoom', clientPoint?: CanvasPoint): void {
-	const oldZoom = canvas.zoom();
-	const newZoom = clampZoom(oldZoom * factor);
-	if (Math.abs(newZoom - oldZoom) < 0.001) {
-		return;
-	}
-
-	const focus = clientPoint ?? viewportCenterClientPoint();
-	const focusCanvasPoint = viewportClientPointToCanvasPoint(focus, oldZoom);
-	setZoom(newZoom);
-	scrollToCanvasPoint(focusCanvasPoint, focus);
-	publishViewportChanged(source);
-}
-
-function setZoom(zoom: number): void {
-	canvas.setZoom(clampZoom(zoom));
-	resizeCanvasForZoom();
-	localElementToolbarController.update();
-}
-
-function fitDiagramToView(): void {
-	const bounds = diagramContentBounds(webviewConfig.payload.diagram);
-	if (bounds === undefined) {
-		showStatus('There is no diagram content to fit.');
-		return;
-	}
-
-	const viewportWidth = Math.max(1, canvasScroll.clientWidth - viewportPadding);
-	const viewportHeight = Math.max(1, canvasScroll.clientHeight - viewportPadding);
-	const zoom = clampZoom(Math.min(viewportWidth / bounds.width, viewportHeight / bounds.height));
-	setZoom(zoom);
-	scrollToCanvasPoint(rectCenter(bounds), viewportCenterClientPoint());
-	publishViewportChanged('fit');
-}
-
-function resetViewport(): void {
-	setZoom(1);
-	canvasScroll.scrollTo({ left: 0, top: 0 });
-	publishViewportChanged('reset');
-}
-
-function resizeCanvasForZoom(): void {
-	const bounds = diagramContentBounds(webviewConfig.payload.diagram);
-	const zoom = canvas.zoom();
-	const width = Math.max(defaultCanvasWidth, Math.ceil(((bounds?.x ?? 0) + (bounds?.width ?? defaultCanvasWidth)) * zoom + viewportPadding));
-	const height = Math.max(defaultCanvasHeight, Math.ceil(((bounds?.y ?? 0) + (bounds?.height ?? defaultCanvasHeight)) * zoom + viewportPadding));
-	canvas.resize(width, height);
-}
-
-function viewportCenterClientPoint(): CanvasPoint {
-	const rect = canvasScroll.getBoundingClientRect();
-
-	return {
-		x: rect.left + rect.width / 2,
-		y: rect.top + rect.height / 2,
-	};
-}
-
-function viewportClientPointToCanvasPoint(clientPoint: CanvasPoint, zoom: number): CanvasPoint {
-	const rect = canvasScroll.getBoundingClientRect();
-
-	return {
-		x: (canvasScroll.scrollLeft + clientPoint.x - rect.left) / zoom,
-		y: (canvasScroll.scrollTop + clientPoint.y - rect.top) / zoom,
-	};
-}
-
-function scrollToCanvasPoint(canvasPoint: CanvasPoint, clientPoint: CanvasPoint): void {
-	const rect = canvasScroll.getBoundingClientRect();
-
-	canvasScroll.scrollTo({
-		left: Math.max(0, (canvasPoint.x * canvas.zoom()) - (clientPoint.x - rect.left)),
-		top: Math.max(0, (canvasPoint.y * canvas.zoom()) - (clientPoint.y - rect.top)),
-	});
-}
-
-function clampZoom(value: number): number {
-	return Math.min(Math.max(value, minimumZoom), maximumZoom);
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-	return Math.min(Math.max(value, minimum), maximum);
-}
-
 function restoreSelection(): void {
 	const state = vscode.getState();
 	const selectedElementIds = state?.selectedElementIds ?? (state?.selectedElementId === undefined ? [] : [state.selectedElementId]);
@@ -943,39 +722,6 @@ function restoreSelection(): void {
 	}
 
 	canvas.selectElements(selectedElementIds);
-}
-
-function restoreViewport(): void {
-	const state = vscode.getState();
-	const viewportPanX = state?.viewportPanX ?? webviewConfig.initialViewport?.panX;
-	const viewportPanY = state?.viewportPanY ?? webviewConfig.initialViewport?.panY;
-	const viewportZoom = state?.viewportZoom ?? webviewConfig.initialViewport?.zoom;
-	if (viewportPanX === undefined && viewportPanY === undefined && viewportZoom === undefined) {
-		return;
-	}
-
-	requestAnimationFrame(() => {
-		if (viewportZoom !== undefined) {
-			setZoom(viewportZoom);
-		} else {
-			resizeCanvasForZoom();
-		}
-		canvasScroll.scrollTo({
-			left: viewportPanX ?? canvasScroll.scrollLeft,
-			top: viewportPanY ?? canvasScroll.scrollTop,
-		});
-		publishViewportChanged('restore');
-	});
-}
-
-function publishViewportChanged(changeSource: 'scroll' | 'restore' | 'fit' | 'reset' | 'reveal' | 'zoom'): void {
-	messageBus.publishEvent(new CanvasViewportChangedEvent({
-		diagramFilePath: webviewConfig.payload.file?.fsPath,
-		panX: canvasScroll.scrollLeft,
-		panY: canvasScroll.scrollTop,
-		zoom: canvas.zoom(),
-		changeSource,
-	}));
 }
 
 async function exportPng(): Promise<void> {
@@ -1085,228 +831,6 @@ function editLabel(id: string): boolean {
 	return true;
 }
 
-function registerUndoRedoHandlers(): void {
-	document.addEventListener('keydown', (event) => {
-		if (noteEditorController.isOpen() || isTextEditingTarget(event.target)) {
-			return;
-		}
-
-		const action = undoRedoAction(event);
-		if (action === undefined) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-		if (action === 'undo') {
-			requestDiagramUndo();
-		} else {
-			requestDiagramRedo();
-		}
-	});
-}
-
-function requestDiagramUndo(): void {
-	messageBus.publishEvent(new CanvasUndoRequestedEvent({
-		diagramFilePath: webviewConfig.payload.file?.fsPath,
-	}));
-	messageBus.publishCommand(new UndoDiagramCommand());
-	showStatus('Undoing diagram edit.');
-}
-
-function requestDiagramRedo(): void {
-	messageBus.publishEvent(new CanvasRedoRequestedEvent({
-		diagramFilePath: webviewConfig.payload.file?.fsPath,
-	}));
-	messageBus.publishCommand(new RedoDiagramCommand());
-	showStatus('Redoing diagram edit.');
-}
-
-function undoRedoAction(event: KeyboardEvent): 'undo' | 'redo' | undefined {
-	const key = event.key.toLowerCase();
-	const commandModifier = event.metaKey || event.ctrlKey;
-	if (!commandModifier || event.altKey) {
-		return undefined;
-	}
-
-	if (key === 'z') {
-		return event.shiftKey ? 'redo' : 'undo';
-	}
-	if (key === 'y' && event.ctrlKey && !event.metaKey && !event.shiftKey) {
-		return 'redo';
-	}
-
-	return undefined;
-}
-
-function registerSelectAllHandler(): void {
-	document.addEventListener('keydown', (event) => {
-		if (noteEditorController.isOpen() || isTextEditingTarget(event.target) || !isSelectAllShortcut(event)) {
-			return;
-		}
-
-		canvas.selectElements(elementRegistry.renderedElementIdentifiers());
-		event.preventDefault();
-		event.stopPropagation();
-	}, { capture: true });
-}
-
-function registerKeyboardNudgeHandlers(): void {
-	document.addEventListener('keydown', (event) => {
-		if (noteEditorController.isOpen() || isKeyboardInputTarget(event.target)) {
-			return;
-		}
-		if (event.ctrlKey || event.metaKey) {
-			return;
-		}
-
-		const delta = keyboardNudgeDelta(event);
-		if (delta === undefined) {
-			return;
-		}
-
-		const selectedElementIds = canvas.selectedElementIds();
-		if (selectedElementIds.length > 1 && canvas.nudgeSelectedElements(delta)) {
-			consumeKeyboardNudgeEvent(event);
-			return;
-		}
-
-		const selectedElementId = canvas.selectedElementId();
-		if (selectedElementId === undefined) {
-			return;
-		}
-		if (event.altKey) {
-			if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeRoute(selectedElementId, delta)) {
-				consumeKeyboardNudgeEvent(event);
-			}
-			return;
-		}
-
-		if (geometryPersistence.hasEdge(selectedElementId) && canvas.nudgeEdgeLabel(selectedElementId, delta)) {
-			consumeKeyboardNudgeEvent(event);
-			return;
-		}
-
-		const selectedElementKind = elementRegistry.element(selectedElementId)?.kind;
-		if (isKeyboardNudgeableElement(selectedElementKind) && canvas.nudgeElement(selectedElementId, delta)) {
-			consumeKeyboardNudgeEvent(event);
-		}
-	}, { capture: true });
-}
-
-function consumeKeyboardNudgeEvent(event: KeyboardEvent): void {
-	event.preventDefault();
-	event.stopImmediatePropagation();
-}
-
-function keyboardNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
-	const step = event.shiftKey ? 10 : 1;
-	if (event.key === 'ArrowLeft') {
-		return { x: -step, y: 0 };
-	}
-	if (event.key === 'ArrowRight') {
-		return { x: step, y: 0 };
-	}
-	if (event.key === 'ArrowUp') {
-		return { x: 0, y: -step };
-	}
-	if (event.key === 'ArrowDown') {
-		return { x: 0, y: step };
-	}
-
-	return undefined;
-}
-
-function isKeyboardNudgeableElement(kind: string | undefined): boolean {
-	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label' || kind === 'metadata';
-}
-
-function registerDeleteHandlers(): void {
-	document.addEventListener('keydown', (event) => {
-		if (noteEditorController.isOpen()) {
-			return;
-		}
-		if (event.key !== 'Delete' && event.key !== 'Backspace') {
-			return;
-		}
-		if (isKeyboardInputTarget(event.target)) {
-			return;
-		}
-
-		if (deleteSelectedElements()) {
-			event.preventDefault();
-			event.stopPropagation();
-		}
-	});
-}
-
-function deleteElement(id: string): boolean {
-	const element = elementRegistry.element(id);
-	if (element?.kind === 'node') {
-		messageBus.publishCommand(new DeleteNodeCommand(id));
-
-		return true;
-	}
-
-	if (element?.kind === 'edge') {
-		messageBus.publishCommand(new DeleteEdgeCommand(id));
-
-		return true;
-	}
-
-	if (geometryPersistence.hasNote(id)) {
-		messageBus.publishCommand(new DeleteNoteCommand(id));
-
-		return true;
-	}
-
-	if (geometryPersistence.hasImage(id)) {
-		messageBus.publishCommand(new DeleteImageCommand(id));
-
-		return true;
-	}
-
-	if (geometryPersistence.hasLabel(id)) {
-		messageBus.publishCommand(new DeleteLabelCommand(id));
-
-		return true;
-	}
-	if (geometryPersistence.hasMetadata(id)) {
-		messageBus.publishCommand(new DeleteMetadataElementCommand(id));
-		return true;
-	}
-	if (geometryPersistence.hasLegend(id)) {
-		messageBus.publishCommand(new DeleteLegendElementCommand(id));
-		return true;
-	}
-
-	return false;
-}
-
-function deleteSelectedElements(): boolean {
-	const selectedElementIds = deletableElementIds(canvas.selectedElementIds());
-	if (selectedElementIds.length > 1) {
-		messageBus.publishCommand(new DeleteElementsCommand(selectedElementIds));
-
-		return true;
-	}
-
-	return selectedElementIds.length === 1 && deleteElement(selectedElementIds[0]);
-}
-
-function deletableElementIds(ids: readonly string[]): readonly string[] {
-	return [...new Set(ids)].filter((id) => {
-		const element = elementRegistry.element(id);
-		return element?.kind === 'node'
-			|| element?.kind === 'edge'
-			|| geometryPersistence.hasNote(id)
-			|| geometryPersistence.hasImage(id)
-			|| geometryPersistence.hasLabel(id)
-			|| geometryPersistence.hasMetadata(id)
-			|| geometryPersistence.hasLegend(id);
-	});
-}
-
 function trackRenderedGeometry(payload: DiagramPayload): void {
 	for (const node of payload.diagram?.nodes ?? []) {
 		geometryPersistence.trackNodeBounds({
@@ -1357,23 +881,6 @@ function trackRenderedGeometry(payload: DiagramPayload): void {
 		geometryPersistence.trackMetadataBounds(metadataBounds(element));
 	}
 	for (const element of payload.diagram?.legend_elements ?? []) {geometryPersistence.trackLegendBounds(legendBounds(element));}
-}
-
-function insertionPosition(): CanvasPoint {
-	const zoom = canvas.zoom();
-
-	return {
-		x: Math.max(0, Math.round((canvasScroll.scrollLeft + 80) / zoom)),
-		y: Math.max(0, Math.round((canvasScroll.scrollTop + 80) / zoom)),
-	};
-}
-
-function viewportCenterInsertionPosition(): CanvasPoint {
-	const position = viewportClientPointToCanvasPoint(viewportCenterClientPoint(), canvas.zoom());
-	return {
-		x: Math.max(0, Math.round(position.x)),
-		y: Math.max(0, Math.round(position.y)),
-	};
 }
 
 function showStatus(message: string): void {
