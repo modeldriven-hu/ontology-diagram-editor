@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 
-import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, type NodeSelectionLayoutNode } from '../ui/webview/components/node-selection-layout';
+import { alignNodeSelection, distributeNodeSelection, matchNodeSelectionSize, resizeNodeSelectionToMinimum, type NodeSelectionLayoutNode } from '../ui/webview/components/node-selection-layout';
 
 suite('Node selection layout', () => {
 	const nodes: readonly NodeSelectionLayoutNode[] = [
@@ -37,6 +37,30 @@ suite('Node selection layout', () => {
 		assert.deepStrictEqual(matchNodeSelectionSize(nodes, 'size'), [
 			{ id: 'node_b', x: 260, y: 120, width: 100, height: 40 },
 			{ id: 'node_c', x: 520, y: 40, width: 100, height: 40 },
+		]);
+	});
+
+	test('resizes every selected node to its own minimum size', () => {
+		const minimumSizes = new Map([
+			['node_a', { width: 96, height: 44 }],
+			['node_b', { width: 140, height: 60 }],
+			['node_c', { width: 120, height: 70 }],
+		]);
+		assert.deepStrictEqual(resizeNodeSelectionToMinimum(nodes, (node) => minimumSizes.get(node.id)), [
+			{ id: 'node_a', x: 20, y: 80, width: 96, height: 44 },
+			{ id: 'node_b', x: 260, y: 120, width: 140, height: 60 },
+			{ id: 'node_c', x: 520, y: 40, width: 120, height: 70 },
+		]);
+	});
+
+	test('omits selected nodes that are already minimum-sized or have no size', () => {
+		assert.deepStrictEqual(resizeNodeSelectionToMinimum(nodes, (node) => {
+			if (node.id === 'node_a') {
+				return { width: node.width, height: node.height };
+			}
+			return node.id === 'node_b' ? { width: 96, height: 44 } : undefined;
+		}), [
+			{ id: 'node_b', x: 260, y: 120, width: 96, height: 44 },
 		]);
 	});
 

@@ -418,6 +418,8 @@ function createMissingNodes(
 			undefined,
 			reference.nodeType === 'individual' ? true : undefined,
 			reference.nodeType === 'individual' ? true : undefined,
+			undefined,
+			'wrap',
 		));
 		existing.nodesByKey.set(key, created[created.length - 1]);
 	}

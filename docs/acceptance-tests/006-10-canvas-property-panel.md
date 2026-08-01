@@ -8,17 +8,23 @@
 - Given the user resizes or collapses the panel, when the `.odiagram` file is saved, then panel width and collapsed state are not persisted.
 - Given no element is selected, when the panel is shown, then it displays read-only diagram context.
 - Given one element is selected, when the panel updates, then it shows the element type, read-only identifier, and supported fields for that element type.
-- Given multiple nodes are selected, when the panel updates, then it shows a shared Style tab.
+- Given multiple nodes are selected, when the panel updates, then it shows shared Display and Style tabs.
+- Given multiple edges are selected, when the panel updates, then it shows a shared Style tab with routing type and Optimize Edges controls.
 - Given selected nodes have different values for a style field, when the shared Style tab is shown, then that field indicates a mixed value.
+- Given selected edges have different routing or style values, when the shared Style tab is shown, then those fields indicate mixed values.
 - Given a selection contains nodes, edges, and notes, when the panel updates, then it offers type-limit actions showing the count for Nodes, Edges, and Notes.
 - Given a mixed selection and its type-limit actions are shown, when Select only Edges is chosen, then all selected non-edge elements are deselected and all previously selected edges remain selected.
 - Given a type-limit action leaves one element selected, when the canvas publishes the resulting selection, then the Properties view shows that element's normal single-selection fields.
-- Given a type-limit action leaves multiple nodes selected, when the canvas publishes the resulting selection, then the Properties view shows the shared node Style tab.
+- Given a type-limit action leaves multiple nodes selected, when the canvas publishes the resulting selection, then the Properties view shows the shared node Display and Style tabs.
 
 ## Editable Fields
 
 - Given a node is selected, when the panel is shown, then `x`, `y`, `width`, `height`, `image`, and `show_data_properties` are editable.
+- Given a node is selected, when the Ontology tab is shown, then it contains ontology-derived information but no diagram display controls.
+- Given a node is selected, when the Display tab is shown, then compartment visibility, type presentation, overflow, image, and containment controls applicable to that node are shown there.
 - Given an individual node is selected, when the panel is shown, then `show_type`, `show_property_values`, and `property_value_text_overflow` are editable.
+- Given an individual node is selected, when its type display is changed to stereotype, then `«Type»` is centered above the centered name and `type_display: stereotype` is persisted.
+- Given multiple individual nodes are selected, when their type display is changed, then the choice is applied to every selected individual.
 - Given an edge is selected, when the panel is shown, then route layout is editable and endpoints, route points, and label position are not editable.
 - Given a note is selected, when the panel is shown, then `text`, geometry, and Include in Export are editable.
 - Given a note, label, or image is selected, when the panel is shown, then only the version 1 editable fields for that element type are editable.
@@ -28,6 +34,9 @@
 - Given an image is selected, when the Style tab is shown, then image border type, border weight, border color, and drop shadow are editable.
 - Given multiple nodes are selected, when a shared style field or label overflow is changed, then that value is applied to every selected node while their unrelated style overrides are preserved.
 - Given multiple nodes are selected, when Clear Style is used, then all style overrides are cleared from every selected node.
+- Given multiple edges are selected, when routing type is changed, then it is applied to every selected edge without changing route points.
+- Given multiple edges are selected, when Optimize Edges is used, then every selected route and label position is recalculated from its current endpoints.
+- Given multiple edges are selected, when a shared style field is changed or Clear Style is used, then the change is applied to every selected edge while unrelated overrides are preserved where applicable.
 
 ## Validation And Persistence
 
@@ -35,5 +44,6 @@
 - Given a text field edit is in progress, when the user presses `Escape`, then the last committed value is restored.
 - Given a text field loses focus or the user presses `Enter`, when the value is valid, then the edit is committed as one logical document change.
 - Given multiple selected nodes receive a style edit, when it is persisted, then all node updates form one logical document change.
+- Given multiple selected edges receive a routing, optimization, or style edit, when it is persisted, then all edge updates form one logical document change.
 - Given a property panel edit is persisted, when events are emitted, then `Canvas property edited`, `Diagram document updated`, and `Diagram save requested` are emitted.
 - Given the selected element is removed externally, when the panel refreshes, then stale selection is cleared and the no-selection state is shown.

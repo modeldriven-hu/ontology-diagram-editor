@@ -8,9 +8,18 @@ export class UpdateEdgeRouteLayoutUseCase {
 		id: string,
 		routeLayout: EdgeRouteLayout | undefined,
 	): DiagramMutationResult {
+		return this.executeMany(diagram, [id], routeLayout);
+	}
+
+	public executeMany(
+		diagram: OntologyDiagramDocument,
+		ids: readonly string[],
+		routeLayout: EdgeRouteLayout | undefined,
+	): DiagramMutationResult {
+		const selectedIds = new Set(ids);
 		let changed = false;
 		const nextEdges = diagram.edges.map((edge) => {
-			if (edge.id.value !== id) {
+			if (!selectedIds.has(edge.id.value)) {
 				return edge;
 			}
 			if (edge.routeLayout === routeLayout) {

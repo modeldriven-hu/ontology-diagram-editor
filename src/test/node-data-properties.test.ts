@@ -1,9 +1,53 @@
 import * as assert from 'assert';
 
+import { minimumNodeWithImageHeight, minimumNodeWithImageWidth } from '../shared/canvas-geometry';
 import type { DiagramNode, DiagramPayload } from '../ui/webview/ontology-diagram-types';
-import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleDisplayText, nodeTitleText } from '../ui/webview/components/node-data-properties';
+import { availableNodePropertyValueAttributes, measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeTitleDisplayText, nodeTitleText, requiredMinimumNodeSize } from '../ui/webview/components/node-data-properties';
 
 suite('Node data properties', () => {
+	test('keeps a minimum usable image area when minimizing an image node', () => {
+		const node: DiagramNode = {
+			id: 'node_icon',
+			ontology_ref: 'ex:Icon',
+			x: 0,
+			y: 0,
+			width: 240,
+			height: 180,
+			image: 'data:image/png;base64,aWNvbg==',
+		};
+		const size = requiredMinimumNodeSize(node, { diagram: {} }, {
+			nodeFontSize: 13,
+			nodeFontFamily: 'Arial',
+			nodeFontBold: true,
+			nodeFontItalic: false,
+		});
+
+		assert.deepStrictEqual(size, {
+			width: minimumNodeWithImageWidth,
+			height: minimumNodeWithImageHeight,
+		});
+		assert.strictEqual(size.height, 88);
+	});
+
+	test('keeps wrapped node titles at the minimum width', () => {
+		const size = requiredMinimumNodeSize({
+			id: 'node_wrapped',
+			ontology_ref: 'ex:LongNodeTitleThatNeedsWrapping',
+			x: 0,
+			y: 0,
+			width: 240,
+			height: 72,
+			label_text_overflow: 'wrap',
+		}, { diagram: {} }, {
+			nodeFontSize: 13,
+			nodeFontFamily: 'Arial',
+			nodeFontBold: true,
+			nodeFontItalic: false,
+		});
+
+		assert.deepStrictEqual(size, { width: 96, height: 44 });
+	});
+
 	test('uses ontology labels for class node titles', () => {
 		const node: DiagramNode = {
 			id: 'node_service',
@@ -119,6 +163,14 @@ suite('Node data properties', () => {
 		};
 
 		assert.strictEqual(nodeTitleText(node, payload), 'REQ-001 : Functional Requirement');
+		assert.strictEqual(nodeTitleText({ ...node, type_display: 'stereotype' }, payload), '«Functional Requirement»\nREQ-001');
+		assert.strictEqual(nodeTitleDisplayText({
+			node: { ...node, type_display: 'stereotype' },
+			payload,
+			width: 180,
+			height: 44,
+			fontSize: 12,
+		}), '«Functional Requirement»\nREQ-001');
 		assert.deepStrictEqual(availableNodePropertyValueAttributes(node, payload).map((attribute) => attribute.text), [
 			"title = 'User Authentication'",
 			'depends on = Password Reset',

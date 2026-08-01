@@ -3,6 +3,7 @@
 ## Create Nodes
 
 - Given a class, individual, or datatype is dragged from the model tree, when it is dropped on the canvas, then a node is created at the drop position.
+- Given an ontology node is created by any supported addition workflow, when it is persisted, then it uses the minimum node dimensions and `label_text_overflow: wrap`.
 - Given a node-capable ontology item already has a corresponding node, when it is dropped again, then the user sees a duplicate-node message and no duplicate is written.
 - Given a connection-capable ontology item needs a missing endpoint node, when edge materialization runs, then the missing node is created using edge placement rules.
 

@@ -28,6 +28,7 @@ export class UpdateNodePropertyValueTextOverflowUseCase {
 				node.showPropertyValues,
 				nextTextOverflow,
 				node.labelTextOverflow,
+				node.typeDisplay,
 			);
 		});
 

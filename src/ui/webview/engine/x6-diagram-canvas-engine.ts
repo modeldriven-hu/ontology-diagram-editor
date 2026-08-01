@@ -1,4 +1,4 @@
-import type { BoundsUpdate, CanvasPoint, EdgeRouteUpdate } from '../../../shared/canvas-geometry';
+import { nodeImageInset, nodeImageReservedHeight, type BoundsUpdate, type CanvasPoint, type EdgeRouteUpdate } from '../../../shared/canvas-geometry';
 import { containmentHeaderHeight, containmentMovementNodeIds, createDiagramContainmentIndex, type DiagramContainmentIndex } from '../../../shared/diagram-containment';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
@@ -304,6 +304,8 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		} else if (update.kind === 'nodeLabelTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
 		} else if (update.kind === 'nodePropertyValueTextOverflow' && this.elementRegistry.element(update.id)?.kind === 'node') {
+			this.updateOntologyNodePresentation(update.id);
+		} else if (update.kind === 'nodeTypeDisplay' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
 		}
 	}
@@ -1306,10 +1308,10 @@ function x6OntologyNodeImageAttrs(node: DiagramNode, hasAttributes: boolean): Re
 	const hasImage = hasNodeImage(node);
 	if (hasImage) {
 		return {
-			x: 8,
-			y: 8,
-			width: Math.max(0, node.width - 16),
-			height: Math.max(0, node.height - 56),
+			x: nodeImageInset,
+			y: nodeImageInset,
+			width: Math.max(0, node.width - (nodeImageInset * 2)),
+			height: Math.max(0, node.height - nodeImageReservedHeight),
 			'xlink:href': node.image,
 			preserveAspectRatio: imagePreserveAspectRatio(node),
 			pointerEvents: 'none',

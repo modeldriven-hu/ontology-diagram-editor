@@ -23,6 +23,7 @@
   when validation runs, then validation reports an error.
 - Given `show_data_properties: true` is present on a node, when the file is parsed and serialized, then the field is preserved.
 - Given `property_value_text_overflow: wrap` is present on an individual node, when the file is parsed and serialized, then the field is preserved.
+- Given `type_display: stereotype` is present on an individual node, when the file is parsed and serialized, then the field is preserved.
 - Given `label_text_overflow: wrap` is present on a node, when the file is parsed and serialized, then the field is preserved.
 - Given `export: false` is present on a note, when the file is parsed and serialized, then the field is preserved.
 

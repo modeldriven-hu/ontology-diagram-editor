@@ -123,7 +123,7 @@ function updateNodeStyle(
 		}
 
 		changed = true;
-		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra, node.showDataProperties, node.showType, node.showPropertyValues, node.propertyValueTextOverflow, node.labelTextOverflow);
+		return new DiagramNode(node.id.value, node.ontologyRef.value, node.bounds, nextStyle, node.image, node.extra, node.showDataProperties, node.showType, node.showPropertyValues, node.propertyValueTextOverflow, node.labelTextOverflow, node.typeDisplay);
 	});
 
 	return changed ? { diagram: cloneDiagram(diagram, { nodes: nextNodes }) } : {};

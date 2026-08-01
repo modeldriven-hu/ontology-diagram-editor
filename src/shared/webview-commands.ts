@@ -1,4 +1,4 @@
-import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, IndividualTypeDisplay, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -95,8 +95,10 @@ export type WebviewCommand =
 	| UpdateNodeBoundsCommand
 	| UpdateEdgeRouteCommand
 	| OptimizeEdgeRouteCommand
+	| OptimizeEdgeRoutesCommand
 	| StraightenEdgeRouteCommand
 	| UpdateEdgeRouteLayoutCommand
+	| UpdateEdgeRouteLayoutsCommand
 	| UpdateEdgePresentationCommand
 	| ShowRelatedElementsCommand
 	| ShowEdgesBetweenNodesCommand
@@ -110,6 +112,7 @@ export type WebviewCommand =
 	| UpdateNodeImageCommand
 	| UpdateNodeDataPropertiesVisibilityCommand
 	| UpdateNodeTypeVisibilityCommand
+	| UpdateNodeTypeDisplayCommand
 	| UpdateNodePropertyValuesVisibilityCommand
 	| UpdateNodePropertyValueTextOverflowCommand
 	| UpdateNodeLabelTextOverflowCommand
@@ -198,24 +201,15 @@ export class CreateNodeCommand {
 	public readonly payload?: ModelTreeItemDropPayload;
 	public readonly payloads?: readonly ModelTreeItemDropPayload[];
 	public readonly position: CanvasPoint;
-	public readonly size?: {
-		readonly width: number;
-		readonly height: number;
-	};
 
 	public constructor(options: {
 		readonly payload?: ModelTreeItemDropPayload;
 		readonly payloads?: readonly ModelTreeItemDropPayload[];
 		readonly position: CanvasPoint;
-		readonly size?: {
-			readonly width: number;
-			readonly height: number;
-		};
 	}) {
 		this.payload = options.payload;
 		this.payloads = options.payloads;
 		this.position = options.position;
-		this.size = options.size;
 	}
 }
 
@@ -272,6 +266,15 @@ export class OptimizeEdgeRouteCommand {
 	}
 }
 
+export class OptimizeEdgeRoutesCommand {
+	public readonly type = 'optimizeEdgeRoutes';
+	public readonly ids: readonly string[];
+
+	public constructor(ids: readonly string[]) {
+		this.ids = ids;
+	}
+}
+
 export class StraightenEdgeRouteCommand {
 	public readonly type = 'straightenEdgeRoute';
 	public readonly id: string;
@@ -288,6 +291,17 @@ export class UpdateEdgeRouteLayoutCommand {
 
 	public constructor(id: string, routeLayout?: EdgeRouteLayout) {
 		this.id = id;
+		this.routeLayout = routeLayout;
+	}
+}
+
+export class UpdateEdgeRouteLayoutsCommand {
+	public readonly type = 'updateEdgeRouteLayouts';
+	public readonly ids: readonly string[];
+	public readonly routeLayout?: EdgeRouteLayout;
+
+	public constructor(ids: readonly string[], routeLayout?: EdgeRouteLayout) {
+		this.ids = ids;
 		this.routeLayout = routeLayout;
 	}
 }
@@ -557,6 +571,15 @@ export class UpdateNodeTypeVisibilityCommand {
 		this.id = id;
 		this.showType = showType;
 	}
+}
+
+export class UpdateNodeTypeDisplayCommand {
+	public readonly type = 'updateNodeTypeDisplay';
+
+	public constructor(
+		public readonly ids: readonly string[],
+		public readonly typeDisplay: IndividualTypeDisplay,
+	) {}
 }
 
 export class UpdateNodePropertyValuesVisibilityCommand {

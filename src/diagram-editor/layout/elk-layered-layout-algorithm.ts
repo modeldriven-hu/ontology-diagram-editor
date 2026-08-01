@@ -15,6 +15,7 @@ interface ElkLabel {
 	readonly y?: number;
 	readonly width?: number;
 	readonly height?: number;
+	readonly layoutOptions?: Readonly<Record<string, string>>;
 }
 
 interface ElkEdgeSection {
@@ -66,7 +67,7 @@ export class ElkLayeredLayoutAlgorithm implements DiagramLayoutAlgorithm {
 			...this.layoutOptions,
 			...this.directionOptions(elkLayeredOptions),
 			...this.spacingOptions(elkLayeredOptions),
-		}));
+		}, this.id === 'elk-layered'));
 		return {
 			nodeBoundsById: nodeBounds(graph, diagram),
 			edgeRoutesById: edgeRoutes(graph, diagram),
@@ -151,6 +152,7 @@ export class ElkMrTreeLayoutAlgorithm extends ElkLayeredLayoutAlgorithm {
 function elkGraph(
 	diagram: OntologyDiagramDocument,
 	layoutOptions: Readonly<Record<string, string>>,
+	inlineEdgeLabels: boolean,
 ): ElkNode {
 	const nodeIds = new Set(diagram.nodes.map((node) => node.id.value));
 	return {
@@ -166,11 +168,11 @@ function elkGraph(
 		edges: diagram.edges
 			.filter((edge) => nodeIds.has(edge.source.value) && nodeIds.has(edge.target.value))
 			.sort((left, right) => left.id.value.localeCompare(right.id.value))
-			.map(elkEdge),
+			.map((edge) => elkEdge(edge, inlineEdgeLabels)),
 	};
 }
 
-function elkEdge(edge: DiagramEdge): ElkExtendedEdge {
+function elkEdge(edge: DiagramEdge, inlineLabel: boolean): ElkExtendedEdge {
 	const label = edgeDisplayName(edge.ontologyRef.value);
 	return {
 		id: edge.id.value,
@@ -181,6 +183,9 @@ function elkEdge(edge: DiagramEdge): ElkExtendedEdge {
 			text: label,
 			width: Math.max(minimumEdgeLabelWidth, label.length * 7),
 			height: edgeLabelHeight,
+			layoutOptions: inlineLabel ? {
+				'elk.edgeLabels.inline': 'true',
+			} : undefined,
 		}],
 	};
 }

@@ -37,6 +37,7 @@ export class UpdateNodeLabelTextOverflowUseCase {
 				node.showPropertyValues,
 				node.propertyValueTextOverflow,
 				nextTextOverflow,
+				node.typeDisplay,
 			);
 		});
 

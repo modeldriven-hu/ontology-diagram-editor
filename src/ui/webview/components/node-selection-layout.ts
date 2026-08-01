@@ -19,6 +19,18 @@ export type NodeSelectionAlignment =
 export type NodeSelectionSizeMatch = 'width' | 'height' | 'size';
 export type NodeSelectionDistribution = 'horizontal' | 'vertical';
 
+export function resizeNodeSelectionToMinimum<T extends NodeSelectionLayoutNode>(
+	nodes: readonly T[],
+	minimumSizeForNode: (node: T) => { readonly width: number; readonly height: number } | undefined,
+): readonly BoundsUpdate[] {
+	return changedBoundsUpdates(nodes, nodes.flatMap((node) => {
+		const minimumSize = minimumSizeForNode(node);
+		return minimumSize === undefined
+			? []
+			: [boundsUpdate(node, minimumSize)];
+	}));
+}
+
 export function alignNodeSelection(
 	nodes: readonly NodeSelectionLayoutNode[],
 	alignment: NodeSelectionAlignment,

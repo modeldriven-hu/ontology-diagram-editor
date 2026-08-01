@@ -84,6 +84,7 @@ Arranging the diagram shall:
   promote a selected contained node to its complete top-level tree.
 - Reroute connected edges so endpoints remain on element boundaries.
 - Update edge label positions to reasonable route midpoints.
+- Place ELK Layered edge labels inline on their routed edge when ELK can do so.
 - Persist the result as one logical `.odiagram` document edit.
 
 The selected layout algorithm is viewport state rather than diagram content. Changing the
@@ -122,10 +123,14 @@ Version 1 local toolbar actions are:
 | Selection | Actions |
 |-----------|---------|
 | Node | Resize to minimum; create note from ontology comment when a comment is available; show related elements to a selected relationship depth. |
+| Multiple nodes | Resize every selected node to its own minimum; show edges between selected nodes; align, match size, and distribute nodes; align shared subclass endpoints. |
 | Note | Resize to compact size and connect note. |
 | Image | Resize to minimum. |
 | Label | Resize to minimum. |
 | Edge | Optimize edge path, choose a routing type, choose connection or either containment direction, straighten the route, and remove edge. |
+
+For a node with an assigned image, Resize to minimum shall retain a usable image area
+above the visible node title.
 
 The show-related-elements node action shall ask the user for a relationship depth. It
 shall add unambiguous object-property relationships, object-property assertions, and
