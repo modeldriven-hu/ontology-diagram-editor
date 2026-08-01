@@ -338,7 +338,7 @@ renderViewportToolbarIcons({
 }, themeMode);
 setPanMode(panMode, false);
 updateToolbarActionStates();
-applyCanvasTheme(theme);
+applyCanvasTheme(theme, themeMode);
 registerExtensionMessageForwarding();
 registerHostMessageHandlers();
 registerCanvasStateSubscriptions();
@@ -821,7 +821,7 @@ function toggleThemeMode(): void {
 	themeMode = themeMode === 'dark' ? 'light' : 'dark';
 	theme = readTheme(themeMode, webviewConfig.payload.theme);
 	updateWebviewState({ themeMode });
-	applyCanvasTheme(theme);
+	applyCanvasTheme(theme, themeMode);
 	renderThemeModeButton(themeModeButton, themeMode);
 	render();
 	if (selectedElementId !== undefined) {
@@ -831,7 +831,8 @@ function toggleThemeMode(): void {
 	showStatus(`${capitalize(themeMode)} mode`);
 }
 
-function applyCanvasTheme(nextTheme: WebviewTheme): void {
+function applyCanvasTheme(nextTheme: WebviewTheme, mode: WebviewThemeMode): void {
+	document.body.dataset.diagramTheme = mode;
 	canvasScroll.style.setProperty('--diagram-canvas-background', nextTheme.canvasBackground);
 	canvasScroll.style.setProperty('--diagram-canvas-foreground', nextTheme.editorForeground);
 }

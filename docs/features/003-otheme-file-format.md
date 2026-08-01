@@ -197,16 +197,16 @@ shall not knowingly persist invalid `.otheme` content.
 ```yaml
 theme:
   canvas:
-    bg_color: "#FFFFFF"
+    bg_color: "#F5F7FA"
 
   nodes:
-    bg_color: "#FFFFCC"
-    text_color: "#000000"
+    bg_color: "#FFFFFF"
+    text_color: "#1E293B"
     border:
       type: solid
       weight: 1
-      color: "#333333"
-    corner_radius: 0
+      color: "#CBD5E1"
+    corner_radius: 8
     shadow: true
     font:
       family: "Arial"
@@ -215,10 +215,10 @@ theme:
       size: 12
 
   edges:
-    color: "#4A4A4A"
+    color: "#8795A8"
     line_style: solid
-    weight: 1
-    text_color: "#000000"
+    weight: 1.25
+    text_color: "#475569"
     font:
       family: "Arial"
       bold: false
@@ -226,13 +226,13 @@ theme:
       size: 10
 
   notes:
-    bg_color: "#CCFFCC"
-    text_color: "#000000"
+    bg_color: "#FFF8DC"
+    text_color: "#493D1F"
     border:
       type: solid
       weight: 1
-      color: "#669966"
-    corner_radius: 0
+      color: "#E7CA72"
+    corner_radius: 8
     shadow: true
     font:
       family: "Tahoma"
@@ -241,7 +241,7 @@ theme:
       size: 10
 
   labels:
-    text_color: "#000000"
+    text_color: "#1E293B"
     font:
       family: "Helvetica"
       bold: false
