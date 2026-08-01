@@ -104,6 +104,7 @@ suite('Canvas export', () => {
 });
 
 const testTheme: WebviewTheme = {
+	mode: 'light',
 	canvasBackground: '#FFFFFF',
 	containmentBackgrounds: ['#E8EEF8'],
 	containmentBorders: ['#375A8C'],

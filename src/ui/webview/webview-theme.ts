@@ -1,4 +1,5 @@
 export interface WebviewTheme {
+	readonly mode: WebviewThemeMode;
 	readonly canvasBackground: string;
 	readonly containmentBackgrounds: readonly string[];
 	readonly containmentBorders: readonly string[];
@@ -48,6 +49,7 @@ export function readTheme(mode: WebviewThemeMode = detectPreferredThemeMode(), o
 	const defaultFontSize = Number.parseInt(cssVariable(styles, '--vscode-font-size', '13'), 10) || 13;
 
 	return {
+		mode,
 		canvasBackground: modeDefaults.canvasBackground,
 		containmentBackgrounds: modeDefaults.containmentBackgrounds,
 		containmentBorders: modeDefaults.containmentBorders,

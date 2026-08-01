@@ -14,6 +14,7 @@ suite('Note colors', () => {
 });
 
 const testTheme: WebviewTheme = {
+	mode: 'light',
 	canvasBackground: '#FFFFFF',
 	containmentBackgrounds: ['#E8EEF8', '#F3F6FB'],
 	containmentBorders: ['#375A8C', '#6682A8'],

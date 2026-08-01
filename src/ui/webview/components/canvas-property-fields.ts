@@ -1,3 +1,5 @@
+import type { CanvasColorSwatch } from './canvas-color-palettes';
+
 export function readonlyField(label: string, value: string): HTMLElement {
 	const field = fieldElement(label);
 	const valueElement = document.createElement('span');
@@ -71,7 +73,12 @@ export function textField(label: string, value: string, commit: (value: string) 
 	return editableField(label, input);
 }
 
-export function colorField(label: string, value: string, commit: (value: string) => void): HTMLElement {
+export function colorField(
+	label: string,
+	value: string,
+	commit: (value: string) => void,
+	palette: readonly CanvasColorSwatch[] = [],
+): HTMLElement {
 	const wrapper = document.createElement('span');
 	wrapper.className = 'property-inline property-color-field';
 	const colorInput = document.createElement('input');
@@ -85,19 +92,78 @@ export function colorField(label: string, value: string, commit: (value: string)
 	registerCommit(textInput, () => {
 		commit(textInput.value);
 	});
+	const paletteElement = colorPaletteElement(label, palette, textInput, colorInput);
+	textInput.addEventListener('change', () => {
+		syncColorInput(textInput.value, colorInput);
+		updateSelectedColor(paletteElement, textInput.value);
+	});
 	colorInput.addEventListener('input', () => {
 		textInput.value = colorInput.value.toUpperCase();
+		updateSelectedColor(paletteElement, textInput.value);
 	});
 	colorInput.addEventListener('change', () => {
-		textInput.value = colorInput.value.toUpperCase();
-		commit(textInput.value);
+		commitColorValue(colorInput.value, textInput, colorInput);
 	});
 	colorInput.addEventListener('keydown', (event) => {
 		event.stopPropagation();
 	});
 	wrapper.append(colorInput, textInput);
+	if (palette.length > 0) {
+		wrapper.appendChild(paletteElement);
+	}
 
 	return editableField(label, wrapper);
+}
+
+function colorPaletteElement(
+	label: string,
+	palette: readonly CanvasColorSwatch[],
+	textInput: HTMLInputElement,
+	colorInput: HTMLInputElement,
+): HTMLElement {
+	const paletteElement = document.createElement('span');
+	paletteElement.className = 'property-color-palette';
+	paletteElement.setAttribute('role', 'group');
+	paletteElement.setAttribute('aria-label', `${label} palette`);
+	for (const swatch of palette) {
+		const button = document.createElement('button');
+		button.className = 'property-color-swatch';
+		button.type = 'button';
+		button.style.backgroundColor = swatch.value;
+		button.title = `${swatch.label} (${swatch.value})`;
+		button.setAttribute('aria-label', `Set ${label.toLocaleLowerCase()} to ${swatch.label}, ${swatch.value}`);
+		button.setAttribute('aria-pressed', String(colorsEqual(textInput.value, swatch.value)));
+		button.dataset.color = swatch.value;
+		button.addEventListener('click', () => {
+			commitColorValue(swatch.value, textInput, colorInput);
+			updateSelectedColor(paletteElement, swatch.value);
+		});
+		paletteElement.appendChild(button);
+	}
+
+	return paletteElement;
+}
+
+function commitColorValue(value: string, textInput: HTMLInputElement, colorInput: HTMLInputElement): void {
+	textInput.value = value.toUpperCase();
+	syncColorInput(textInput.value, colorInput);
+	textInput.dispatchEvent(new Event('change'));
+}
+
+function syncColorInput(value: string, colorInput: HTMLInputElement): void {
+	if (/^#[\da-f]{6}$/iu.test(value.trim())) {
+		colorInput.value = value.trim();
+	}
+}
+
+function updateSelectedColor(palette: HTMLElement, value: string): void {
+	for (const swatch of palette.querySelectorAll<HTMLButtonElement>('.property-color-swatch')) {
+		swatch.setAttribute('aria-pressed', String(colorsEqual(value, swatch.dataset.color ?? '')));
+	}
+}
+
+function colorsEqual(left: string, right: string): boolean {
+	return left.trim().toUpperCase() === right.trim().toUpperCase();
 }
 
 export function textAreaField(label: string, value: string, commit: (value: string) => void): HTMLElement {

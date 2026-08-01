@@ -127,6 +127,13 @@ The panel shall also expose element-level style override fields for styled eleme
 | Label | Text color, font family, font size, bold, italic. |
 | Image | Border type, border weight, border color, drop shadow. |
 
+Every editable color field shall offer a predefined palette of twelve named color
+families in addition to the native color picker and editable color text. Palette shades
+shall be adapted both to the active light or dark mode and to the field's purpose: soft
+surfaces for fills, clear accents for borders, lines, icons, and legends, and
+higher-contrast tones for text. Choosing a swatch shall commit the same persisted color
+value as entering its hexadecimal value manually.
+
 Style edits shall update only the selected element's `style` map, or the `style` maps of
 all selected nodes during node multi-selection, in the `.odiagram` file. The property
 panel shall not modify the active `.otheme` file.

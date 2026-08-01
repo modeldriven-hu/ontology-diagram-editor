@@ -145,7 +145,7 @@ function propertiesViewStyles(): string {
 	.property-inline .property-input { flex: 1 1 auto; }
 	.property-image-actions { flex-wrap: wrap; }
 	.property-combo-field { display: block; min-width: 0; width: 100%; }
-	.property-color-field { align-items: stretch; }
+	.property-color-field { align-items: stretch; flex-wrap: wrap; }
 	.property-color-input {
 		flex: 0 0 auto;
 		width: 30px;
@@ -157,6 +157,33 @@ function propertiesViewStyles(): string {
 		cursor: pointer;
 	}
 	.property-color-input:focus { border-color: var(--vscode-focusBorder); outline: none; }
+	.property-color-palette {
+		display: grid;
+		flex: 1 0 100%;
+		grid-template-columns: repeat(6, 20px);
+		gap: 5px;
+		padding-top: 3px;
+	}
+	.property-color-swatch {
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--vscode-foreground) 24%, transparent);
+		border-radius: 5px;
+		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
+		cursor: pointer;
+		transition: border-color 100ms ease, box-shadow 100ms ease, transform 100ms ease;
+	}
+	.property-color-swatch:hover, .property-color-swatch:focus-visible {
+		border-color: var(--vscode-focusBorder);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+		outline: none;
+		transform: translateY(-1px);
+	}
+	.property-color-swatch[aria-pressed="true"] {
+		border-color: var(--vscode-focusBorder);
+		box-shadow: 0 0 0 2px var(--vscode-focusBorder), inset 0 0 0 2px var(--vscode-sideBar-background);
+	}
 	.property-button {
 		flex: 0 0 auto;
 		min-height: 26px;

@@ -15,6 +15,7 @@ import { ontologyCommentsForReference } from './ontology-comments';
 import { ontologyAnnotationFieldsForReference } from './ontology-annotations';
 import type { WebviewTheme } from '../webview-theme';
 import { embeddedGalleryIconColor, recolorEmbeddedGalleryIcon } from '../../../shared/embedded-gallery-icon';
+import { canvasColorPalette, type CanvasColorRole } from './canvas-color-palettes';
 
 interface CanvasPropertyPanelOptions {
 	readonly canvas: Pick<DiagramCanvasEngine, 'restoreBounds' | 'updateElementContent'>;
@@ -240,10 +241,10 @@ export class CanvasPropertyPanel {
 				}),
 			]), sectionElement('Legend Colors', entries.length === 0
 				? [readonlyField('Status', 'Coloring is disabled.')]
-				: entries.map((entry) => colorField(entry.label, element.colors[entry.key] ?? '#808080', (color) => {
+				: entries.map((entry) => this.colorField(entry.label, element.colors[entry.key] ?? '#808080', (color) => {
 					this.propertyEdited('legend', element.id, ['colors', entry.key]);
 					this.options.messageBus.publishCommand(new UpdateLegendColorsCommand(element.id, { ...element.colors, [entry.key]: color }, element.color_mode, element.color_by));
-				})))] },
+				}, element.color_mode === 'background' ? 'surface' : 'accent')))] },
 			{ id: 'geometry', label: 'Geometry', sections: [sectionElement('Geometry', this.geometryFields(element, (update) => {
 				this.propertyEdited('legend', element.id, ['x', 'y', 'width', 'height']);
 				this.options.messageBus.publishCommand(new UpdateLegendBoundsCommand([update]));
@@ -285,12 +286,12 @@ export class CanvasPropertyPanel {
 
 		return [
 			sectionElement('Style', [
-				markMixedField(colorField('Fill Color', fillColor.mixed ? '' : fillColor.value ?? '', (value) => {
+				markMixedField(this.colorField('Fill Color', fillColor.mixed ? '' : fillColor.value ?? '', (value) => {
 					this.updateNodeStyles(nodeIds, (style) => ({ ...style, bg_color: blankToUndefined(value) }));
-				}), fillColor.mixed),
-				markMixedField(colorField('Text Color', textColor.mixed ? '' : textColor.value ?? '', (value) => {
+				}, 'surface'), fillColor.mixed),
+				markMixedField(this.colorField('Text Color', textColor.mixed ? '' : textColor.value ?? '', (value) => {
 					this.updateNodeStyles(nodeIds, (style) => ({ ...style, text_color: blankToUndefined(value) }));
-				}), textColor.mixed),
+				}, 'foreground'), textColor.mixed),
 				mixedSelectField('Font', normalizeSharedString(fontFamily), fontFamilyOptions(fontFamily.value), (value) => {
 					this.updateNodeStyles(nodeIds, (style) => ({
 						...style,
@@ -327,7 +328,7 @@ export class CanvasPropertyPanel {
 						border: { ...style.border, weight: value },
 					}));
 				}), borderWeight.mixed),
-				markMixedField(colorField('Border Color', borderColor.mixed ? '' : borderColor.value ?? '', (value) => {
+				markMixedField(this.colorField('Border Color', borderColor.mixed ? '' : borderColor.value ?? '', (value) => {
 					this.updateNodeStyles(nodeIds, (style) => ({
 						...style,
 						border: { ...style.border, color: blankToUndefined(value) },
@@ -392,7 +393,7 @@ export class CanvasPropertyPanel {
 				}),
 			]),
 			sectionElement('Style', [
-				markMixedField(colorField('Line Color', lineColor.mixed ? '' : lineColor.value ?? '', (value) => {
+				markMixedField(this.colorField('Line Color', lineColor.mixed ? '' : lineColor.value ?? '', (value) => {
 					this.updateEdgeStyles(edgeIds, (style) => ({ ...style, color: blankToUndefined(value) }));
 				}), lineColor.mixed),
 				mixedSelectField('Line Style', lineStyle, lineStyleOptions, (value) => {
@@ -401,9 +402,9 @@ export class CanvasPropertyPanel {
 				markMixedField(optionalNumberField('Line Weight', lineWeight.mixed ? undefined : lineWeight.value, (value) => {
 					this.updateEdgeStyles(edgeIds, (style) => ({ ...style, weight: value }));
 				}), lineWeight.mixed),
-				markMixedField(colorField('Label Text Color', textColor.mixed ? '' : textColor.value ?? '', (value) => {
+				markMixedField(this.colorField('Label Text Color', textColor.mixed ? '' : textColor.value ?? '', (value) => {
 					this.updateEdgeStyles(edgeIds, (style) => ({ ...style, text_color: blankToUndefined(value) }));
-				}), textColor.mixed),
+				}, 'foreground'), textColor.mixed),
 				mixedSelectField('Font', normalizeSharedString(fontFamily), fontFamilyOptions(fontFamily.value), (value) => {
 					this.updateEdgeStyles(edgeIds, (style) => ({
 						...style,
@@ -541,7 +542,7 @@ export class CanvasPropertyPanel {
 					this.propertyEdited('node', node.id, ['image']);
 					this.options.messageBus.publishCommand(new UpdateNodeImageCommand(node.id, undefined));
 				}),
-				...(iconColor === undefined || node.image === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
+				...(iconColor === undefined || node.image === undefined ? [] : [this.colorField('Icon Color', iconColor, (color) => {
 					const image = recolorEmbeddedGalleryIcon(node.image ?? '', color);
 					if (image === undefined) {
 						return;
@@ -735,7 +736,7 @@ export class CanvasPropertyPanel {
 						imageField('Source', () => {
 							this.options.chooseStandaloneImage(image.id);
 						}),
-						...(iconColor === undefined ? [] : [colorField('Icon Color', iconColor, (color) => {
+						...(iconColor === undefined ? [] : [this.colorField('Icon Color', iconColor, (color) => {
 							const source = recolorEmbeddedGalleryIcon(image.source, color);
 							if (source === undefined) {
 								return;
@@ -886,12 +887,12 @@ export class CanvasPropertyPanel {
 		const patch = (): CommonStylePatch => cloneCommonStyle(style);
 
 		return sectionElement('Style', [
-			colorField('Fill Color', style?.bg_color ?? '', (value) => {
+			this.colorField('Fill Color', style?.bg_color ?? '', (value) => {
 				commit(cleanCommonStyle({ ...patch(), bg_color: blankToUndefined(value) }));
-			}),
-			colorField('Text Color', style?.text_color ?? '', (value) => {
+			}, 'surface'),
+			this.colorField('Text Color', style?.text_color ?? '', (value) => {
 				commit(cleanCommonStyle({ ...patch(), text_color: blankToUndefined(value) }));
-			}),
+			}, 'foreground'),
 			this.fontField(style?.font?.family, (value) => {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
@@ -916,7 +917,7 @@ export class CanvasPropertyPanel {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, border: { ...next.border, weight: value } }));
 			}),
-			colorField('Border Color', style?.border?.color ?? '', (value) => {
+			this.colorField('Border Color', style?.border?.color ?? '', (value) => {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, border: { ...next.border, color: blankToUndefined(value) } }));
 			}),
@@ -947,7 +948,7 @@ export class CanvasPropertyPanel {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, border: { ...next.border, weight: value } }));
 			}),
-			colorField('Border Color', style?.border?.color ?? '', (value) => {
+			this.colorField('Border Color', style?.border?.color ?? '', (value) => {
 				const next = patch();
 				commit(cleanCommonStyle({ ...next, border: { ...next.border, color: blankToUndefined(value) } }));
 			}),
@@ -967,7 +968,7 @@ export class CanvasPropertyPanel {
 		const patch = (): EdgeStylePatch => cloneEdgeStyle(style);
 
 		return sectionElement('Style', [
-			colorField('Line Color', style?.color ?? '', (value) => {
+			this.colorField('Line Color', style?.color ?? '', (value) => {
 				commit(cleanEdgeStyle({ ...patch(), color: blankToUndefined(value) }));
 			}),
 			selectField('Line Style', style?.line_style ?? '', lineStyleOptions, (value) => {
@@ -976,9 +977,9 @@ export class CanvasPropertyPanel {
 			optionalNumberField('Line Weight', style?.weight, (value) => {
 				commit(cleanEdgeStyle({ ...patch(), weight: value }));
 			}),
-			colorField('Label Text Color', style?.text_color ?? '', (value) => {
+			this.colorField('Label Text Color', style?.text_color ?? '', (value) => {
 				commit(cleanEdgeStyle({ ...patch(), text_color: blankToUndefined(value) }));
-			}),
+			}, 'foreground'),
 			this.fontField(style?.font?.family, (value) => {
 				const next = patch();
 				commit(cleanEdgeStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
@@ -1008,9 +1009,9 @@ export class CanvasPropertyPanel {
 		const patch = (): LabelStylePatch => cloneLabelStyle(style);
 
 		return sectionElement('Style', [
-			colorField('Text Color', style?.text_color ?? '', (value) => {
+			this.colorField('Text Color', style?.text_color ?? '', (value) => {
 				commit(cleanLabelStyle({ ...patch(), text_color: blankToUndefined(value) }));
-			}),
+			}, 'foreground'),
 			this.fontField(style?.font?.family, (value) => {
 				const next = patch();
 				commit(cleanLabelStyle({ ...next, font: { ...next.font, family: blankToUndefined(value) } }));
@@ -1123,6 +1124,15 @@ export class CanvasPropertyPanel {
 		return selectField('Font', value ?? '', fontFamilyOptions(value), (selectedValue) => {
 			commit(selectedValue ?? '');
 		});
+	}
+
+	private colorField(
+		label: string,
+		value: string,
+		commit: (value: string) => void,
+		role: CanvasColorRole = 'accent',
+	): HTMLElement {
+		return colorField(label, value, commit, canvasColorPalette(this.options.getTheme().mode, role));
 	}
 
 	private propertyEdited(elementType: CanvasElementType, elementIdentifier: string, changedFields: readonly string[]): void {
