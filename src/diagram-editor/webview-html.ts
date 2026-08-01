@@ -583,6 +583,8 @@ function webviewStyles(): string {
 		display: none;
 	}
 
+	.canvas-action[data-tooltip]::after,
+	.canvas-toolbar-drag-handle[data-tooltip]::after,
 	.local-element-action[data-tooltip]::after,
 	.local-element-drag-handle[data-tooltip]::after {
 		content: attr(data-tooltip);
@@ -609,12 +611,50 @@ function webviewStyles(): string {
 		white-space: normal;
 	}
 
+	.canvas-action[data-tooltip]:hover::after,
+	.canvas-action[data-tooltip]:focus-visible::after,
+	.canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+	.canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after,
 	.local-element-action[data-tooltip]:hover::after,
 	.local-element-action[data-tooltip]:focus-visible::after,
 	.local-element-drag-handle[data-tooltip]:hover::after,
 	.local-element-drag-handle[data-tooltip]:focus-visible::after {
 		opacity: 1;
 		transform: translate(-50%, 0);
+	}
+
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]::after {
+		top: auto;
+		bottom: calc(100% + 8px);
+		transform: translate(-50%, 2px);
+	}
+
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-action[data-tooltip]:focus-visible::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-drag-handle[data-tooltip]:focus-visible::after {
+		transform: translate(-50%, 0);
+	}
+
+	.canvas-toolbar-pin[data-tooltip]::after {
+		left: auto;
+		right: 0;
+		transform: translateY(-2px);
+	}
+
+	.canvas-toolbar-pin[data-tooltip]:hover::after,
+	.canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+		transform: translateY(0);
+	}
+
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]::after {
+		transform: translateY(2px);
+	}
+
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:hover::after,
+	.canvas-actions.docked-bottom .canvas-toolbar-pin[data-tooltip]:focus-visible::after {
+		transform: translateY(0);
 	}
 
 	.local-element-action:hover,

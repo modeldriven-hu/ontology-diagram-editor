@@ -22,7 +22,7 @@ import { ontologyColor } from '../components/ontology-legend';
 import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
 import { diagramContentBounds, rectCenter } from './canvas-content-bounds';
-import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, showTransientStatus } from './canvas-dom';
+import { isKeyboardInputTarget, isTextEditingTarget, messageElement, requiredElement, setActionTooltip, showTransientStatus } from './canvas-dom';
 import { isSelectAllShortcut } from './canvas-keyboard-shortcuts';
 import { X6DiagramCanvasEngine } from './x6-diagram-canvas-engine';
 import { LocalElementToolbarController } from './local-element-toolbar-controller';
@@ -336,6 +336,7 @@ renderViewportToolbarIcons({
 	revealModelTreeItemButton,
 	themeModeButton,
 }, themeMode);
+initializeFixedToolbarTooltips();
 setPanMode(panMode, false);
 updateToolbarActionStates();
 applyCanvasTheme(theme, themeMode);
@@ -835,6 +836,15 @@ function applyCanvasTheme(nextTheme: WebviewTheme, mode: WebviewThemeMode): void
 	document.body.dataset.diagramTheme = mode;
 	canvasScroll.style.setProperty('--diagram-canvas-background', nextTheme.canvasBackground);
 	canvasScroll.style.setProperty('--diagram-canvas-foreground', nextTheme.editorForeground);
+}
+
+function initializeFixedToolbarTooltips(): void {
+	for (const button of canvasActions.querySelectorAll<HTMLButtonElement>('button[title]')) {
+		const tooltip = button.title.trim();
+		if (tooltip.length > 0) {
+			setActionTooltip(button, tooltip);
+		}
+	}
 }
 
 function capitalize(value: string): string {

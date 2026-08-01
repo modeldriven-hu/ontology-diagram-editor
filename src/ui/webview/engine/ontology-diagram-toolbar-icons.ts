@@ -204,22 +204,27 @@ export function renderViewportToolbarIcons(elements: ViewportToolbarIconElements
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	setActionTooltip(elements.zoomOutButton, 'Zoom out');
 	elements.zoomInButton.replaceChildren(createIconElement(ZoomIn, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	setActionTooltip(elements.zoomInButton, 'Zoom in');
 	elements.fitDiagramButton.replaceChildren(createIconElement(Maximize2, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	setActionTooltip(elements.fitDiagramButton, 'Fit diagram to view');
 	elements.resetViewportButton.replaceChildren(createIconElement(RotateCcw, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	setActionTooltip(elements.resetViewportButton, 'Reset viewport');
 	elements.revealModelTreeItemButton.replaceChildren(createIconElement(LocateFixed, {
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
+	setActionTooltip(elements.revealModelTreeItemButton, 'Select corresponding model-tree item');
 	renderThemeModeButton(elements.themeModeButton, themeMode);
 }
 
@@ -228,8 +233,7 @@ export function renderAddOntologyItemToolbarIcon(addOntologyItemButton: HTMLButt
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	addOntologyItemButton.title = 'Search and add ontology item';
-	addOntologyItemButton.setAttribute('aria-label', 'Search and add ontology item');
+	setActionTooltip(addOntologyItemButton, 'Search and add ontology item');
 }
 
 export function renderArrangeDiagramToolbarIcon(arrangeDiagramButton: HTMLButtonElement): void {
@@ -237,8 +241,7 @@ export function renderArrangeDiagramToolbarIcon(arrangeDiagramButton: HTMLButton
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	arrangeDiagramButton.title = 'Arrange diagram';
-	arrangeDiagramButton.setAttribute('aria-label', 'Arrange diagram');
+	setActionTooltip(arrangeDiagramButton, 'Arrange diagram');
 }
 
 export function renderThemeModeButton(themeModeButton: HTMLButtonElement, themeMode: WebviewThemeMode): void {
@@ -247,8 +250,7 @@ export function renderThemeModeButton(themeModeButton: HTMLButtonElement, themeM
 		'aria-hidden': 'true',
 		class: 'canvas-action-icon',
 	}));
-	themeModeButton.title = `Switch to ${nextMode} mode`;
-	themeModeButton.setAttribute('aria-label', `Switch to ${nextMode} mode`);
+	setActionTooltip(themeModeButton, `Switch to ${nextMode} mode`);
 	themeModeButton.setAttribute('aria-pressed', String(themeMode === 'dark'));
 }
 

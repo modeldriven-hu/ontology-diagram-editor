@@ -1,4 +1,5 @@
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
+import { setActionTooltip } from './canvas-dom';
 
 const toolbarInset = 12;
 const toolbarMargin = 8;
@@ -161,14 +162,12 @@ export class FixedToolbarController {
 		this.options.toolbar.classList.toggle('docked-bottom', this.position.dock === 'bottom');
 		this.updateCanvasDocking(toolbarSize);
 		const dragLabel = this.position.dock === undefined ? 'Move toolbar' : 'Detach toolbar';
-		this.options.dragHandle.title = dragLabel;
-		this.options.dragHandle.setAttribute('aria-label', dragLabel);
+		setActionTooltip(this.options.dragHandle, dragLabel);
 		const pinned = this.position.dock !== undefined;
 		this.options.pinButton.classList.toggle('is-pinned', pinned);
 		this.options.pinButton.setAttribute('aria-pressed', String(pinned));
 		const pinLabel = pinned ? 'Unpin toolbar' : 'Pin toolbar to top or bottom';
-		this.options.pinButton.title = pinLabel;
-		this.options.pinButton.setAttribute('aria-label', pinLabel);
+		setActionTooltip(this.options.pinButton, pinLabel);
 		if (options.persist !== false) {
 			this.options.persistPosition(this.position);
 		}
