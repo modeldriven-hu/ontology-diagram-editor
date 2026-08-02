@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { CanvasSelectionChangedEvent } from '../../shared/canvas-editor-events';
-import type { WebviewCommand } from '../../shared/webview-commands';
+import type { ElementStyleUpdate, WebviewCommand } from '../../shared/webview-commands';
 import { ontologyDiagramFileExtension } from '../../documents/odiagram';
 import type { ModelTreeItemDraggedEvent } from '../model-tree/model-tree';
 import { DiagramCommandDispatcher } from '../../diagram-editor/command-dispatcher';
@@ -26,12 +26,19 @@ export interface PropertiesCanvasSelectionRequest {
 	readonly elementIdentifiers: readonly string[];
 }
 
+export interface PropertiesCanvasStyleUpdateRequest {
+	readonly diagramUri: vscode.Uri;
+	readonly updates: readonly ElementStyleUpdate[];
+}
+
 export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly imageGalleryRequestEmitter = new vscode.EventEmitter<PropertiesImageGalleryRequest>();
 	public readonly onDidRequestImageGallery = this.imageGalleryRequestEmitter.event;
 	private readonly canvasSelectionRequestEmitter = new vscode.EventEmitter<PropertiesCanvasSelectionRequest>();
 	public readonly onDidRequestCanvasSelection = this.canvasSelectionRequestEmitter.event;
+	private readonly canvasStyleUpdateRequestEmitter = new vscode.EventEmitter<PropertiesCanvasStyleUpdateRequest>();
+	public readonly onDidRequestCanvasStyleUpdate = this.canvasStyleUpdateRequestEmitter.event;
 	private view?: vscode.WebviewView;
 	private activeDocument?: vscode.TextDocument;
 	private selectedElementIdentifier?: string;
@@ -157,6 +164,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 	public dispose(): void {
 		this.imageGalleryRequestEmitter.dispose();
 		this.canvasSelectionRequestEmitter.dispose();
+		this.canvasStyleUpdateRequestEmitter.dispose();
 		for (const disposable of this.disposables.splice(0)) {
 			disposable.dispose();
 		}
@@ -195,6 +203,13 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 		if (document === undefined) {
 			return;
 		}
+		const styleUpdates = elementStyleUpdates(command);
+		if (styleUpdates.length > 0) {
+			this.canvasStyleUpdateRequestEmitter.fire({
+				diagramUri: document.uri,
+				updates: styleUpdates,
+			});
+		}
 		const dispatcher = new DiagramCommandDispatcher(
 			new DiagramDocumentRepository(document),
 			this.getLastDraggedModelTreeItems,
@@ -207,4 +222,11 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider, vscod
 			await vscode.window.showErrorMessage(`Could not update diagram properties: ${error instanceof Error ? error.message : String(error)}`);
 		});
 	}
+}
+
+function elementStyleUpdates(command: WebviewCommand): readonly ElementStyleUpdate[] {
+	if (command.type === 'updateElementStyle') {
+		return [{ elementType: command.elementType, id: command.id, style: command.style }];
+	}
+	return command.type === 'updateElementStyles' ? command.updates : [];
 }

@@ -1,4 +1,4 @@
-import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent, type CanvasSelectionRequestedMessage } from '../../../shared/canvas-editor-events';
+import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent, type CanvasElementStylesUpdatedMessage, type CanvasSelectionRequestedMessage } from '../../../shared/canvas-editor-events';
 import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
@@ -6,6 +6,7 @@ import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
 import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateLegendElementCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteLegendElementCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, PickImageSourceCommand, PickNodeImageCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import type { IconGallerySet, ImageGalleryTargetType, OpenImageGalleryMessage } from '../../../shared/icon-gallery';
 import { CanvasDropController } from '../components/canvas-drop-controller';
+import { applyCanvasElementStyleUpdates } from '../components/canvas-element-style-updates';
 import { CanvasElementRegistry, type CanvasPropertyElement } from '../components/canvas-element-registry';
 import { IconGalleryDialog } from '../components/icon-gallery-dialog';
 import { CanvasMessageBus } from './canvas-message-bus';
@@ -428,12 +429,15 @@ function registerExtensionMessageForwarding(): void {
 }
 
 function registerHostMessageHandlers(): void {
-	window.addEventListener('message', (event: MessageEvent<OpenImageGalleryMessage | CanvasSelectionRequestedMessage>) => {
+	window.addEventListener('message', (event: MessageEvent<OpenImageGalleryMessage | CanvasElementStylesUpdatedMessage | CanvasSelectionRequestedMessage>) => {
 		if (event.data.type === 'openImageGallery') {
 			openTargetImageGallery(event.data.targetType, event.data.targetId);
 		}
 		if (event.data.type === 'selectCanvasElements') {
 			canvas.selectElements(event.data.elementIdentifiers.filter((id) => elementRegistry.element(id) !== undefined));
+		}
+		if (event.data.type === 'updateCanvasElementStyles') {
+			applyCanvasElementStyleUpdates(event.data.updates, elementRegistry, canvas);
 		}
 	});
 }

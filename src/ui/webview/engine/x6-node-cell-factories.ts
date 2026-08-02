@@ -1,11 +1,11 @@
-import { nodeImageInset, nodeImageReservedHeight } from '../../../shared/canvas-geometry';
 import { containmentHeaderHeight } from '../../../shared/diagram-containment';
 import { nodeAttributeTextLines, nodeAttributeTextOverflow, nodeCompartmentAttributes, nodeDataPropertyLayout, nodeTitleDisplayText, visibleNodeAttributeTextLines } from '../components/node-data-properties';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from '../components/ontology-legend';
 import type { DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramPayload } from '../ontology-diagram-types';
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
 import { borderAttrs, cornerRadius, shadowFilter } from './x6-element-appearance';
-import { imagePreserveAspectRatio } from '../components/presentation/diagram-presentation';
+import { nodeImagePresentation, nodeImageViewport } from '../components/presentation/diagram-presentation';
+import type { X6Markup } from './x6-browser';
 
 export function x6OntologyNode(
 	node: DiagramNode,
@@ -33,6 +33,7 @@ export function x6OntologyNode(
 		markup: x6OntologyNodeMarkup(presentation.markup),
 		attrs: {
 			body: x6OntologyNodeBodyAttrs(node, payload, theme, radius, containmentDepth),
+			nodeImageViewport: x6OntologyNodeImageViewportAttrs(node, containment.isContainer),
 			nodeImage: containment.isContainer
 				? { opacity: 0, pointerEvents: 'none' }
 				: x6OntologyNodeImageAttrs(node, presentation.hasAttributes),
@@ -85,16 +86,36 @@ export function x6OntologyNodeBodyAttrs(
 	};
 }
 
+export function x6OntologyNodeImageViewportAttrs(node: DiagramNode, hidden: boolean): Record<string, unknown> {
+	const viewport = nodeImageViewport(node);
+	return {
+		x: viewport.x,
+		y: viewport.y,
+		width: viewport.width,
+		height: viewport.height,
+		overflow: 'hidden',
+		pointerEvents: 'none',
+		opacity: hidden ? 0 : 1,
+	};
+}
+
 export function x6OntologyNodeImageAttrs(node: DiagramNode, hasAttributes: boolean): Record<string, unknown> {
 	const hasImage = hasNodeImage(node);
 	if (hasImage) {
+		const viewport = nodeImageViewport(node);
+		const presentation = nodeImagePresentation(node, {
+			x: 0,
+			y: 0,
+			width: viewport.width,
+			height: viewport.height,
+		});
 		return {
-			x: nodeImageInset,
-			y: nodeImageInset,
-			width: Math.max(0, node.width - (nodeImageInset * 2)),
-			height: Math.max(0, node.height - nodeImageReservedHeight),
+			x: presentation.bounds.x,
+			y: presentation.bounds.y,
+			width: presentation.bounds.width,
+			height: presentation.bounds.height,
 			'xlink:href': node.image,
-			preserveAspectRatio: imagePreserveAspectRatio(node),
+			preserveAspectRatio: presentation.preserveAspectRatio,
 			pointerEvents: 'none',
 			opacity: 1,
 		};
@@ -207,7 +228,7 @@ export function x6OntologyNodePresentation(
 	containmentDepth?: number,
 ): {
 	readonly hasAttributes: boolean;
-	readonly markup: readonly Record<string, string>[];
+	readonly markup: readonly X6Markup[];
 	readonly attrs: Record<string, unknown>;
 } {
 	const hasImage = hasNodeImage(node);
@@ -372,12 +393,15 @@ export function x6OntologyNodePresentation(
 	};
 }
 
-export function x6OntologyNodeMarkup(presentationMarkup: readonly Record<string, string>[]): readonly Record<string, string>[] {
+export function x6OntologyNodeMarkup(presentationMarkup: readonly X6Markup[]): readonly X6Markup[] {
 	return [
 		{ tagName: 'rect', selector: 'body' },
-		{ tagName: 'image', selector: 'nodeImage' },
+		{
+			tagName: 'svg',
+			selector: 'nodeImageViewport',
+			children: [{ tagName: 'image', selector: 'nodeImage' }],
+		},
 		{ tagName: 'text', selector: 'label' },
 		...presentationMarkup,
 	];
 }
-
