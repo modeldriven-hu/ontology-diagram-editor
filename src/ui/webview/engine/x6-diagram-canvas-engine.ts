@@ -14,7 +14,7 @@ import type { X6Edge, X6EdgeView, X6Graph, X6Node } from './x6-browser';
 import { installX6Styles } from './x6-diagram-canvas-styles';
 import { noteExportIndicatorAttrs, x6Image, x6Label, x6Note } from './x6-auxiliary-cell-factories';
 import { anchorFromPoint, edgeCardinalityLabelsForEdge, edgeEditTools, labelPositionForPoint, resetLabelPoint, x6Edge } from './x6-edge-cell-factory';
-import { x6LegendElement, x6MetadataElement, x6OntologyNode, x6OntologyNodeBodyAttrs, x6OntologyNodeImageAttrs, x6OntologyNodeMarkup, x6OntologyNodePresentation } from './x6-node-cell-factories';
+import { x6LegendElement, x6MetadataElement, x6OntologyNode, x6OntologyNodeBodyAttrs, x6OntologyNodeImageAttrs, x6OntologyNodeImageViewportAttrs, x6OntologyNodeMarkup, x6OntologyNodePresentation } from './x6-node-cell-factories';
 import { cornerRadius } from './x6-element-appearance';
 import {
 	boundsDifferFromRegistry,
@@ -348,6 +348,10 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 		} else if (update.kind === 'nodeTypeDisplay' && this.elementRegistry.element(update.id)?.kind === 'node') {
 			this.updateOntologyNodePresentation(update.id);
 		}
+	}
+
+	public refreshNodePresentation(id: string): void {
+		this.updateOntologyNodePresentation(id);
 	}
 
 	public nudgeElement(id: string, delta: CanvasPoint): boolean {
@@ -1095,6 +1099,7 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 				cornerRadius(element.value.style, this.theme.nodeCornerRadius),
 				containmentDepth,
 			),
+			nodeImageViewport: x6OntologyNodeImageViewportAttrs(element.value, isContainer),
 			nodeImage: isContainer
 				? { opacity: 0, pointerEvents: 'none' }
 				: x6OntologyNodeImageAttrs(element.value, presentation.hasAttributes),

@@ -1,10 +1,16 @@
 import type { BoundsUpdate } from './canvas-geometry';
+import type { ElementStyleUpdate } from './webview-command-types';
 
 export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
 
 export interface CanvasSelectionRequestedMessage {
 	readonly type: 'selectCanvasElements';
 	readonly elementIdentifiers: readonly string[];
+}
+
+export interface CanvasElementStylesUpdatedMessage {
+	readonly type: 'updateCanvasElementStyles';
+	readonly updates: readonly ElementStyleUpdate[];
 }
 
 export type CanvasEditorEvent =

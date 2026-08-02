@@ -45,6 +45,12 @@ export interface X6Cell {
 	readonly id: string;
 }
 
+export interface X6Markup {
+	readonly tagName: string;
+	readonly selector?: string;
+	readonly children?: readonly X6Markup[];
+}
+
 export interface X6SelectionPlugin {
 	clean(options?: Record<string, unknown>): unknown;
 	reset(cells?: X6Cell | string | (X6Cell | string)[], options?: Record<string, unknown>): unknown;
@@ -60,7 +66,7 @@ export interface X6Node extends X6Cell {
 	position(x: number, y: number): void;
 	size(): { readonly width: number; readonly height: number };
 	resize(width: number, height: number): void;
-	setMarkup?(markup: readonly Record<string, string>[], options?: Record<string, unknown>): void;
+	setMarkup?(markup: readonly X6Markup[], options?: Record<string, unknown>): void;
 	attr(path: string): unknown;
 	attr(path: string, value: unknown): void;
 	attr(attrs: Record<string, unknown>): void;

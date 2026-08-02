@@ -1,6 +1,5 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
-import { nodeImageInset, nodeImageReservedHeight } from '../../../shared/canvas-geometry';
 import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../../shared/diagram-containment';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
@@ -10,7 +9,7 @@ import { measuredTextWidth, nodeAttributeTextLines, nodeAttributeTextOverflow, n
 import { noteFoldBackground } from './note-colors';
 import { noteHtmlResetStyle, noteHtmlStyle, sanitizedNoteHtml } from './note-html';
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
-import { elementCornerRadius, imagePreserveAspectRatio, isNoteConnection, plainPresentationText } from './presentation/diagram-presentation';
+import { elementCornerRadius, isNoteConnection, nodeImagePresentation, nodeImageViewport, plainPresentationText } from './presentation/diagram-presentation';
 import { svgToPngBase64 } from './svg-to-png';
 import type { DiagramExport, ExportBounds, TextBlockOptions } from './canvas-export-types';
 import { explicitLines, wrapLines } from './canvas-export-text-layout';
@@ -311,13 +310,15 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 		].join('\n');
 	}
 	if (hasNodeImage(node)) {
-		const imageBounds = nodeImageBounds(bounds);
+		const localImageBounds = nodeImageViewport(node);
+		const imageBounds = { ...localImageBounds, x: bounds.x + localImageBounds.x, y: bounds.y + localImageBounds.y };
+		const imagePresentation = nodeImagePresentation(node, { x: 0, y: 0, width: imageBounds.width, height: imageBounds.height });
 		const titleBounds = { x: bounds.x, y: bounds.y + Math.max(0, bounds.height - 40), width: bounds.width, height: Math.min(32, bounds.height) };
 		return [
 			...(containmentDepth === undefined ? [] : [
 				`<rect x="${numberValue(bounds.x)}" y="${numberValue(bounds.y)}" width="${numberValue(bounds.width)}" height="${numberValue(bounds.height)}" rx="${numberValue(cornerRadius(node.style, theme.nodeCornerRadius))}" fill="${escapeAttribute(backgroundColor)}" ${borderAttributes(border)}${shadowAttribute(node.style, theme.elementShadow)}/>`,
 			]),
-			`<image href="${escapeAttribute(node.image)}" x="${numberValue(imageBounds.x)}" y="${numberValue(imageBounds.y)}" width="${numberValue(imageBounds.width)}" height="${numberValue(imageBounds.height)}" preserveAspectRatio="${imagePreserveAspectRatio(node)}"/>`,
+			`<svg x="${numberValue(imageBounds.x)}" y="${numberValue(imageBounds.y)}" width="${numberValue(imageBounds.width)}" height="${numberValue(imageBounds.height)}" overflow="hidden"><image href="${escapeAttribute(node.image)}" x="${numberValue(imagePresentation.bounds.x)}" y="${numberValue(imagePresentation.bounds.y)}" width="${numberValue(imagePresentation.bounds.width)}" height="${numberValue(imagePresentation.bounds.height)}" preserveAspectRatio="${imagePresentation.preserveAspectRatio}"/></svg>`,
 			renderTextBlock({
 				id: node.id,
 				text: nodeTitleDisplayText({ node, payload, width: Math.max(1, titleBounds.width - 20), height: Math.max(1, titleBounds.height - 8), fontSize, fontFamily, bold: fontBold, italic: fontItalic }),
@@ -424,15 +425,6 @@ function renderNode(node: DiagramNode, payload: DiagramPayload, theme: WebviewTh
 
 function hasNodeImage(node: DiagramNode): node is DiagramNode & { readonly image: string } {
 	return node.image !== undefined && node.image.trim() !== '';
-}
-
-function nodeImageBounds(bounds: ExportBounds): ExportBounds {
-	return {
-		x: bounds.x + nodeImageInset,
-		y: bounds.y + nodeImageInset,
-		width: Math.max(0, bounds.width - (nodeImageInset * 2)),
-		height: Math.max(0, bounds.height - nodeImageReservedHeight),
-	};
 }
 
 function renderNote(note: DiagramNote, theme: WebviewTheme): string {

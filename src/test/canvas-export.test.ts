@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 
+import { createEmbeddedGalleryIcon } from '../shared/embedded-gallery-icon';
 import { createSvgExportCommand } from '../ui/webview/components/canvas-export';
 import type { DiagramPayload } from '../ui/webview/ontology-diagram-types';
 import type { WebviewTheme } from '../ui/webview/webview-theme';
@@ -100,6 +101,29 @@ suite('Canvas export', () => {
 		assert.ok(viewBox);
 		assert.ok(viewBox[0] < 100);
 		assert.ok(viewBox[2] > 128);
+	});
+
+	test('exports match-width node images at the node bounding-box width', () => {
+		const image = createEmbeddedGalleryIcon('<path d="M0 0h32v16H0z"/>', 32, 16);
+		const payload: DiagramPayload = {
+			diagram: {
+				nodes: [{
+					id: 'node_department',
+					ontology_ref: 'ex:Department',
+					x: 16,
+					y: 12,
+					width: 208,
+					height: 156,
+					image,
+					style: { image_fit: 'match_width' },
+				}],
+				edges: [],
+			},
+		};
+
+		const command = createSvgExportCommand(payload, testTheme);
+		assert.ok(command);
+		assert.match(command.content, /<svg x="16" y="20" width="208" height="100" overflow="hidden"><image [^>]*x="0" y="0" width="208" height="104" preserveAspectRatio="xMidYMid meet"\/><\/svg>/u);
 	});
 });
 
