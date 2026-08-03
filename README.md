@@ -5,6 +5,11 @@ Visual Studio Code. Ontology Diagram Editor helps you understand complex models,
 communicate their structure, and create polished visuals for documentation and
 presentations.
 
+## Screenshots
+
+<img width="1280" height="672" alt="image" src="https://github.com/user-attachments/assets/44a43081-e1dd-4b27-b6a4-aa7c39286078" />
+
+
 ## Features
 
 - Browse ontology classes, properties, relationships, individuals, and datatypes in a
