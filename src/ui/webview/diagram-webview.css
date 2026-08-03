@@ -71,13 +71,14 @@ body {
 	inset: 0;
 	overflow: auto;
 	outline: none;
-	background:
-		linear-gradient(var(--diagram-canvas-background, var(--vscode-editor-background)), var(--diagram-canvas-background, var(--vscode-editor-background))),
-		linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
-		linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 7%, transparent) 1px, transparent 1px),
-		linear-gradient(color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px),
-		linear-gradient(90deg, color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 12%, transparent) 1px, transparent 1px);
-	background-size: auto, 12px 12px, 12px 12px, 60px 60px, 60px 60px;
+	background-color: var(--diagram-canvas-background, var(--vscode-editor-background));
+	background-image: radial-gradient(
+		circle,
+		color-mix(in srgb, var(--diagram-canvas-foreground, var(--vscode-editor-foreground)) 14%, transparent) 0 1px,
+		transparent 1.2px
+	);
+	background-position: 0 0;
+	background-size: 20px 20px;
 }
 
 .canvas-scroll.pan-mode,
@@ -1077,9 +1078,10 @@ body[data-diagram-theme="light"] {
 
 body[data-diagram-theme="light"] .canvas-scroll {
 	background-color: var(--diagram-canvas-background, #f5f7fa);
-	background-image: radial-gradient(circle, rgb(148 163 184 / 32%) 0 1px, transparent 1.2px);
-	background-position: 0 0;
-	background-size: 20px 20px;
+}
+
+.canvas-scroll.grid-hidden {
+	background-image: none !important;
 }
 
 body[data-diagram-theme="light"] .canvas-actions,
@@ -1197,4 +1199,3 @@ body[data-diagram-theme="light"] .status {
 	color: var(--diagram-ui-foreground);
 	box-shadow: 0 12px 28px rgb(15 23 42 / 13%);
 }
-

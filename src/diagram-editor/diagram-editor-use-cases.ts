@@ -10,6 +10,7 @@ import {
 	CreateLabelUseCase,
 	CreateMetadataElementUseCase,
 	CreateLegendElementUseCase,
+	CreateDiagramLinkUseCase,
 	CreateNodeUseCase,
 	CreateNoteConnectionUseCase,
 	CreateNoteUseCase,
@@ -51,6 +52,8 @@ import {
 	UpdateNoteExportVisibilityUseCase,
 	UpdateNoteTextUseCase,
 	UpdateThemeModeUseCase,
+	UpdateDiagramLinkIconUseCase,
+	UpdateDiagramLinkReferenceUseCase,
 } from './use-cases';
 import type { DiagramExportSavePort, DiagramMutationResult } from './use-cases';
 
@@ -71,6 +74,7 @@ export interface DiagramEditorUseCases {
 	readonly createLabel: CreateLabelUseCase;
 	readonly createMetadataElement: CreateMetadataElementUseCase;
 	readonly createLegendElement: CreateLegendElementUseCase;
+	readonly createDiagramLink: CreateDiagramLinkUseCase;
 	readonly deleteNode: DeleteNodeUseCase;
 	readonly deleteElements: DeleteElementsUseCase;
 	readonly deleteEdge: DeleteEdgeUseCase;
@@ -108,6 +112,8 @@ export interface DiagramEditorUseCases {
 	readonly updateNoteText: UpdateNoteTextUseCase;
 	readonly updateLabelText: UpdateLabelTextUseCase;
 	readonly updateThemeMode: UpdateThemeModeUseCase;
+	readonly updateDiagramLinkIcon: UpdateDiagramLinkIconUseCase;
+	readonly updateDiagramLinkReference: UpdateDiagramLinkReferenceUseCase;
 	readonly saveDiagramExport: SaveDiagramExportUseCase;
 }
 
@@ -128,6 +134,7 @@ export function createDefaultUseCases(): DiagramEditorUseCases {
 		createLabel: new CreateLabelUseCase(),
 		createMetadataElement: new CreateMetadataElementUseCase(),
 		createLegendElement: new CreateLegendElementUseCase(),
+		createDiagramLink: new CreateDiagramLinkUseCase(),
 		deleteNode: new DeleteNodeUseCase(),
 		deleteElements: new DeleteElementsUseCase(),
 		deleteEdge: new DeleteEdgeUseCase(),
@@ -165,8 +172,9 @@ export function createDefaultUseCases(): DiagramEditorUseCases {
 		updateNoteText: new UpdateNoteTextUseCase(),
 		updateLabelText: new UpdateLabelTextUseCase(),
 		updateThemeMode: new UpdateThemeModeUseCase(),
+		updateDiagramLinkIcon: new UpdateDiagramLinkIconUseCase(),
+		updateDiagramLinkReference: new UpdateDiagramLinkReferenceUseCase(),
 		saveDiagramExport: new SaveDiagramExportUseCase(new VsCodeDiagramExportSavePort()),
 	};
 }
-
 

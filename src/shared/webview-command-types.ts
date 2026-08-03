@@ -1,4 +1,4 @@
-import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, IndividualTypeDisplay, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
+import type { ContainmentDirection, DiagramCanvasBackground, EdgeRenderAs, EdgeRouteLayout, IndividualTypeDisplay, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
 import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
@@ -20,6 +20,8 @@ export interface DiagramMetadataPatch {
 	readonly diagram_version?: string;
 	readonly theme_file?: string;
 	readonly show_ontology_information?: boolean;
+	readonly canvas_background?: DiagramCanvasBackground;
+	readonly show_grid?: boolean;
 }
 
 export interface FontStylePatch {
@@ -65,5 +67,4 @@ export interface ElementStyleUpdate {
 	readonly id: string;
 	readonly style?: ElementStylePatch;
 }
-
 

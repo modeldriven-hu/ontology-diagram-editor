@@ -72,6 +72,7 @@ function render(state: PropertiesViewStateMessage): void {
 		focusAfterEscape: () => vscode.postMessage({ type: 'propertiesViewFocusCanvas' }),
 		chooseNodeImage: (id) => requestImageGallery('node', id),
 		chooseStandaloneImage: (id) => requestImageGallery('image', id),
+		chooseDiagramLinkIcon: (id) => requestImageGallery('link', id),
 		selectElements: (elementIdentifiers) => vscode.postMessage({
 			type: 'propertiesViewSelectElements',
 			elementIdentifiers,

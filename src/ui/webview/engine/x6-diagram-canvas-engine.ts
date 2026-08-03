@@ -12,7 +12,7 @@ import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, Dia
 import { containmentColorAtDepth, type WebviewTheme } from '../webview-theme';
 import type { X6Edge, X6EdgeView, X6Graph, X6Node } from './x6-browser';
 import { installX6Styles } from './x6-diagram-canvas-styles';
-import { noteExportIndicatorAttrs, x6Image, x6Label, x6Note } from './x6-auxiliary-cell-factories';
+import { noteExportIndicatorAttrs, x6DiagramLink, x6Image, x6Label, x6Note } from './x6-auxiliary-cell-factories';
 import { anchorFromPoint, edgeCardinalityLabelsForEdge, edgeEditTools, labelPositionForPoint, resetLabelPoint, x6Edge } from './x6-edge-cell-factory';
 import { x6LegendElement, x6MetadataElement, x6OntologyNode, x6OntologyNodeBodyAttrs, x6OntologyNodeImageAttrs, x6OntologyNodeImageViewportAttrs, x6OntologyNodeMarkup, x6OntologyNodePresentation } from './x6-node-cell-factories';
 import { cornerRadius } from './x6-element-appearance';
@@ -177,6 +177,9 @@ export class X6DiagramCanvasEngine implements DiagramCanvasEngine {
 			this.containmentIndex = createDiagramContainmentIndex(diagramNodes.map((node) => node.id), payload.diagram?.edges ?? []);
 			for (const image of payload.diagram?.images ?? []) {
 				this.graph.addNode(x6Image(image, theme));
+			}
+			for (const link of payload.diagram?.diagram_links ?? []) {
+				this.graph.addNode(x6DiagramLink(link, theme));
 			}
 			const orderedNodes = diagramNodes
 				.map((node, index) => ({ node, index }))

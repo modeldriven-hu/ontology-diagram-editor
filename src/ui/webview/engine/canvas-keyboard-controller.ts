@@ -161,7 +161,7 @@ private keyboardNudgeDelta(event: KeyboardEvent): CanvasPoint | undefined {
 }
 
 private isKeyboardNudgeableElement(kind: string | undefined): boolean {
-	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label' || kind === 'metadata';
+	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label' || kind === 'metadata' || kind === 'link';
 }
 
 private registerDeleteHandlers(): void {
@@ -222,6 +222,10 @@ public deleteElement(id: string): boolean {
 		this.options.messageBus.publishCommand(new DeleteLegendElementCommand(id));
 		return true;
 	}
+	if (this.options.geometryPersistence.hasDiagramLink(id)) {
+		this.options.messageBus.publishCommand(new DeleteElementsCommand([id]));
+		return true;
+	}
 
 	return false;
 }
@@ -246,9 +250,8 @@ private deletableElementIds(ids: readonly string[]): readonly string[] {
 			|| this.options.geometryPersistence.hasImage(id)
 			|| this.options.geometryPersistence.hasLabel(id)
 			|| this.options.geometryPersistence.hasMetadata(id)
-			|| this.options.geometryPersistence.hasLegend(id);
+			|| this.options.geometryPersistence.hasLegend(id)
+			|| this.options.geometryPersistence.hasDiagramLink(id);
 	});
 }
 }
-
-

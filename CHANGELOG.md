@@ -6,6 +6,18 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-03
+
+- Added linked-diagram canvas elements with relative `.odiagram` references, filename
+  labels, customizable embedded icons, double-click navigation, and local-toolbar and
+  Properties actions for opening or changing their targets.
+- Added diagram-level background choices for the current theme, opaque white or black
+  according to theme mode, and transparent exports.
+- Added a configurable, low-contrast dot grid with consistent light and dark mode
+  presentation.
+- Made linked-diagram elements render without an outer background, border, or shadow on
+  the canvas and in exports.
+
 ## [1.5.0] - 2026-08-01
 
 - Added obstacle-aware edge-path optimization with deterministic port selection,

@@ -157,6 +157,16 @@ export class CanvasPropertyPanel {
 			textField('Theme', metadata?.theme_file ?? '', (value) => {
 				this.tabBuilder.updateDiagramMetadata({ theme_file: blankToUndefined(value) }, ['theme_file']);
 			}),
+			selectField('Background', metadata?.canvas_background ?? 'theme', [
+				{ value: 'theme', label: 'Current Theme' },
+				{ value: 'white', label: 'White / Black' },
+				{ value: 'transparent', label: 'Transparent' },
+			], (value) => {
+				this.tabBuilder.updateDiagramMetadata({ canvas_background: value ?? 'theme' }, ['canvas_background']);
+			}),
+			checkboxField('Show Dot Grid', metadata?.show_grid !== false, (value) => {
+				this.tabBuilder.updateDiagramMetadata({ show_grid: value }, ['show_grid']);
+			}),
 			checkboxField('Show ontology labels', metadata?.show_ontology_information === true, (value) => {
 				this.tabBuilder.updateDiagramMetadata({ show_ontology_information: value }, ['show_ontology_information']);
 			}),
@@ -180,6 +190,8 @@ export class CanvasPropertyPanel {
 			this.renderTabs(element.value.id, this.tabBuilder.metadataTabs(element.value));
 		} else if (element.kind === 'legend') {
 			this.renderTabs(element.value.id, this.tabBuilder.legendTabs(element.value));
+		} else if (element.kind === 'link') {
+			this.renderTabs(element.value.id, this.tabBuilder.diagramLinkTabs(element.value));
 		} else {
 			this.renderTabs(element.value.id, this.tabBuilder.imageTabs(element.value));
 		}

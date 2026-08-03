@@ -125,6 +125,30 @@ suite('Canvas export', () => {
 		assert.ok(command);
 		assert.match(command.content, /<svg x="16" y="20" width="208" height="100" overflow="hidden"><image [^>]*x="0" y="0" width="208" height="104" preserveAspectRatio="xMidYMid meet"\/><\/svg>/u);
 	});
+
+	test('uses configured white and transparent diagram backgrounds', () => {
+		const content = (canvasBackground: 'white' | 'transparent'): string => {
+			const command = createSvgExportCommand({
+				diagram: {
+					metadata: { canvas_background: canvasBackground },
+					labels: [{ id: 'label_title', x: 10, y: 10, width: 80, height: 24, text: 'Title' }],
+				},
+			}, { ...testTheme, canvasBackground: '#123456' });
+			assert.ok(command);
+			return command.content;
+		};
+
+		assert.match(content('white'), /<rect[^>]*fill="#FFFFFF"\/>/u);
+		assert.match(content('transparent'), /<rect[^>]*fill="transparent"\/>/u);
+		const darkCommand = createSvgExportCommand({
+			diagram: {
+				metadata: { canvas_background: 'white' },
+				labels: [{ id: 'label_title', x: 10, y: 10, width: 80, height: 24, text: 'Title' }],
+			},
+		}, { ...testTheme, mode: 'dark', canvasBackground: '#123456' });
+		assert.ok(darkCommand);
+		assert.match(darkCommand.content, /<rect[^>]*fill="#000000"\/>/u);
+	});
 });
 
 const testTheme: WebviewTheme = {

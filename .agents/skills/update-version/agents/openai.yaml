@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Version"
+  short_description: "Bump versions and maintain the changelog"
+  default_prompt: "Use $update-version to bump the project version and update its changelog consistently."

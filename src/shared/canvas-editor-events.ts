@@ -1,7 +1,7 @@
 import type { BoundsUpdate } from './canvas-geometry';
 import type { ElementStyleUpdate } from './webview-command-types';
 
-export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
+export type CanvasElementType = 'diagram' | 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend' | 'link';
 
 export interface CanvasSelectionRequestedMessage {
 	readonly type: 'selectCanvasElements';

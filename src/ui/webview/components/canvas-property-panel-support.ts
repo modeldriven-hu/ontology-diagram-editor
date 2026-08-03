@@ -33,6 +33,7 @@ export const propertyElementTypeOrder: readonly PropertyElementKind[] = [
 	'label',
 	'metadata',
 	'legend',
+	'link',
 ];
 
 export const propertyElementTypeLabels: Readonly<Record<PropertyElementKind, string>> = {
@@ -43,6 +44,7 @@ export const propertyElementTypeLabels: Readonly<Record<PropertyElementKind, str
 	label: 'Labels',
 	metadata: 'Diagram Information',
 	legend: 'Legends',
+	link: 'Diagram Links',
 };
 
 export const mixedSelectionValue = '__mixed_selection_value__';
@@ -330,4 +332,3 @@ export function shadowValue(value: boolean | undefined): '' | 'true' | 'false' {
 export function hasAnyValue(value: Record<string, unknown>): boolean {
 	return Object.values(value).some((entry) => entry !== undefined);
 }
-

@@ -5,7 +5,7 @@ export type JsonObject = { [key: string]: JsonValue };
 const identifierLocalPartPattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const compactIriPattern = /^([^:/?#]+):(.+)$/;
 
-export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend';
+export type ElementKind = 'node' | 'edge' | 'note' | 'image' | 'label' | 'metadata' | 'legend' | 'link';
 export type BorderType = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeLineStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 export type EdgeRouteLayout = 'orthogonal' | 'direct' | 'one_side' | 'manhattan' | 'metro' | 'entity_relation';
@@ -16,6 +16,7 @@ export type NodeLabelTextOverflow = 'truncate' | 'wrap';
 export type IndividualTypeDisplay = 'inline' | 'stereotype';
 export type OntologyColorMode = 'border' | 'background';
 export type OntologyColorBy = 'ontologySource' | 'elementType' | 'none';
+export type DiagramCanvasBackground = 'theme' | 'white' | 'transparent';
 
 export class OntologyDiagramValidationError extends Error {
 	public constructor(message: string, public readonly issues: readonly string[] = [message]) {
@@ -118,4 +119,3 @@ export function omitUndefined(value: Record<string, JsonValue | undefined>): Jso
 export function optionalList<T>(values: readonly T[], toJson: (value: T) => JsonValue): JsonValue[] | undefined {
 	return values.length > 0 ? values.map(toJson) : undefined;
 }
-

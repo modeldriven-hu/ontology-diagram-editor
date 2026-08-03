@@ -1,6 +1,8 @@
 import { SaveDiagramExportCommand } from '../../../shared/webview-commands';
 import { escapeHtml } from '../../../shared/html';
-import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramLink, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import { defaultDiagramLinkIcon, diagramLinkName } from './ontology-diagram-links';
+import { diagramPresentationTheme } from './diagram-canvas-presentation';
 import { containmentHeaderHeight, createDiagramContainmentIndex } from '../../../shared/diagram-containment';
 import { nodeOntologyLabel, ontologyBackgroundColor, ontologyColor, ontologyColorMode, ontologyLegendEntries, readableTextColor } from './ontology-legend';
 import { defaultSourceCardinalityLabel, defaultTargetCardinalityLabel, edgeCardinalityLabels } from './edge-cardinality-labels';
@@ -30,7 +32,7 @@ function exportTextIcon(label: string): HTMLSpanElement {
 }
 
 export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTheme): SaveDiagramExportCommand | undefined {
-	const diagramExport = createSvgExport(payload, theme);
+	const diagramExport = createSvgExport(payload, diagramPresentationTheme(theme, payload));
 	if (diagramExport === undefined) {
 		return undefined;
 	}
@@ -44,7 +46,7 @@ export function createSvgExportCommand(payload: DiagramPayload, theme: WebviewTh
 }
 
 export async function createPngExportCommand(payload: DiagramPayload, theme: WebviewTheme): Promise<SaveDiagramExportCommand | undefined> {
-	const diagramExport = createSvgExport(payload, theme);
+	const diagramExport = createSvgExport(payload, diagramPresentationTheme(theme, payload));
 	if (diagramExport === undefined) {
 		return undefined;
 	}
@@ -82,6 +84,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 	const labels = diagram.labels ?? [];
 	const metadataElements = diagram.metadata_elements ?? [];
 	const legendElements = diagram.legend_elements ?? [];
+	const diagramLinks = diagram.diagram_links ?? [];
 	const contentBounds = diagramContentBounds([
 		...nodes,
 		...edges.flatMap((edge) => edgeExportBounds(edge, payload, theme)),
@@ -90,6 +93,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		...labels.map((label) => standaloneLabelExportBounds(label, theme)),
 		...metadataElements,
 		...legendElements,
+		...diagramLinks,
 	]);
 	if (contentBounds === undefined) {
 		return undefined;
@@ -137,6 +141,7 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		...labels.map((label) => renderLabel(label, theme)),
 		...metadataElements.map((element) => renderMetadataElement(element, payload, theme)),
 		...legendElements.map((element) => renderLegendElement(element, payload, theme)),
+		...diagramLinks.map((link) => renderDiagramLink(link, theme)),
 		'</svg>',
 	].join('\n');
 
@@ -146,6 +151,36 @@ function createSvgExport(payload: DiagramPayload, theme: WebviewTheme): DiagramE
 		height,
 		defaultFileName: `${diagramBaseName(payload)}.svg`,
 	};
+}
+
+function renderDiagramLink(link: DiagramLink, theme: WebviewTheme): string {
+	const iconSize = Math.min(52, Math.max(24, link.height - 52), Math.max(24, link.width - 24));
+	const iconX = link.x + ((link.width - iconSize) / 2);
+	const iconY = link.y + 12;
+	const labelBounds = {
+		x: link.x + 8,
+		y: link.y + link.height - 38,
+		width: Math.max(1, link.width - 16),
+		height: 28,
+	};
+	return [
+		`<image href="${escapeAttribute(link.icon ?? defaultDiagramLinkIcon)}" x="${numberValue(iconX)}" y="${numberValue(iconY)}" width="${numberValue(iconSize)}" height="${numberValue(iconSize)}" preserveAspectRatio="xMidYMid meet"/>`,
+		renderTextBlock({
+			id: link.id,
+			text: diagramLinkName(link.diagram_ref),
+			bounds: labelBounds,
+			color: theme.editorForeground,
+			fontFamily: theme.fontFamily,
+			fontSize: theme.fontSize,
+			bold: true,
+			align: 'center',
+			verticalAlign: 'middle',
+			padding: 2,
+			wrap: false,
+			clip: true,
+			limitLines: true,
+		}),
+	].join('\n');
 }
 
 function renderEdge(edge: DiagramEdge, payload: DiagramPayload, theme: WebviewTheme): string {

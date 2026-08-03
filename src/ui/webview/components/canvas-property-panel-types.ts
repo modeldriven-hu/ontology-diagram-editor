@@ -15,6 +15,7 @@ export interface CanvasPropertyPanelOptions {
 	readonly focusAfterEscape: () => void;
 	readonly chooseNodeImage: (id: string) => void;
 	readonly chooseStandaloneImage: (id: string) => void;
+	readonly chooseDiagramLinkIcon: (id: string) => void;
 	readonly selectElements: (elementIdentifiers: readonly string[]) => void;
 	readonly selectedTabByContext?: Map<string, string>;
 }
@@ -24,4 +25,3 @@ export interface PropertyTab {
 	readonly label: string;
 	readonly sections: readonly HTMLElement[];
 }
-

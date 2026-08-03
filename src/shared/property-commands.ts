@@ -213,3 +213,25 @@ export class UpdateNodeLabelTextOverflowsCommand {
 	}
 }
 
+export class OpenDiagramLinkCommand {
+	public readonly type = 'openDiagramLink';
+	public constructor(public readonly id: string) {}
+}
+
+export class UpdateDiagramLinkReferenceCommand {
+	public readonly type = 'updateDiagramLinkReference';
+	public constructor(
+		public readonly id: string,
+		public readonly reference?: string,
+		public readonly pickFile = false,
+	) {}
+}
+
+export class UpdateDiagramLinkIconCommand {
+	public readonly type = 'updateDiagramLinkIcon';
+	public constructor(
+		public readonly id: string,
+		public readonly icon?: string,
+		public readonly pickFile = false,
+	) {}
+}

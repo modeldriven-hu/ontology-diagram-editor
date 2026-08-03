@@ -18,6 +18,7 @@ export class DeleteElementsUseCase {
 		const nextLabels = diagram.labels.filter((label) => !selectedIds.has(label.id.value));
 		const nextMetadataElements = diagram.metadataElements.filter((element) => !selectedIds.has(element.id.value));
 		const nextLegendElements = diagram.legendElements.filter((element) => !selectedIds.has(element.id.value));
+		const nextDiagramLinks = diagram.diagramLinks.filter((link) => !selectedIds.has(link.id.value));
 		const removedEndpointIds = new Set([
 			...diagram.nodes.filter((node) => selectedIds.has(node.id.value)).map((node) => node.id.value),
 			...diagram.notes.filter((note) => selectedIds.has(note.id.value)).map((note) => note.id.value),
@@ -36,6 +37,7 @@ export class DeleteElementsUseCase {
 			&& nextLabels.length === diagram.labels.length
 			&& nextMetadataElements.length === diagram.metadataElements.length
 			&& nextLegendElements.length === diagram.legendElements.length
+			&& nextDiagramLinks.length === diagram.diagramLinks.length
 			&& nextEdges.length === diagram.edges.length
 		) {
 			return {};
@@ -49,6 +51,7 @@ export class DeleteElementsUseCase {
 				labels: nextLabels,
 				metadataElements: nextMetadataElements,
 				legendElements: nextLegendElements,
+				diagramLinks: nextDiagramLinks,
 				edges: nextEdges,
 			}),
 		};

@@ -1,5 +1,5 @@
 import type { ContainmentDirection, EdgeRenderAs, EdgeRouteLayout, IndividualTypeDisplay, NodeLabelTextOverflow, OntologyColorBy, PropertyValueTextOverflow } from '../documents/odiagram';
-import type { CanvasPoint, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
+import type { CanvasPoint, DiagramLinkBoundsUpdate, EdgeRouteUpdate, ImageBoundsUpdate, LabelBoundsUpdate, LegendBoundsUpdate, MetadataBoundsUpdate, NodeBoundsUpdate, NoteBoundsUpdate } from './canvas-geometry';
 import type { CanvasViewport } from './canvas-viewport';
 import { defaultDiagramLayoutAlgorithmId, type DiagramLayoutAlgorithmId, type ElkLayeredLayoutOptions } from './diagram-layout';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, DiagramThemeMode, EdgeStylePatch, ElementStylePatch, ElementStyleUpdate, LabelStylePatch, ModelTreeItemDropPayload, StyledCanvasElementType } from './webview-command-types';
@@ -38,6 +38,7 @@ export class UpdateElementBoundsCommand {
 	public readonly labelUpdates: readonly LabelBoundsUpdate[];
 	public readonly metadataUpdates: readonly MetadataBoundsUpdate[];
 	public readonly legendUpdates: readonly LegendBoundsUpdate[];
+	public readonly diagramLinkUpdates: readonly DiagramLinkBoundsUpdate[];
 
 	public constructor(options: {
 		readonly nodeUpdates?: readonly NodeBoundsUpdate[];
@@ -46,6 +47,7 @@ export class UpdateElementBoundsCommand {
 		readonly labelUpdates?: readonly LabelBoundsUpdate[];
 		readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
 		readonly legendUpdates?: readonly LegendBoundsUpdate[];
+		readonly diagramLinkUpdates?: readonly DiagramLinkBoundsUpdate[];
 	}) {
 		this.nodeUpdates = options.nodeUpdates ?? [];
 		this.noteUpdates = options.noteUpdates ?? [];
@@ -53,7 +55,13 @@ export class UpdateElementBoundsCommand {
 		this.labelUpdates = options.labelUpdates ?? [];
 		this.metadataUpdates = options.metadataUpdates ?? [];
 		this.legendUpdates = options.legendUpdates ?? [];
+		this.diagramLinkUpdates = options.diagramLinkUpdates ?? [];
 	}
+}
+
+export class CreateDiagramLinkCommand {
+	public readonly type = 'createDiagramLink';
+	public constructor(public readonly position: CanvasPoint) {}
 }
 
 export class CreateNoteCommand {
@@ -246,5 +254,4 @@ export class UpdateLegendBoundsCommand {
 	public readonly type = 'updateLegendBounds';
 	public constructor(public readonly updates: readonly LegendBoundsUpdate[]) {}
 }
-
 

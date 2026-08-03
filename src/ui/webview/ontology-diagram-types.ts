@@ -16,6 +16,8 @@ export interface DiagramPayload {
 			readonly theme_file?: string;
 			readonly theme_mode?: 'light' | 'dark';
 			readonly show_ontology_information?: boolean;
+			readonly canvas_background?: 'theme' | 'white' | 'transparent';
+			readonly show_grid?: boolean;
 		};
 		readonly ontologies?: readonly DiagramOntologyFile[];
 		readonly namespaces?: Record<string, string>;
@@ -26,6 +28,7 @@ export interface DiagramPayload {
 		readonly labels?: readonly DiagramLabel[];
 			readonly metadata_elements?: readonly DiagramMetadataElement[];
 			readonly legend_elements?: readonly DiagramLegendElement[];
+			readonly diagram_links?: readonly DiagramLink[];
 	};
 	readonly ontology?: {
 		readonly items?: readonly DiagramOntologyItem[];
@@ -182,6 +185,16 @@ export interface DiagramLegendElement {
 	readonly color_mode?: 'border' | 'background';
 	readonly color_by?: 'ontologySource' | 'elementType' | 'none';
 	readonly style?: DiagramElementStyle;
+}
+
+export interface DiagramLink {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly diagram_ref: string;
+	readonly icon?: string;
 }
 
 export interface DiagramElementStyle {

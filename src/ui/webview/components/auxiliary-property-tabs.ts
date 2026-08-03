@@ -1,9 +1,9 @@
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
+import { minimumDiagramLinkHeight, minimumDiagramLinkWidth, minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate } from '../../../shared/canvas-geometry';
 import { CanvasPropertyEditedEvent, type CanvasElementType } from '../../../shared/canvas-editor-events';
-import { OptimizeEdgeRoutesCommand, PickImageSourceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutsCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodeLabelTextOverflowCommand, UpdateNodeLabelTextOverflowsCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeDisplayCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
+import { OpenDiagramLinkCommand, OptimizeEdgeRoutesCommand, PickImageSourceCommand, UpdateDiagramLinkIconCommand, UpdateDiagramLinkReferenceCommand, UpdateDiagramMetadataCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutsCommand, UpdateElementBoundsCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateLabelTextCommand, UpdateLegendBoundsCommand, UpdateLegendColorByCommand, UpdateLegendColorsCommand, UpdateMetadataBoundsCommand, UpdateNodeBoundsCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeImageCommand, UpdateNodeLabelTextOverflowCommand, UpdateNodeLabelTextOverflowsCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodeTypeDisplayCommand, UpdateNodeTypeVisibilityCommand, UpdateNoteBoundsCommand, UpdateNoteExportVisibilityCommand, UpdateNoteTextCommand } from '../../../shared/webview-commands';
 import type { BorderStylePatch, CommonStylePatch, DiagramMetadataPatch, EdgeStylePatch, ElementStylePatch, LabelStylePatch, StyledCanvasElementType } from '../../../shared/webview-commands';
 import { serializedContainmentEndpoints } from '../../../shared/diagram-containment';
-import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramElementStyle, DiagramEdgeStyle, DiagramImage, DiagramLabel, DiagramLabelStyle, DiagramLegendElement, DiagramLink, DiagramMetadataElement, DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { ontologyLegendEntries } from './ontology-legend';
 import type { CanvasElementRegistry, CanvasPropertyElement } from './canvas-element-registry';
 import type { CanvasMessageBus } from '../engine/canvas-message-bus';
@@ -21,6 +21,7 @@ import type { CanvasPropertyPanelOptions, PropertyTab } from './canvas-property-
 import { sharedValue, normalizeSharedString, mixedSelectField, markMixedField, buttonGroup, capitalize, authorsText, parseAuthorsText, borderTypeOptions, lineStyleOptions, edgeRouteLayoutOptions, propertyValueTextOverflowOptions, individualTypeDisplayOptions, nodeLabelTextOverflowOptions, defaultFontFamilyOptions, standardFontSizes, standardCornerRadii, shadowOptions, nodeImageFitOptions, fontFamilyOptions, cloneCommonStyle, cloneEdgeStyle, cloneLabelStyle, cloneFontStyle, cleanCommonStyle, cleanEdgeStyle, cleanLabelStyle, cleanFontStyle, cleanBorderStyle, blankToUndefined, shadowValue, hasAnyValue } from './canvas-property-panel-support';
 
 import { CanvasPropertyEditor } from './canvas-property-editor';
+import { diagramLinkName } from './ontology-diagram-links';
 
 export class AuxiliaryPropertyTabs {
 	public constructor(
@@ -197,5 +198,41 @@ export class AuxiliaryPropertyTabs {
 		];
 	}
 
-}
+	public diagramLinkTabs(link: DiagramLink): readonly PropertyTab[] {
+		return [
+			{
+				id: 'details',
+				label: 'Details',
+				sections: [
+					sectionElement('Linked Diagram', [
+						readonlyField('Name', diagramLinkName(link.diagram_ref)),
+						textField('Reference', link.diagram_ref, (reference) => {
+							this.editor.propertyEdited('link', link.id, ['diagram_ref']);
+							this.options.messageBus.publishCommand(new UpdateDiagramLinkReferenceCommand(link.id, reference));
+						}),
+						buttonGroup([
+							actionButton('Open Diagram', 'secondary', () => this.options.messageBus.publishCommand(new OpenDiagramLinkCommand(link.id))),
+							actionButton('Choose Diagram…', 'secondary', () => this.options.messageBus.publishCommand(new UpdateDiagramLinkReferenceCommand(link.id, undefined, true))),
+						]),
+					]),
+					sectionElement('Icon', [
+						imageField(link.icon === undefined ? 'Default Icon' : 'Custom Icon', () => this.options.chooseDiagramLinkIcon(link.id)),
+						...(link.icon === undefined ? [] : [actionButton('Restore Default Icon', 'secondary', () => {
+							this.editor.propertyEdited('link', link.id, ['icon']);
+							this.options.messageBus.publishCommand(new UpdateDiagramLinkIconCommand(link.id));
+						})]),
+					]),
+				],
+			},
+			{
+				id: 'geometry',
+				label: 'Geometry',
+				sections: [sectionElement('Geometry', this.editor.geometryFields(link, (update) => {
+					this.editor.propertyEdited('link', link.id, ['x', 'y', 'width', 'height']);
+					this.options.messageBus.publishCommand(new UpdateElementBoundsCommand({ diagramLinkUpdates: [update] }));
+				}, minimumDiagramLinkWidth, minimumDiagramLinkHeight))],
+			},
+		];
+	}
 
+}

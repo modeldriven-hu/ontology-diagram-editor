@@ -356,7 +356,7 @@ export function stringArraysEqual(left: readonly string[], right: readonly strin
 }
 
 export function isMovableCanvasElement(kind: string | undefined): boolean {
-	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label';
+	return kind === 'node' || kind === 'note' || kind === 'image' || kind === 'label' || kind === 'link';
 }
 
 export function boundedGroupDelta(cells: readonly X6Node[], delta: CanvasPoint): CanvasPoint {

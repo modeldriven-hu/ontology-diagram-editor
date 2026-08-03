@@ -16,7 +16,7 @@ export const iconGallerySetDefinitions: readonly IconGallerySetDefinition[] = [
 	{ id: 'bi', name: 'Bootstrap Icons', author: 'The Bootstrap Authors', license: 'MIT', total: 2_078 },
 ];
 
-export type ImageGalleryTargetType = 'node' | 'image';
+export type ImageGalleryTargetType = 'node' | 'image' | 'link';
 
 export interface OpenImageGalleryMessage {
 	readonly type: 'openImageGallery';
