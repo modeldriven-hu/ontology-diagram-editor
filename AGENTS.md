@@ -25,6 +25,15 @@ Tests use Mocha with Node `assert` and the VS Code test runner. Place tests in `
 
 This repository currently has no commit history, so use clear, imperative commit messages such as `Add diagram persistence tests` or `Fix command activation`. Keep commits focused on one logical change. Pull requests should describe the change, list validation commands run, link related issues or docs, and include screenshots or short recordings for user-visible editor or canvas changes.
 
+## Versioning & Changelog
+
+Every version update must update `CHANGELOG.md` in the same change. Keep the
+`[Unreleased]` section, add or update the target version heading with the release date,
+and summarize the user-visible changes without modifying historical release entries.
+Keep the version in `package.json`, the top-level `package-lock.json` version, and the
+root package entry in `package-lock.json` synchronized. Use the repository-local
+`update-version` skill for the complete workflow.
+
 ## Security & Configuration Tips
 
 Do not commit generated `dist/` or `out/` artifacts unless release packaging explicitly requires them. Keep extension settings and contributed commands documented in `package.json`, and avoid hard-coded local paths or machine-specific configuration.
