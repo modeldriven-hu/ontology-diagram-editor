@@ -1,5 +1,5 @@
 import { validateDocument } from './odiagram-validation';
-import { DiagramIdentifier, OntologyDiagramValidationError, OntologyReference, omitUndefined, optionalList, type ContainmentDirection, type EdgeRenderAs, type EdgeRouteLayout, type ElementKind, type IndividualTypeDisplay, type JsonObject, type JsonValue, type NodeLabelTextOverflow, type OntologyColorBy, type OntologyColorMode, type PropertyValueTextOverflow } from './odiagram-core';
+import { DiagramIdentifier, OntologyDiagramValidationError, OntologyReference, omitUndefined, optionalList, type ContainmentDirection, type DiagramCanvasBackground, type EdgeRenderAs, type EdgeRouteLayout, type ElementKind, type IndividualTypeDisplay, type JsonObject, type JsonValue, type NodeLabelTextOverflow, type OntologyColorBy, type OntologyColorMode, type PropertyValueTextOverflow } from './odiagram-core';
 import { Bounds, Point } from './odiagram-geometry';
 import { CommonStyle, EdgeStyle, LabelStyle } from './odiagram-styles';
 
@@ -18,6 +18,8 @@ export class DiagramMetadata {
 		public readonly extra: JsonObject = {},
 		public readonly themeMode?: 'light' | 'dark',
 		public readonly showOntologyInformation?: boolean,
+		public readonly canvasBackground?: DiagramCanvasBackground,
+		public readonly showGrid?: boolean,
 	) {}
 
 	public static createEmpty(title: string): DiagramMetadata {
@@ -34,6 +36,8 @@ export class DiagramMetadata {
 			theme_file: this.themeFile,
 			theme_mode: this.themeMode,
 			show_ontology_information: this.showOntologyInformation,
+			canvas_background: this.canvasBackground,
+			show_grid: this.showGrid,
 			additional: this.additional,
 		});
 	}
@@ -253,6 +257,38 @@ export class DiagramLabel {
 	}
 }
 
+/** A canvas element that navigates to another diagram using a relative file reference. */
+export class DiagramLink {
+	public readonly id: DiagramIdentifier;
+	public readonly bounds: Bounds;
+	public readonly diagramRef: string;
+
+	public constructor(
+		id: string,
+		bounds: Bounds,
+		diagramRef: string,
+		public readonly icon?: string,
+		public readonly extra: JsonObject = {},
+	) {
+		this.id = DiagramIdentifier.create(id, 'link');
+		this.bounds = bounds;
+		this.diagramRef = normalizeDiagramReference(diagramRef);
+		if (icon !== undefined) {
+			assertImageSource(icon);
+		}
+	}
+
+	public toPersistenceObject(): JsonObject {
+		return omitUndefined({
+			...this.extra,
+			id: this.id.value,
+			...this.bounds.toPersistenceObject(),
+			diagram_ref: this.diagramRef,
+			icon: this.icon,
+		});
+	}
+}
+
 /** A canvas element whose displayed values are derived from the diagram metadata. */
 export class DiagramMetadataElement {
 	public readonly id: DiagramIdentifier;
@@ -322,6 +358,7 @@ export class OntologyDiagramDocument {
 		public readonly extra: JsonObject = {},
 		public readonly metadataElements: readonly DiagramMetadataElement[] = [],
 		public readonly legendElements: readonly DiagramLegendElement[] = [],
+		public readonly diagramLinks: readonly DiagramLink[] = [],
 	) {
 		validateDocument(this);
 	}
@@ -349,6 +386,7 @@ export class OntologyDiagramDocument {
 			labels: optionalList(this.labels, (label) => label.toPersistenceObject()),
 			metadata_elements: optionalList(this.metadataElements, (element) => element.toPersistenceObject()),
 			legend_elements: optionalList(this.legendElements, (element) => element.toPersistenceObject()),
+			diagram_links: optionalList(this.diagramLinks, (link) => link.toPersistenceObject()),
 		});
 	}
 }
@@ -381,4 +419,16 @@ function assertImageSource(source: string): void {
 	}
 }
 
-
+function normalizeDiagramReference(reference: string): string {
+	const trimmed = reference.trim();
+	if (trimmed.length === 0) {
+		throw new OntologyDiagramValidationError('Diagram reference must be a non-empty relative path.');
+	}
+	if (trimmed.startsWith('/') || trimmed.startsWith('\\') || /^[A-Za-z]:[\\/]/u.test(trimmed)) {
+		throw new OntologyDiagramValidationError('Diagram reference must be relative to the containing diagram.');
+	}
+	if (!trimmed.toLowerCase().endsWith('.odiagram')) {
+		throw new OntologyDiagramValidationError('Diagram reference must point to an .odiagram file.');
+	}
+	return trimmed.replaceAll('\\', '/');
+}

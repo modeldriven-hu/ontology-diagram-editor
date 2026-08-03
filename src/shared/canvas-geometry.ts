@@ -14,6 +14,8 @@ export const minimumMetadataWidth = 180;
 export const minimumMetadataHeight = 84;
 export const minimumLegendWidth = 180;
 export const minimumLegendHeight = 72;
+export const minimumDiagramLinkWidth = 120;
+export const minimumDiagramLinkHeight = 88;
 
 export interface CanvasPoint {
 	readonly x: number;
@@ -34,6 +36,7 @@ export type ImageBoundsUpdate = BoundsUpdate;
 export type LabelBoundsUpdate = BoundsUpdate;
 export type MetadataBoundsUpdate = BoundsUpdate;
 export type LegendBoundsUpdate = BoundsUpdate;
+export type DiagramLinkBoundsUpdate = BoundsUpdate;
 
 export interface EdgeRouteUpdate {
 	readonly id: string;

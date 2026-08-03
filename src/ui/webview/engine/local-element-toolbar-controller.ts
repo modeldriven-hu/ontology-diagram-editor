@@ -1,5 +1,5 @@
 import type { CanvasPoint } from '../../../shared/canvas-geometry';
-import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OptimizeEdgeRouteCommand, ShowEdgesBetweenNodesCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
+import { AlignEdgeEndPointsCommand, AlignEdgeStartPointsCommand, AlignSubclassEndpointsCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, OpenDiagramLinkCommand, OptimizeEdgeRouteCommand, ShowEdgesBetweenNodesCommand, ShowRelatedElementsCommand, StraightenEdgeRouteCommand, UpdateEdgePresentationCommand, UpdateEdgeRouteLayoutCommand } from '../../../shared/webview-commands';
 import type { CanvasElementRegistry, CanvasPropertyElement } from '../components/canvas-element-registry';
 import type { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { nodeTitleText } from '../components/node-data-properties';
@@ -14,6 +14,7 @@ interface LocalElementToolbarElements {
 	readonly localElementToolbar: HTMLElement;
 	readonly localElementDragHandle: HTMLButtonElement;
 	readonly minimizeLocalButton: HTMLButtonElement;
+	readonly openDiagramLinkLocalButton: HTMLButtonElement;
 	readonly createCommentNoteLocalButton: HTMLButtonElement;
 	readonly showRelatedElementsLocalButton: HTMLButtonElement;
 	readonly showEdgesBetweenNodesLocalButton: HTMLButtonElement;
@@ -101,6 +102,9 @@ export class LocalElementToolbarController {
 		const elements = this.options.elements;
 		this.registerButton(elements.minimizeLocalButton, () => {
 			this.resizeSelectedElementToMinimum();
+		});
+		this.registerButton(elements.openDiagramLinkLocalButton, () => {
+			this.openSelectedDiagramLink();
 		});
 		this.registerButton(elements.createCommentNoteLocalButton, () => {
 			this.createCommentNoteFromSelectedNode();
@@ -314,8 +318,9 @@ export class LocalElementToolbarController {
 		const elements = this.options.elements;
 		const isNodeSelection = element.kind === 'nodeSelection';
 		const isEdgeSelection = element.kind === 'edgeSelection';
-		const canResize = isNodeSelection || element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label';
+		const canResize = isNodeSelection || element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label' || element.kind === 'link';
 		elements.minimizeLocalButton.hidden = !canResize;
+		elements.openDiagramLinkLocalButton.hidden = element.kind !== 'link';
 		elements.createCommentNoteLocalButton.hidden = element.kind !== 'node';
 		elements.showRelatedElementsLocalButton.hidden = element.kind !== 'node';
 		elements.showEdgesBetweenNodesLocalButton.hidden = !isNodeSelection;
@@ -568,7 +573,7 @@ export class LocalElementToolbarController {
 			};
 		}
 
-		if (element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label') {
+		if (element.kind === 'node' || element.kind === 'note' || element.kind === 'image' || element.kind === 'label' || element.kind === 'link') {
 			return {
 				x: element.value.x + element.value.width / 2,
 				y: element.value.y,
@@ -733,6 +738,16 @@ export class LocalElementToolbarController {
 
 		this.options.messageBus.publishCommand(new CreateCommentNoteCommand(selectedElementId, comment));
 		this.options.showStatus('Creating note from ontology comment.');
+	}
+
+	private openSelectedDiagramLink(): void {
+		const selectedElementId = this.options.canvas.selectedElementId();
+		if (selectedElementId === undefined || this.options.elementRegistry.element(selectedElementId)?.kind !== 'link') {
+			this.options.showStatus('Select a linked diagram to open it.');
+			return;
+		}
+		this.options.messageBus.publishCommand(new OpenDiagramLinkCommand(selectedElementId));
+		this.options.showStatus('Opening linked diagram.');
 	}
 
 	private showRelatedElementsForSelectedNode(): void {
@@ -926,6 +941,7 @@ function hasLocalElementToolbarActions(element: LocalElementToolbarContext): boo
 		|| element.kind === 'note'
 		|| element.kind === 'image'
 		|| element.kind === 'label'
+		|| element.kind === 'link'
 		|| element.kind === 'edge';
 }
 

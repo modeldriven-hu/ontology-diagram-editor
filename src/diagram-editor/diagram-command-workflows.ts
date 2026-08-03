@@ -281,8 +281,9 @@ export class DiagramCommandWorkflows {
 		const selectedImageIds = diagram.images.filter((image) => ids.has(image.id.value)).map((image) => image.id.value);
 		const selectedLabelIds = diagram.labels.filter((label) => ids.has(label.id.value)).map((label) => label.id.value);
 		const selectedMetadataIds = diagram.metadataElements.filter((element) => ids.has(element.id.value)).map((element) => element.id.value);
+		const selectedDiagramLinkIds = diagram.diagramLinks.filter((link) => ids.has(link.id.value)).map((link) => link.id.value);
 		const selectedEdgeIds = diagram.edges.filter((edge) => ids.has(edge.id.value)).map((edge) => edge.id.value);
-		const selectedElementCount = selectedNodeIds.length + selectedNoteIds.length + selectedImageIds.length + selectedLabelIds.length + selectedMetadataIds.length + selectedEdgeIds.length;
+		const selectedElementCount = selectedNodeIds.length + selectedNoteIds.length + selectedImageIds.length + selectedLabelIds.length + selectedMetadataIds.length + selectedDiagramLinkIds.length + selectedEdgeIds.length;
 		if (selectedElementCount === 0) {
 			return;
 		}
@@ -383,6 +384,67 @@ export class DiagramCommandWorkflows {
 			source,
 			command.position,
 		));
+	}
+
+	public async createDiagramLink(command: Extract<WebviewCommand, { readonly type: 'createDiagramLink' }>): Promise<void> {
+		const reference = await this.pickDiagramReference('Add Linked Diagram');
+		if (reference === undefined) {
+			return;
+		}
+		await this.handleResult(this.useCases.createDiagramLink.execute(this.repository.load(), reference, command.position));
+	}
+
+	public async updateDiagramLinkReference(command: Extract<WebviewCommand, { readonly type: 'updateDiagramLinkReference' }>): Promise<void> {
+		const reference = command.pickFile ? await this.pickDiagramReference('Change Linked Diagram') : command.reference;
+		if (reference === undefined) {
+			return;
+		}
+		await this.handleResult(this.useCases.updateDiagramLinkReference.execute(this.repository.load(), command.id, reference));
+	}
+
+	public async updateDiagramLinkIcon(command: Extract<WebviewCommand, { readonly type: 'updateDiagramLinkIcon' }>): Promise<void> {
+		const icon = command.pickFile
+			? await resolveEmbeddedImageSource(undefined, true, 'Set Icon', 'Set linked diagram icon')
+			: command.icon;
+		if (command.pickFile && icon === undefined) {
+			return;
+		}
+		await this.handleResult(this.useCases.updateDiagramLinkIcon.execute(this.repository.load(), command.id, icon));
+	}
+
+	public async openDiagramLink(command: Extract<WebviewCommand, { readonly type: 'openDiagramLink' }>): Promise<void> {
+		const link = this.repository.load().diagramLinks.find((candidate) => candidate.id.value === command.id);
+		if (link === undefined) {
+			return;
+		}
+		const target = vscode.Uri.file(path.resolve(path.dirname(this.repository.uri.fsPath), link.diagramRef));
+		try {
+			await vscode.workspace.fs.stat(target);
+			await vscode.commands.executeCommand('vscode.open', target);
+		} catch {
+			await vscode.window.showErrorMessage(`Could not open linked diagram: ${link.diagramRef}`);
+		}
+	}
+
+	private async pickDiagramReference(title: string): Promise<string | undefined> {
+		const selected = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			defaultUri: vscode.Uri.file(path.dirname(this.repository.uri.fsPath)),
+			filters: { 'Ontology diagrams': ['odiagram'] },
+			openLabel: 'Select Diagram',
+			title,
+		});
+		const target = selected?.[0];
+		if (target === undefined) {
+			return undefined;
+		}
+		if (target.toString() === this.repository.uri.toString()) {
+			await vscode.window.showInformationMessage('A diagram cannot link to itself.');
+			return undefined;
+		}
+		return path.relative(path.dirname(this.repository.uri.fsPath), target.fsPath).replaceAll(path.sep, '/');
 	}
 
 	public async pickNodeImage(command: Extract<WebviewCommand, { readonly type: 'pickNodeImage' }>): Promise<void> {
@@ -496,6 +558,5 @@ type OntologyItemQuickPickItem = OntologyItemPickerEntry | vscode.QuickPickItem;
 function isOntologyItemPickerEntry(item: OntologyItemQuickPickItem): item is OntologyItemPickerEntry {
 	return 'payload' in item;
 }
-
 
 

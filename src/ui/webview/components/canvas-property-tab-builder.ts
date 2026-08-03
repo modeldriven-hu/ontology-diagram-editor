@@ -1,4 +1,4 @@
-import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote } from '../ontology-diagram-types';
+import type { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramLink, DiagramMetadataElement, DiagramNode, DiagramNote } from '../ontology-diagram-types';
 import type { CanvasPropertyPanelOptions, PropertyTab } from './canvas-property-panel-types';
 import { AuxiliaryPropertyTabs } from './auxiliary-property-tabs';
 import { CanvasPropertyEditor } from './canvas-property-editor';
@@ -58,8 +58,11 @@ export class CanvasPropertyTabBuilder {
 		return this.auxiliary.imageTabs(image);
 	}
 
+	public diagramLinkTabs(link: DiagramLink): readonly PropertyTab[] {
+		return this.auxiliary.diagramLinkTabs(link);
+	}
+
 	public updateDiagramMetadata(...args: Parameters<CanvasPropertyEditor['updateDiagramMetadata']>): void {
 		this.editor.updateDiagramMetadata(...args);
 	}
 }
-

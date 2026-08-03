@@ -504,7 +504,7 @@ suite('Element presentation use cases', () => {
 
 	test('updates editable diagram metadata fields', () => {
 		const diagram = new OntologyDiagramDocument(
-			new DiagramMetadata('1.0', 'Example', ['Old Author'], '0.1.0', 'themes/base.otheme', { status: 'draft' }, { custom_metadata: true }, 'dark'),
+			new DiagramMetadata('1.0', 'Example', ['Old Author'], '0.1.0', 'themes/base.otheme', { status: 'draft' }, { custom_metadata: true }, 'dark', true, 'transparent', false),
 			[],
 			new Map([['ex', 'https://example.com/ontology#']]),
 			[],
@@ -526,6 +526,21 @@ suite('Element presentation use cases', () => {
 		assert.deepStrictEqual(result.diagram.metadata.additional, { status: 'draft' });
 		assert.deepStrictEqual(result.diagram.metadata.extra, { custom_metadata: true });
 		assert.strictEqual(result.diagram.metadata.themeMode, 'dark');
+		assert.strictEqual(result.diagram.metadata.canvasBackground, 'transparent');
+		assert.strictEqual(result.diagram.metadata.showGrid, false);
+	});
+
+	test('updates diagram canvas background and grid visibility', () => {
+		const result = new UpdateDiagramMetadataUseCase().execute(emptyDiagram(), {
+			canvas_background: 'white',
+			show_grid: false,
+		});
+
+		assert.ok(result.diagram);
+		assert.strictEqual(result.diagram.metadata.canvasBackground, 'white');
+		assert.strictEqual(result.diagram.metadata.showGrid, false);
+		assert.strictEqual(result.diagram.metadata.toPersistenceObject().canvas_background, 'white');
+		assert.strictEqual(result.diagram.metadata.toPersistenceObject().show_grid, false);
 	});
 
 	test('clears diagram theme file metadata', () => {
@@ -547,4 +562,3 @@ suite('Element presentation use cases', () => {
 	});
 
 });
-

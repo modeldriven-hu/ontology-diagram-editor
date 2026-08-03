@@ -5,6 +5,7 @@ export { CreateImageUseCase } from './create-image-use-case';
 export { CreateLabelUseCase } from './create-label-use-case';
 export { CreateMetadataElementUseCase } from './create-metadata-element-use-case';
 export { CreateLegendElementUseCase } from './create-legend-element-use-case';
+export { CreateDiagramLinkUseCase, UpdateDiagramLinkIconUseCase, UpdateDiagramLinkReferenceUseCase } from './diagram-link-use-cases';
 export { CreateCommentNoteUseCase } from './create-comment-note-use-case';
 export { CreateNodeUseCase } from './create-node-use-case';
 export { CreateNoteUseCase } from './create-note-use-case';

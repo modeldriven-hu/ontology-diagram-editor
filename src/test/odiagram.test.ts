@@ -69,6 +69,7 @@ edges: []
 		assert.strictEqual(document.images.length, 0);
 		assert.strictEqual(document.labels.length, 0);
 		assert.strictEqual(document.metadataElements.length, 0);
+		assert.strictEqual(document.diagramLinks.length, 0);
 		assert.strictEqual(document.nodes[0].ontologyRef.value, 'ex:Person');
 	});
 
@@ -318,6 +319,28 @@ edges: []
 		assert.strictEqual(document.metadata.themeMode, 'dark');
 		const metadata = document.metadata.toPersistenceObject() as { readonly theme_mode?: unknown };
 		assert.strictEqual(metadata.theme_mode, 'dark');
+	});
+
+	test('parses and serializes canvas background and grid metadata', () => {
+		const document = parseOntologyDiagramYaml(`
+metadata:
+  schema_version: "1.0"
+  title: "Transparent diagram"
+  authors: []
+  diagram_version: "0.1.0"
+  canvas_background: transparent
+  show_grid: false
+ontologies: []
+namespaces: {}
+nodes: []
+edges: []
+`);
+
+		assert.strictEqual(document.metadata.canvasBackground, 'transparent');
+		assert.strictEqual(document.metadata.showGrid, false);
+		const metadata = document.metadata.toPersistenceObject();
+		assert.strictEqual(metadata.canvas_background, 'transparent');
+		assert.strictEqual(metadata.show_grid, false);
 	});
 
 	test('parses common style corner radius, shadow, and image fit overrides', () => {

@@ -83,6 +83,7 @@ function validateUniqueElementIds(document: OntologyDiagramDocument): string[] {
 		...document.labels.map((label) => label.id.value),
 		...document.metadataElements.map((element) => element.id.value),
 		...document.legendElements.map((element) => element.id.value),
+		...document.diagramLinks.map((link) => link.id.value),
 	];
 	const seen = new Set<string>();
 	const duplicates = ids.filter((id) => {
@@ -142,5 +143,4 @@ function validateUniqueOntologyPaths(document: OntologyDiagramDocument): string[
 
 	return [...new Set(duplicates)].map((path) => `Duplicate ontology path "${path}".`);
 }
-
 

@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, GitBranchPlus, GitFork, GitMerge, GripVertical, Hand, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Pin, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, Columns2, ExternalLink, GitBranchPlus, GitFork, GitMerge, GripVertical, Hand, LayoutTemplate, Link2, LocateFixed, Maximize2, Minimize2, Moon, Pin, RotateCcw, Route, Rows2, Search, SquareEqual, StickyNotePlus, Sun, Trash2, ZoomIn, ZoomOut, createElement as createIconElement } from 'lucide';
 
 import type { WebviewThemeMode } from '../webview-theme';
 import { setActionTooltip } from './canvas-dom';
@@ -6,6 +6,7 @@ import { setActionTooltip } from './canvas-dom';
 export interface LocalElementToolbarIconElements {
 	readonly localElementDragHandle: HTMLButtonElement;
 	readonly minimizeLocalButton: HTMLButtonElement;
+	readonly openDiagramLinkLocalButton: HTMLButtonElement;
 	readonly createCommentNoteLocalButton: HTMLButtonElement;
 	readonly showRelatedElementsLocalButton: HTMLButtonElement;
 	readonly showEdgesBetweenNodesLocalButton: HTMLButtonElement;
@@ -68,6 +69,12 @@ export function renderLocalElementToolbarIcons(elements: LocalElementToolbarIcon
 		class: 'canvas-action-icon',
 	}));
 	setActionTooltip(elements.minimizeLocalButton, 'Resize to minimum size');
+
+	elements.openDiagramLinkLocalButton.replaceChildren(createIconElement(ExternalLink, {
+		'aria-hidden': 'true',
+		class: 'canvas-action-icon',
+	}));
+	setActionTooltip(elements.openDiagramLinkLocalButton, 'Open linked diagram');
 
 	elements.createCommentNoteLocalButton.replaceChildren(createIconElement(StickyNotePlus, {
 		'aria-hidden': 'true',

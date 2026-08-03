@@ -15,6 +15,8 @@ export class UpdateDiagramMetadataUseCase {
 			diagram.metadata.extra,
 			diagram.metadata.themeMode,
 			Object.hasOwn(patch, 'show_ontology_information') ? patch.show_ontology_information : diagram.metadata.showOntologyInformation,
+			Object.hasOwn(patch, 'canvas_background') ? patch.canvas_background : diagram.metadata.canvasBackground,
+			Object.hasOwn(patch, 'show_grid') ? patch.show_grid : diagram.metadata.showGrid,
 		);
 
 		if (JSON.stringify(metadata.toPersistenceObject()) === JSON.stringify(diagram.metadata.toPersistenceObject())) {

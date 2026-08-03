@@ -1,9 +1,9 @@
 import { CanvasRedoRequestedEvent, CanvasRenderedEvent, CanvasSelectionChangedEvent, CanvasUndoRequestedEvent, CanvasViewportChangedEvent, type CanvasElementStylesUpdatedMessage, type CanvasSelectionRequestedMessage } from '../../../shared/canvas-editor-events';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
+import { minimumDiagramLinkHeight, minimumDiagramLinkWidth, minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNoteHeight, minimumNoteWidth, type CanvasPoint } from '../../../shared/canvas-geometry';
 import { defaultDiagramLayoutAlgorithmId, defaultElkLayeredDirection, defaultElkLayeredLayerSpacing, defaultElkLayeredNodeSpacing, isDiagramLayoutAlgorithmId, isElkLayeredDirection, normalizeElkLayeredSpacing, type DiagramLayoutAlgorithmId, type ElkLayeredDirection } from '../../../shared/diagram-layout';
 import type { CanvasViewport } from '../../../shared/canvas-viewport';
 import { requiredCompactNoteSize } from '../../../shared/note-compact-size';
-import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateImageCommand, CreateLabelCommand, CreateLegendElementCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteLegendElementCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, PickImageSourceCommand, PickNodeImageCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
+import { AddOntologyItemCommand, ArrangeDiagramCommand, CreateDiagramLinkCommand, CreateImageCommand, CreateLabelCommand, CreateLegendElementCommand, CreateMetadataElementCommand, CreateNoteCommand, DeleteEdgeCommand, DeleteElementsCommand, DeleteImageCommand, DeleteLabelCommand, DeleteLegendElementCommand, DeleteMetadataElementCommand, DeleteNodeCommand, DeleteNoteCommand, OpenDiagramLinkCommand, PickImageSourceCommand, PickNodeImageCommand, RedoDiagramCommand, RevealModelTreeItemCommand, UndoDiagramCommand, UpdateCanvasViewportCommand, UpdateDiagramLinkIconCommand, UpdateLabelTextCommand, UpdateNoteTextCommand, UpdateThemeModeCommand, type WebviewCommand } from '../../../shared/webview-commands';
 import type { IconGallerySet, ImageGalleryTargetType, OpenImageGalleryMessage } from '../../../shared/icon-gallery';
 import { CanvasDropController } from '../components/canvas-drop-controller';
 import { applyCanvasElementStyleUpdates } from '../components/canvas-element-style-updates';
@@ -17,6 +17,8 @@ import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { metadataBounds, renderMetadataToolbarIcon } from '../components/ontology-diagram-metadata';
 import { legendBounds, renderLegendToolbarIcon } from '../components/ontology-diagram-legend';
+import { diagramLinkBounds, renderDiagramLinkToolbarIcon } from '../components/ontology-diagram-links';
+import { diagramGridIsVisible, diagramPresentationTheme } from '../components/diagram-canvas-presentation';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
 import { ontologyCommentsForReference } from '../components/ontology-comments';
 import { ontologyColor } from '../components/ontology-legend';
@@ -32,7 +34,7 @@ import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, rend
 import { embeddedGalleryIconColor } from '../../../shared/embedded-gallery-icon';
 import { CanvasKeyboardController } from './canvas-keyboard-controller';
 import { CanvasViewportController } from './canvas-viewport-controller';
-import { canvasScroll, canvasContent, canvasShell, canvasActions, canvasToolbarDragHandle, canvasToolbarPinButton, status, addOntologyItemButton, addNoteButton, addLabelButton, addImageButton, addMetadataButton, addLegendButton, exportSvgButton, exportPngButton, diagramLayoutAlgorithmSelect, elkLayeredSpacingControls, elkLayeredDirectionSelect, elkLayeredNodeSpacingInput, elkLayeredLayerSpacingInput, arrangeDiagramButton, panCanvasButton, zoomOutButton, zoomInButton, fitDiagramButton, resetViewportButton, revealModelTreeItemButton, themeModeButton, noteEditor, noteEditorText, saveNoteButton, cancelNoteButton, localElementToolbar, localElementDragHandle, minimizeLocalButton, createCommentNoteLocalButton, showRelatedElementsLocalButton, showEdgesBetweenNodesLocalButton, alignLeftLocalButton, alignHorizontalCenterLocalButton, alignRightLocalButton, alignTopLocalButton, alignVerticalCenterLocalButton, alignBottomLocalButton, matchWidthLocalButton, matchHeightLocalButton, matchSizeLocalButton, nodeSelectionSizeSeparator, distributeHorizontalLocalButton, distributeVerticalLocalButton, nodeSelectionDistributeSeparator, nodeSelectionSubclassSeparator, alignSubclassEndpointsLocalButton, connectNoteLocalButton, alignEdgeStartPointsLocalButton, alignEdgeEndPointsLocalButton, optimizeEdgeLocalButton, straightenEdgeLocalButton, edgeRouteLayoutLocalSelect, edgePresentationLocalSelect, resetEdgeLabelLocalButton, deleteEdgeLocalButton } from './canvas-dom-elements';
+import { canvasScroll, canvasContent, canvasShell, canvasActions, canvasToolbarDragHandle, canvasToolbarPinButton, status, addOntologyItemButton, addNoteButton, addLabelButton, addImageButton, addMetadataButton, addLegendButton, addDiagramLinkButton, exportSvgButton, exportPngButton, diagramLayoutAlgorithmSelect, elkLayeredSpacingControls, elkLayeredDirectionSelect, elkLayeredNodeSpacingInput, elkLayeredLayerSpacingInput, arrangeDiagramButton, panCanvasButton, zoomOutButton, zoomInButton, fitDiagramButton, resetViewportButton, revealModelTreeItemButton, themeModeButton, noteEditor, noteEditorText, saveNoteButton, cancelNoteButton, localElementToolbar, localElementDragHandle, minimizeLocalButton, openDiagramLinkLocalButton, createCommentNoteLocalButton, showRelatedElementsLocalButton, showEdgesBetweenNodesLocalButton, alignLeftLocalButton, alignHorizontalCenterLocalButton, alignRightLocalButton, alignTopLocalButton, alignVerticalCenterLocalButton, alignBottomLocalButton, matchWidthLocalButton, matchHeightLocalButton, matchSizeLocalButton, nodeSelectionSizeSeparator, distributeHorizontalLocalButton, distributeVerticalLocalButton, nodeSelectionDistributeSeparator, nodeSelectionSubclassSeparator, alignSubclassEndpointsLocalButton, connectNoteLocalButton, alignEdgeStartPointsLocalButton, alignEdgeEndPointsLocalButton, optimizeEdgeLocalButton, straightenEdgeLocalButton, edgeRouteLayoutLocalSelect, edgePresentationLocalSelect, resetEdgeLabelLocalButton, deleteEdgeLocalButton } from './canvas-dom-elements';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand | CanvasSelectionChangedEvent): void;
@@ -107,7 +109,7 @@ elkLayeredDirectionSelect.value = savedElkLayeredDirection !== undefined && isEl
 elkLayeredNodeSpacingInput.value = String(savedElkLayeredNodeSpacing);
 elkLayeredLayerSpacingInput.value = String(savedElkLayeredLayerSpacing);
 let themeMode: WebviewThemeMode = webviewConfig.payload.diagram?.metadata?.theme_mode ?? vscode.getState()?.themeMode ?? detectPreferredThemeMode();
-let theme = readTheme(themeMode, webviewConfig.payload.theme);
+let theme = diagramPresentationTheme(readTheme(themeMode, webviewConfig.payload.theme), webviewConfig.payload);
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
@@ -169,6 +171,7 @@ const localElementToolbarController = new LocalElementToolbarController({
 		localElementToolbar,
 		localElementDragHandle,
 		minimizeLocalButton,
+		openDiagramLinkLocalButton,
 		createCommentNoteLocalButton,
 		showRelatedElementsLocalButton,
 		showEdgesBetweenNodesLocalButton,
@@ -256,9 +259,11 @@ renderLabelToolbarIcon(addLabelButton);
 renderImageToolbarIcon(addImageButton);
 renderMetadataToolbarIcon(addMetadataButton);
 renderLegendToolbarIcon(addLegendButton);
+renderDiagramLinkToolbarIcon(addDiagramLinkButton);
 renderLocalElementToolbarIcons({
 	localElementDragHandle,
 	minimizeLocalButton,
+	openDiagramLinkLocalButton,
 	createCommentNoteLocalButton,
 	showRelatedElementsLocalButton,
 	showEdgesBetweenNodesLocalButton,
@@ -329,6 +334,10 @@ addMetadataButton.addEventListener('click', () => {
 addLegendButton.addEventListener('click', () => {
 	localElementToolbarController.cancelPendingNoteConnection();
 	messageBus.publishCommand(new CreateLegendElementCommand(viewportController.insertionPosition()));
+});
+addDiagramLinkButton.addEventListener('click', () => {
+	localElementToolbarController.cancelPendingNoteConnection();
+	messageBus.publishCommand(new CreateDiagramLinkCommand(viewportController.insertionPosition()));
 });
 exportSvgButton.addEventListener('click', () => {
 	const command = createSvgExportCommand(webviewConfig.payload, theme);
@@ -446,16 +455,20 @@ function openTargetImageGallery(targetType: ImageGalleryTargetType, targetId: st
 	const publishSelection = (source: string | undefined, pickFile: boolean): void => {
 		messageBus.publishCommand(targetType === 'node'
 			? new PickNodeImageCommand(targetId, source, pickFile)
-			: new PickImageSourceCommand(targetId, source, pickFile));
+			: targetType === 'link'
+				? new UpdateDiagramLinkIconCommand(targetId, source, pickFile)
+				: new PickImageSourceCommand(targetId, source, pickFile));
 	};
 	const node = targetType === 'node'
 		? webviewConfig.payload.diagram?.nodes?.find((candidate) => candidate.id === targetId)
 		: undefined;
 	const existingSource = node?.image ?? (targetType === 'image'
 		? webviewConfig.payload.diagram?.images?.find((image) => image.id === targetId)?.source
-		: undefined);
+		: targetType === 'link'
+			? webviewConfig.payload.diagram?.diagram_links?.find((link) => link.id === targetId)?.icon
+			: undefined);
 	iconGalleryDialog.open({
-		title: targetType === 'node' ? 'Set node image' : 'Set standalone image source',
+		title: targetType === 'node' ? 'Set node image' : targetType === 'link' ? 'Set linked diagram icon' : 'Set standalone image source',
 		onIconSelected: (source) => publishSelection(source, false),
 		onFileSelected: () => publishSelection(undefined, true),
 		initialColor: node === undefined
@@ -483,7 +496,8 @@ function render(): void {
 	const labels = webviewConfig.payload.diagram?.labels ?? [];
 	const metadataElements = webviewConfig.payload.diagram?.metadata_elements ?? [];
 	const legendElements = webviewConfig.payload.diagram?.legend_elements ?? [];
-	if (nodes.length === 0 && edges.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0 && metadataElements.length === 0 && legendElements.length === 0) {
+	const diagramLinks = webviewConfig.payload.diagram?.diagram_links ?? [];
+	if (nodes.length === 0 && edges.length === 0 && notes.length === 0 && images.length === 0 && labels.length === 0 && metadataElements.length === 0 && legendElements.length === 0 && diagramLinks.length === 0) {
 		canvasContent.textContent = '';
 		canvasContent.appendChild(messageElement(
 			'empty-state',
@@ -592,6 +606,7 @@ function minimumSizeForElement(element: CanvasPropertyElement | undefined): { re
 		return { width: minimumMetadataWidth, height: minimumMetadataHeight };
 	}
 	if (element?.kind === 'legend') {return { width: minimumLegendWidth, height: minimumLegendHeight };}
+	if (element?.kind === 'link') {return { width: minimumDiagramLinkWidth, height: minimumDiagramLinkHeight };}
 
 	return undefined;
 }
@@ -687,7 +702,7 @@ function revealSelectedModelTreeItem(): void {
 function toggleThemeMode(): void {
 	const selectedElementId = canvas.selectedElementId();
 	themeMode = themeMode === 'dark' ? 'light' : 'dark';
-	theme = readTheme(themeMode, webviewConfig.payload.theme);
+	theme = diagramPresentationTheme(readTheme(themeMode, webviewConfig.payload.theme), webviewConfig.payload);
 	updateWebviewState({ themeMode });
 	applyCanvasTheme(theme, themeMode);
 	renderThemeModeButton(themeModeButton, themeMode);
@@ -703,6 +718,7 @@ function applyCanvasTheme(nextTheme: WebviewTheme, mode: WebviewThemeMode): void
 	document.body.dataset.diagramTheme = mode;
 	canvasScroll.style.setProperty('--diagram-canvas-background', nextTheme.canvasBackground);
 	canvasScroll.style.setProperty('--diagram-canvas-foreground', nextTheme.editorForeground);
+	canvasScroll.classList.toggle('grid-hidden', !diagramGridIsVisible(webviewConfig.payload));
 }
 
 function initializeFixedToolbarTooltips(): void {
@@ -809,8 +825,17 @@ function registerNoteEditHandlers(): void {
 		}
 	});
 	canvas.onElementDoubleClicked((id) => {
-		return editNote(id) || editLabel(id);
+		return editNote(id) || editLabel(id) || openDiagramLink(id);
 	});
+}
+
+function openDiagramLink(id: string): boolean {
+	if (elementRegistry.element(id)?.kind !== 'link') {
+		return false;
+	}
+	messageBus.publishCommand(new OpenDiagramLinkCommand(id));
+	showStatus('Opening linked diagram.');
+	return true;
 }
 
 function editNote(id: string): boolean {
@@ -885,6 +910,7 @@ function trackRenderedGeometry(payload: DiagramPayload): void {
 		geometryPersistence.trackMetadataBounds(metadataBounds(element));
 	}
 	for (const element of payload.diagram?.legend_elements ?? []) {geometryPersistence.trackLegendBounds(legendBounds(element));}
+	for (const link of payload.diagram?.diagram_links ?? []) {geometryPersistence.trackDiagramLinkBounds(diagramLinkBounds(link));}
 }
 
 function showStatus(message: string): void {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BorderStyle, Bounds, CommonStyle, DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadata, DiagramMetadataElement, DiagramNode, DiagramNote, EdgeStyle, FontStyle, LabelStyle, OntologyDiagramDocument, OntologyDiagramValidationError, OntologyFileReference, Point, type JsonObject, type JsonValue } from './odiagram-model';
+import { BorderStyle, Bounds, CommonStyle, DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramLink, DiagramMetadata, DiagramMetadataElement, DiagramNode, DiagramNote, EdgeStyle, FontStyle, LabelStyle, OntologyDiagramDocument, OntologyDiagramValidationError, OntologyFileReference, Point, type JsonObject, type JsonValue } from './odiagram-model';
 
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 	z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)]),
@@ -62,6 +62,8 @@ const metadataSchema = z.object({
 	theme_file: z.string().optional(),
 	theme_mode: z.enum(['light', 'dark']).optional(),
 	show_ontology_information: z.boolean().optional(),
+	canvas_background: z.enum(['theme', 'white', 'transparent']).optional(),
+	show_grid: z.boolean().optional(),
 	additional: jsonObjectSchema.optional(),
 }).passthrough();
 
@@ -129,6 +131,12 @@ const legendElementSchema = boundsFieldsSchema.extend({
 	style: commonStyleSchema.optional(),
 }).passthrough();
 
+const diagramLinkSchema = boundsFieldsSchema.extend({
+	id: z.string(),
+	diagram_ref: z.string(),
+	icon: z.string().optional(),
+}).passthrough();
+
 const documentSchema = z.object({
 	metadata: metadataSchema,
 	ontologies: z.array(ontologyFileReferenceSchema),
@@ -140,6 +148,7 @@ const documentSchema = z.object({
 	labels: z.array(labelSchema).optional(),
 	metadata_elements: z.array(metadataElementSchema).optional(),
 	legend_elements: z.array(legendElementSchema).optional(),
+	diagram_links: z.array(diagramLinkSchema).optional(),
 }).passthrough();
 
 export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocument {
@@ -159,9 +168,20 @@ export function parseOntologyDiagramObject(value: unknown): OntologyDiagramDocum
 		(document.notes ?? []).map(parseNote),
 		(document.images ?? []).map(parseImage),
 		(document.labels ?? []).map(parseLabel),
-		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels', 'metadata_elements', 'legend_elements']),
+		getExtraFields(document, ['metadata', 'ontologies', 'namespaces', 'nodes', 'edges', 'notes', 'images', 'labels', 'metadata_elements', 'legend_elements', 'diagram_links']),
 		(document.metadata_elements ?? []).map(parseMetadataElement),
 		(document.legend_elements ?? []).map(parseLegendElement),
+		(document.diagram_links ?? []).map(parseDiagramLink),
+	);
+}
+
+function parseDiagramLink(value: z.infer<typeof diagramLinkSchema>): DiagramLink {
+	return new DiagramLink(
+		value.id,
+		new Bounds(value.x, value.y, value.width, value.height),
+		value.diagram_ref,
+		value.icon,
+		getExtraFields(value, ['id', 'x', 'y', 'width', 'height', 'diagram_ref', 'icon']),
 	);
 }
 
@@ -173,9 +193,11 @@ function parseMetadata(value: z.infer<typeof metadataSchema>): DiagramMetadata {
 		value.diagram_version,
 		value.theme_file,
 		value.additional,
-		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'theme_mode', 'show_ontology_information', 'additional']),
+		getExtraFields(value, ['schema_version', 'title', 'authors', 'diagram_version', 'theme_file', 'theme_mode', 'show_ontology_information', 'canvas_background', 'show_grid', 'additional']),
 		value.theme_mode,
 		value.show_ontology_information,
+		value.canvas_background,
+		value.show_grid,
 	);
 }
 
@@ -344,4 +366,3 @@ function getExtraFields(value: Record<string, unknown>, knownFields: readonly st
 function isJsonValue(value: unknown): value is JsonValue {
 	return jsonValueSchema.safeParse(value).success;
 }
-

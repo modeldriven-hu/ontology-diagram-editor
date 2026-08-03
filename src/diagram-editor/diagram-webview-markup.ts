@@ -45,6 +45,7 @@ export function webviewBody(
 					<button class="canvas-action" id="addImageButton" type="button" title="Add image" aria-label="Add image"></button>
 					<button class="canvas-action" id="addMetadataButton" type="button" title="Add diagram information" aria-label="Add diagram information"></button>
 					<button class="canvas-action" id="addLegendButton" type="button" title="Add ontology legend" aria-label="Add ontology legend"></button>
+					<button class="canvas-action" id="addDiagramLinkButton" type="button" title="Add linked diagram" aria-label="Add linked diagram"></button>
 					<span class="canvas-action-separator" aria-hidden="true"></span>
 					<button class="canvas-action" id="exportSvgButton" type="button" title="Export SVG" aria-label="Export SVG"></button>
 					<button class="canvas-action" id="exportPngButton" type="button" title="Export PNG" aria-label="Export PNG"></button>
@@ -82,6 +83,7 @@ export function webviewBody(
 				<div class="local-element-toolbar" id="localElementToolbar" role="toolbar" aria-label="Selected element actions" hidden>
 					<button class="local-element-drag-handle" id="localElementDragHandle" type="button" title="Move toolbar" aria-label="Move toolbar"></button>
 					<button class="local-element-action" id="minimizeLocalButton" type="button" title="Resize to minimum size" aria-label="Resize to minimum size"></button>
+					<button class="local-element-action" id="openDiagramLinkLocalButton" type="button" title="Open linked diagram" aria-label="Open linked diagram"></button>
 					<button class="local-element-action" id="createCommentNoteLocalButton" type="button" title="Create note from ontology comment" aria-label="Create note from ontology comment"></button>
 					<button class="local-element-action" id="showRelatedElementsLocalButton" type="button" title="Show related elements" aria-label="Show related elements"></button>
 					<button class="local-element-action" id="showEdgesBetweenNodesLocalButton" type="button" title="Show edges between selected nodes" aria-label="Show edges between selected nodes"></button>
@@ -157,4 +159,3 @@ export function jsonForScript(value: unknown): string {
 	const json = JSON.stringify(value);
 	return json === undefined ? 'undefined' : json.replaceAll('<', '\\u003c');
 }
-

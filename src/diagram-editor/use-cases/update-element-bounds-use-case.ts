@@ -1,5 +1,5 @@
-import { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramMetadataElement, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
-import { minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type LegendBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
+import { DiagramEdge, DiagramImage, DiagramLabel, DiagramLegendElement, DiagramLink, DiagramMetadataElement, DiagramNode, DiagramNote, Point, type Bounds, type OntologyDiagramDocument } from '../../documents/odiagram';
+import { minimumDiagramLinkHeight, minimumDiagramLinkWidth, minimumImageHeight, minimumImageWidth, minimumLabelHeight, minimumLabelWidth, minimumLegendHeight, minimumLegendWidth, minimumMetadataHeight, minimumMetadataWidth, minimumNodeHeight, minimumNodeWidth, minimumNoteHeight, minimumNoteWidth, type BoundsUpdate, type DiagramLinkBoundsUpdate, type ImageBoundsUpdate, type LabelBoundsUpdate, type LegendBoundsUpdate, type MetadataBoundsUpdate, type NodeBoundsUpdate, type NoteBoundsUpdate } from '../../shared/canvas-geometry';
 import { boundsEqual, toBounds } from './bounds';
 import { cloneDiagram } from './diagram-document-copy';
 import type { DiagramMutationResult } from './diagram-mutation-result';
@@ -12,6 +12,7 @@ export interface ElementBoundsUpdates {
 	readonly labelUpdates: readonly LabelBoundsUpdate[];
 	readonly metadataUpdates?: readonly MetadataBoundsUpdate[];
 	readonly legendUpdates?: readonly LegendBoundsUpdate[];
+	readonly diagramLinkUpdates?: readonly DiagramLinkBoundsUpdate[];
 }
 
 export class UpdateElementBoundsUseCase {
@@ -26,6 +27,7 @@ export class UpdateElementBoundsUseCase {
 			...updates.labelUpdates,
 			...(updates.metadataUpdates ?? []),
 			...(updates.legendUpdates ?? []),
+			...(updates.diagramLinkUpdates ?? []),
 		];
 		if (allUpdates.length === 0) {
 			return {};
@@ -53,6 +55,8 @@ export class UpdateElementBoundsUseCase {
 		}
 		const invalidLegendUpdate = updates.legendUpdates?.find((update) => update.width < minimumLegendWidth || update.height < minimumLegendHeight);
 		if (invalidLegendUpdate !== undefined) {return { notification: `Ontology legends must be at least ${minimumLegendWidth} x ${minimumLegendHeight}.` };}
+		const invalidDiagramLinkUpdate = updates.diagramLinkUpdates?.find((update) => update.width < minimumDiagramLinkWidth || update.height < minimumDiagramLinkHeight);
+		if (invalidDiagramLinkUpdate !== undefined) {return { notification: `Diagram links must be at least ${minimumDiagramLinkWidth} x ${minimumDiagramLinkHeight}.` };}
 
 		const updateById = new Map<string, BoundsUpdate>(allUpdates.map((update) => [update.id, update]));
 		const originalBoundsByElementId = new Map([
@@ -175,6 +179,14 @@ export class UpdateElementBoundsUseCase {
 			changed = true;
 			return new DiagramLegendElement(element.id.value, nextBounds, element.colors, element.style, element.extra, element.colorMode, element.colorBy);
 		});
+		const nextDiagramLinks = diagram.diagramLinks.map((link) => {
+			const update = updateById.get(link.id.value);
+			if (update === undefined) {return link;}
+			const nextBounds = toBounds(update);
+			if (boundsEqual(link.bounds, nextBounds)) {return link;}
+			changed = true;
+			return new DiagramLink(link.id.value, nextBounds, link.diagramRef, link.icon, link.extra);
+		});
 		const nextEdges = diagram.edges.map((edge) => {
 			return translateEdgeMovedWithEndpoints(edge, moveDeltaByElementId)
 				?? recalculateConnectedEdgeEndpoints(edge, updateById, boundsByElementId);
@@ -193,6 +205,7 @@ export class UpdateElementBoundsUseCase {
 				labels: nextLabels,
 				metadataElements: nextMetadataElements,
 				legendElements: nextLegendElements,
+				diagramLinks: nextDiagramLinks,
 				edges: nextEdges,
 			}),
 		};

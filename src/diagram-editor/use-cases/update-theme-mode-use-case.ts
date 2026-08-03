@@ -18,6 +18,9 @@ export class UpdateThemeModeUseCase {
 			diagram.metadata.additional,
 			diagram.metadata.extra,
 			themeMode,
+			diagram.metadata.showOntologyInformation,
+			diagram.metadata.canvasBackground,
+			diagram.metadata.showGrid,
 		);
 
 		return {

@@ -1,6 +1,7 @@
 import { noteHtmlStyleAttributes, sanitizedNoteHtml } from '../components/note-html';
 import { noteFoldBackground } from '../components/note-colors';
-import type { DiagramImage, DiagramLabel, DiagramNote } from '../ontology-diagram-types';
+import type { DiagramImage, DiagramLabel, DiagramLink, DiagramNote } from '../ontology-diagram-types';
+import { defaultDiagramLinkIcon, diagramLinkName } from '../components/ontology-diagram-links';
 import type { WebviewTheme } from '../webview-theme';
 import { borderAttrs, cornerRadius, shadowFilter } from './x6-element-appearance';
 
@@ -193,4 +194,50 @@ export function x6Image(image: DiagramImage, theme: WebviewTheme): Record<string
 	};
 }
 
-
+export function x6DiagramLink(link: DiagramLink, theme: WebviewTheme): Record<string, unknown> {
+	return {
+		id: link.id,
+		x: link.x,
+		y: link.y,
+		width: link.width,
+		height: link.height,
+		markup: [
+			{ tagName: 'rect', selector: 'body' },
+			{ tagName: 'image', selector: 'icon' },
+			{ tagName: 'text', selector: 'label' },
+		],
+		attrs: {
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: 'transparent',
+				stroke: 'none',
+				strokeWidth: 0,
+			},
+			icon: {
+				width: 52,
+				height: 52,
+				refX: '50%',
+				refX2: -26,
+				refY: 12,
+				'xlink:href': link.icon ?? defaultDiagramLinkIcon,
+				preserveAspectRatio: 'xMidYMid meet',
+				pointerEvents: 'none',
+			},
+			label: {
+				text: diagramLinkName(link.diagram_ref),
+				fill: theme.editorForeground,
+				fontFamily: theme.fontFamily,
+				fontSize: theme.fontSize,
+				fontWeight: 600,
+				textAnchor: 'middle',
+				textVerticalAnchor: 'middle',
+				refX: '50%',
+				refY: '100%',
+				refY2: -22,
+				pointerEvents: 'none',
+			},
+		},
+		zIndex: 45,
+	};
+}

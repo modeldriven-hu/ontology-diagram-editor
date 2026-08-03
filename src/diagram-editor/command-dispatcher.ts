@@ -275,6 +275,9 @@ export class DiagramCommandDispatcher {
 			case 'createLegendElement':
 				await this.workflows.handleResult(this.useCases.createLegendElement.execute(this.repository.load(), command.position));
 				return;
+			case 'createDiagramLink':
+				await this.workflows.createDiagramLink(command);
+				return;
 			case 'saveDiagramExport':
 				await this.workflows.saveDiagramExport(command);
 				return;
@@ -391,6 +394,15 @@ export class DiagramCommandDispatcher {
 					this.repository.load(),
 					command.themeMode,
 				));
+				return;
+			case 'openDiagramLink':
+				await this.workflows.openDiagramLink(command);
+				return;
+			case 'updateDiagramLinkReference':
+				await this.workflows.updateDiagramLinkReference(command);
+				return;
+			case 'updateDiagramLinkIcon':
+				await this.workflows.updateDiagramLinkIcon(command);
 				return;
 			case 'revealModelTreeItem':
 				await this.workflows.revealSelectedModelTreeItem(command.id);

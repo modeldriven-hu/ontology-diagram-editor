@@ -1,7 +1,7 @@
 import type { ArrangeDiagramCommand, UpdateCanvasViewportCommand, AlignSubclassEndpointsCommand, AlignEdgeStartPointsCommand, AlignEdgeEndPointsCommand, UndoDiagramCommand, RedoDiagramCommand, AddOntologyItemCommand } from './diagram-commands';
-import type { CreateNodeCommand, UpdateNodeBoundsCommand, UpdateElementBoundsCommand, CreateNoteCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateLegendElementCommand, SaveDiagramExportCommand, DeleteNodeCommand, DeleteElementsCommand, DeleteEdgeCommand, DeleteNoteCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteLegendElementCommand, UpdateNoteBoundsCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateMetadataBoundsCommand, UpdateLegendBoundsCommand } from './lifecycle-commands';
+import type { CreateNodeCommand, UpdateNodeBoundsCommand, UpdateElementBoundsCommand, CreateNoteCommand, CreateCommentNoteCommand, CreateNoteConnectionCommand, CreateImageCommand, CreateLabelCommand, CreateMetadataElementCommand, CreateLegendElementCommand, CreateDiagramLinkCommand, SaveDiagramExportCommand, DeleteNodeCommand, DeleteElementsCommand, DeleteEdgeCommand, DeleteNoteCommand, DeleteImageCommand, DeleteLabelCommand, DeleteMetadataElementCommand, DeleteLegendElementCommand, UpdateNoteBoundsCommand, UpdateImageBoundsCommand, UpdateLabelBoundsCommand, UpdateMetadataBoundsCommand, UpdateLegendBoundsCommand } from './lifecycle-commands';
 import type { UpdateEdgeRouteCommand, OptimizeEdgeRouteCommand, OptimizeEdgeRoutesCommand, StraightenEdgeRouteCommand, UpdateEdgeRouteLayoutCommand, UpdateEdgeRouteLayoutsCommand, UpdateEdgePresentationCommand, ShowRelatedElementsCommand, ShowEdgesBetweenNodesCommand } from './edge-commands';
-import type { UpdateLegendColorsCommand, UpdateLegendColorByCommand, UpdateNodeImageCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNodeTypeDisplayCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodeLabelTextOverflowCommand, UpdateNoteExportVisibilityCommand, PickNodeImageCommand, PickImageSourceCommand, UpdateNoteTextCommand, UpdateLabelTextCommand, UpdateDiagramMetadataCommand, UpdateThemeModeCommand, RevealModelTreeItemCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateNodeLabelTextOverflowsCommand } from './property-commands';
+import type { UpdateLegendColorsCommand, UpdateLegendColorByCommand, UpdateNodeImageCommand, UpdateNodeDataPropertiesVisibilityCommand, UpdateNodeTypeVisibilityCommand, UpdateNodeTypeDisplayCommand, UpdateNodePropertyValuesVisibilityCommand, UpdateNodePropertyValueTextOverflowCommand, UpdateNodeLabelTextOverflowCommand, UpdateNoteExportVisibilityCommand, PickNodeImageCommand, PickImageSourceCommand, UpdateNoteTextCommand, UpdateLabelTextCommand, UpdateDiagramMetadataCommand, UpdateThemeModeCommand, RevealModelTreeItemCommand, UpdateElementStyleCommand, UpdateElementStylesCommand, UpdateNodeLabelTextOverflowsCommand, OpenDiagramLinkCommand, UpdateDiagramLinkReferenceCommand, UpdateDiagramLinkIconCommand } from './property-commands';
 
 export * from './webview-command-types';
 export * from './diagram-commands';
@@ -25,6 +25,7 @@ export type WebviewCommand =
 	| CreateLabelCommand
 	| CreateMetadataElementCommand
 	| CreateLegendElementCommand
+	| CreateDiagramLinkCommand
 	| SaveDiagramExportCommand
 	| DeleteElementsCommand
 	| DeleteEdgeCommand
@@ -70,4 +71,7 @@ export type WebviewCommand =
 	| RevealModelTreeItemCommand
 	| UpdateElementStyleCommand
 	| UpdateElementStylesCommand
-	| UpdateNodeLabelTextOverflowsCommand;
+	| UpdateNodeLabelTextOverflowsCommand
+	| OpenDiagramLinkCommand
+	| UpdateDiagramLinkReferenceCommand
+	| UpdateDiagramLinkIconCommand;
