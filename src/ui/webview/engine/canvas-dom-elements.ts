@@ -3,6 +3,7 @@ import { requiredElement } from './canvas-dom';
 export const canvasScroll = requiredElement('canvasScroll');
 export const canvasContent = requiredElement('canvasContent');
 export const canvasShell = requiredElement('canvasShell');
+export const nodeCommentTooltip = requiredElement('nodeCommentTooltip');
 export const canvasActions = requiredElement('canvasActions');
 export const canvasToolbarDragHandle = requiredElement('canvasToolbarDragHandle') as HTMLButtonElement;
 export const canvasToolbarPinButton = requiredElement('canvasToolbarPinButton') as HTMLButtonElement;

@@ -127,6 +127,7 @@ export function webviewBody(
 				<div class="canvas-content" id="canvasContent"></div>
 				<p class="status" id="status"></p>
 			</div>
+			<div class="node-comment-tooltip" id="nodeCommentTooltip" role="tooltip" hidden></div>
 		</div>
 	</div>
 	<script nonce="${nonce}">

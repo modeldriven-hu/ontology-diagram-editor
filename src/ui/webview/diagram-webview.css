@@ -612,6 +612,29 @@ body {
 	cursor: default;
 }
 
+.node-comment-tooltip {
+	position: absolute;
+	z-index: 9;
+	max-width: min(360px, calc(100% - 16px));
+	max-height: min(240px, calc(100% - 16px));
+	overflow: auto;
+	padding: 6px 8px;
+	border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+	color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+	box-shadow: 0 4px 12px rgb(0 0 0 / 24%);
+	font-size: 12px;
+	line-height: 1.4;
+	pointer-events: none;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.node-comment-tooltip[hidden] {
+	display: none;
+}
+
 .empty-state,
 .error-state {
 	position: absolute;
