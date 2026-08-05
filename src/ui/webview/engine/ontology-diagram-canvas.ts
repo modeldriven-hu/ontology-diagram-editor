@@ -13,6 +13,7 @@ import { CanvasMessageBus } from './canvas-message-bus';
 import { createPngExportCommand, createSvgExportCommand, renderDiagramExportToolbarIcons } from '../components/canvas-export';
 import { CanvasGeometryPersistence } from '../components/canvas-geometry-persistence';
 import { measuredTextWidth, requiredMinimumNodeSize } from '../components/node-data-properties';
+import { NodeCommentTooltipController, nodeCommentTooltipText } from '../components/node-comment-tooltip';
 import { renderImageToolbarIcon } from '../components/ontology-diagram-images';
 import { renderLabelToolbarIcon } from '../components/ontology-diagram-labels';
 import { metadataBounds, renderMetadataToolbarIcon } from '../components/ontology-diagram-metadata';
@@ -20,7 +21,6 @@ import { legendBounds, renderLegendToolbarIcon } from '../components/ontology-di
 import { diagramLinkBounds, renderDiagramLinkToolbarIcon } from '../components/ontology-diagram-links';
 import { diagramGridIsVisible, diagramPresentationTheme } from '../components/diagram-canvas-presentation';
 import { NoteEditorController, renderNoteToolbarIcon } from '../components/ontology-diagram-notes';
-import { ontologyCommentsForReference } from '../components/ontology-comments';
 import { ontologyColor } from '../components/ontology-legend';
 import type { DiagramNode, DiagramNote, DiagramPayload } from '../ontology-diagram-types';
 import { detectPreferredThemeMode, readTheme, type WebviewTheme, type WebviewThemeMode } from '../webview-theme';
@@ -34,7 +34,7 @@ import { renderAddOntologyItemToolbarIcon, renderArrangeDiagramToolbarIcon, rend
 import { embeddedGalleryIconColor } from '../../../shared/embedded-gallery-icon';
 import { CanvasKeyboardController } from './canvas-keyboard-controller';
 import { CanvasViewportController } from './canvas-viewport-controller';
-import { canvasScroll, canvasContent, canvasShell, canvasActions, canvasToolbarDragHandle, canvasToolbarPinButton, status, addOntologyItemButton, addNoteButton, addLabelButton, addImageButton, addMetadataButton, addLegendButton, addDiagramLinkButton, exportSvgButton, exportPngButton, diagramLayoutAlgorithmSelect, elkLayeredSpacingControls, elkLayeredDirectionSelect, elkLayeredNodeSpacingInput, elkLayeredLayerSpacingInput, arrangeDiagramButton, panCanvasButton, zoomOutButton, zoomInButton, fitDiagramButton, resetViewportButton, revealModelTreeItemButton, themeModeButton, noteEditor, noteEditorText, saveNoteButton, cancelNoteButton, localElementToolbar, localElementDragHandle, minimizeLocalButton, openDiagramLinkLocalButton, createCommentNoteLocalButton, showRelatedElementsLocalButton, showEdgesBetweenNodesLocalButton, alignLeftLocalButton, alignHorizontalCenterLocalButton, alignRightLocalButton, alignTopLocalButton, alignVerticalCenterLocalButton, alignBottomLocalButton, matchWidthLocalButton, matchHeightLocalButton, matchSizeLocalButton, nodeSelectionSizeSeparator, distributeHorizontalLocalButton, distributeVerticalLocalButton, nodeSelectionDistributeSeparator, nodeSelectionSubclassSeparator, alignSubclassEndpointsLocalButton, connectNoteLocalButton, alignEdgeStartPointsLocalButton, alignEdgeEndPointsLocalButton, optimizeEdgeLocalButton, straightenEdgeLocalButton, edgeRouteLayoutLocalSelect, edgePresentationLocalSelect, resetEdgeLabelLocalButton, deleteEdgeLocalButton } from './canvas-dom-elements';
+import { canvasScroll, canvasContent, canvasShell, nodeCommentTooltip, canvasActions, canvasToolbarDragHandle, canvasToolbarPinButton, status, addOntologyItemButton, addNoteButton, addLabelButton, addImageButton, addMetadataButton, addLegendButton, addDiagramLinkButton, exportSvgButton, exportPngButton, diagramLayoutAlgorithmSelect, elkLayeredSpacingControls, elkLayeredDirectionSelect, elkLayeredNodeSpacingInput, elkLayeredLayerSpacingInput, arrangeDiagramButton, panCanvasButton, zoomOutButton, zoomInButton, fitDiagramButton, resetViewportButton, revealModelTreeItemButton, themeModeButton, noteEditor, noteEditorText, saveNoteButton, cancelNoteButton, localElementToolbar, localElementDragHandle, minimizeLocalButton, openDiagramLinkLocalButton, createCommentNoteLocalButton, showRelatedElementsLocalButton, showEdgesBetweenNodesLocalButton, alignLeftLocalButton, alignHorizontalCenterLocalButton, alignRightLocalButton, alignTopLocalButton, alignVerticalCenterLocalButton, alignBottomLocalButton, matchWidthLocalButton, matchHeightLocalButton, matchSizeLocalButton, nodeSelectionSizeSeparator, distributeHorizontalLocalButton, distributeVerticalLocalButton, nodeSelectionDistributeSeparator, nodeSelectionSubclassSeparator, alignSubclassEndpointsLocalButton, connectNoteLocalButton, alignEdgeStartPointsLocalButton, alignEdgeEndPointsLocalButton, optimizeEdgeLocalButton, straightenEdgeLocalButton, edgeRouteLayoutLocalSelect, edgePresentationLocalSelect, resetEdgeLabelLocalButton, deleteEdgeLocalButton } from './canvas-dom-elements';
 
 declare const acquireVsCodeApi: () => {
 	postMessage(message: WebviewCommand | CanvasSelectionChangedEvent): void;
@@ -113,6 +113,18 @@ let theme = diagramPresentationTheme(readTheme(themeMode, webviewConfig.payload.
 const messageBus = new CanvasMessageBus();
 const elementRegistry = new CanvasElementRegistry(webviewConfig.payload);
 const canvas = new X6DiagramCanvasEngine(canvasContent, elementRegistry, theme);
+const nodeCommentTooltipController = new NodeCommentTooltipController({
+	tooltip: nodeCommentTooltip,
+	container: canvasShell,
+	hoverSurface: canvasContent,
+	commentTextForNodeId: (nodeId) => {
+		const element = elementRegistry.element(nodeId);
+		return element?.kind === 'node'
+			? nodeCommentTooltipText(element.value, webviewConfig.payload)
+			: '';
+	},
+});
+nodeCommentTooltipController.register();
 const geometryPersistence = new CanvasGeometryPersistence({
 	canvas,
 	messageBus,
@@ -586,7 +598,7 @@ function isAddableOntologyItemType(type: string): boolean {
 }
 
 function commentTextForNode(node: DiagramNode): string {
-	return ontologyCommentsForReference(node.ontology_ref, webviewConfig.payload).join('\n\n');
+	return nodeCommentTooltipText(node, webviewConfig.payload);
 }
 
 function minimumSizeForElement(element: CanvasPropertyElement | undefined): { readonly width: number; readonly height: number } | undefined {
